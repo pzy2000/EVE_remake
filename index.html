@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STARFALL ODYSSEY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<!-- Top bar -->
+<div id="topbar" class="panel">
+  <div class="tb-left">
+    <button id="btn-map" title="Starmap (M)">MAP</button>
+    <button id="btn-journal" title="Journal (J)">JOURNAL</button>
+    <button id="btn-character" title="Character (C)">PILOT</button>
+    <button id="btn-save">SAVE</button>
+    <button id="btn-settings" title="Settings">⚙</button>
+    <button id="btn-help" title="Help (H)">?</button>
+  </div>
+  <div class="tb-center">
+    <span id="sys-name"></span>
+    <span id="sys-sec"></span>
+    <span id="sys-faction"></span>
+    <span id="destination"></span>
+    <span id="criminal"></span>
+  </div>
+  <div class="tb-right"><span id="credits"></span></div>
+</div>
+
+<!-- FPS meter (top-left) -->
+<div id="fps-meter">-- FPS</div>
+
+<!-- Locked target -->
+<div id="targetbar" class="panel">
+  <div id="target-name"></div>
+  <div id="target-hp">
+    <div class="bar"><div class="bar-fill shield" id="tbar-shield"></div><span class="bar-text"></span></div>
+    <div class="bar"><div class="bar-fill armor" id="tbar-armor"></div><span class="bar-text"></span></div>
+    <div class="bar"><div class="bar-fill hull" id="tbar-hull"></div><span class="bar-text"></span></div>
+  </div>
+</div>
+
+<!-- Overview -->
+<div id="overview" class="panel">
+  <div class="ov-header">OVERVIEW</div>
+  <div id="overview-list"></div>
+  <div id="overview-actions">
+    <button id="act-warp" title="Warp (W)">Warp</button>
+    <button id="act-approach">Approach</button>
+    <button id="act-orbit">Orbit</button>
+    <button id="act-lock" title="Lock (L)">Lock</button>
+    <button id="act-dock" title="Dock/Jump (D)">Dock/Jump</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="panel">
+  <div id="hud-ship"></div>
+  <div id="hud-bars">
+    <div class="bar"><div class="bar-fill shield" id="bar-shield"></div><span class="bar-text"></span></div>
+    <div class="bar"><div class="bar-fill armor" id="bar-armor"></div><span class="bar-text"></span></div>
+    <div class="bar"><div class="bar-fill hull" id="bar-hull"></div><span class="bar-text"></span></div>
+  </div>
+  <div id="hud-info"><span id="hud-speed"></span><span id="hud-cargo"></span></div>
+  <div id="module-bar"></div>
+</div>
+
+<!-- Log -->
+<div id="log" class="panel"></div>
+
+<!-- Station screen -->
+<div id="station-screen">
+  <div id="station-header">
+    <div>
+      <h2 id="station-name"></h2>
+      <span id="station-faction"></span>
+    </div>
+    <div>
+      <button id="btn-repair">Repair Ship</button>
+      <button id="btn-undock" class="undock">UNDOCK</button>
+    </div>
+  </div>
+  <div id="station-tabs">
+    <button data-tab="agents" class="active">Agents</button>
+    <button data-tab="market">Market</button>
+    <button data-tab="fitting">Fitting</button>
+    <button data-tab="ships">Ships</button>
+    <button data-tab="lp">LP Store</button>
+  </div>
+  <div id="station-content"></div>
+</div>
+
+<!-- Starmap -->
+<div id="map-overlay">
+  <div class="overlay-header"><h2>STARMAP</h2><button id="btn-close-map">✕</button></div>
+  <canvas id="map-canvas"></canvas>
+  <div id="map-info"></div>
+</div>
+
+<!-- Journal -->
+<div id="journal-panel" class="side-panel">
+  <div class="overlay-header"><h2>JOURNAL</h2><button id="btn-close-journal">✕</button></div>
+  <div id="journal-list"></div>
+</div>
+
+<!-- Character -->
+<div id="character-panel" class="side-panel">
+  <div class="overlay-header"><h2>PILOT</h2><button id="btn-close-character">✕</button></div>
+  <div id="character-body"></div>
+</div>
+
+<!-- Settings -->
+<div id="settings-panel" class="side-panel">
+  <div class="overlay-header"><h2>SETTINGS</h2><button id="btn-close-settings">✕</button></div>
+  <div id="settings-body">
+    <div class="setting-row">
+      <label for="set-quality">Graphics quality</label>
+      <select id="set-quality">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label for="set-volume">Volume</label>
+      <input type="range" id="set-volume" min="0" max="100" step="1">
+      <span id="set-volume-val" class="dim"></span>
+    </div>
+    <div class="setting-row">
+      <label for="set-mute">Mute</label>
+      <input type="checkbox" id="set-mute">
+    </div>
+    <div class="setting-row">
+      <label for="set-fps">Show FPS</label>
+      <input type="checkbox" id="set-fps">
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal">
+  <div id="modal-box">
+    <button id="modal-close">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Death -->
+<div id="death-screen">
+  <h1>CAPSULE DESTROYED</h1>
+  <p>Your clone has been activated at your home station.</p>
+  <button id="btn-respawn">Continue</button>
+</div>
+
+<!-- New game -->
+<div id="newgame-screen">
+  <h1>STARFALL ODYSSEY</h1>
+  <p class="tagline">An open universe of empires, pirates and fortune.</p>
+  <input id="pilot-name" maxlength="20" placeholder="Pilot name" value="Pilot">
+  <h3>Choose your empire</h3>
+  <div id="empire-cards"></div>
+  <div class="btn-row">
+    <button id="btn-launch">LAUNCH</button>
+    <button id="btn-continue" class="secondary">CONTINUE</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

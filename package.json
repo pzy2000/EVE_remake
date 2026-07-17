@@ -1,0 +1,10 @@
+{
+  "name": "starfall-odyssey",
+  "version": "1.0.0",
+  "description": "An EVE-like 2D space exploration game in the browser",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs && node tests/integration.mjs",
+    "serve": "python3 -m http.server 8000"
+  }
+}

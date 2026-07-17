@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>STARFALL ODYSSEY — sprite preview</title>
+<style>
+  body { background: #0a0e18; color: #cfd8e3; font-family: sans-serif; padding: 16px; }
+  h2 { color: #5affd8; margin: 18px 0 6px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cell { background: #141a28; border: 1px solid #26314a; border-radius: 4px;
+    padding: 6px; text-align: center; font-size: 11px; }
+  .cell canvas { display: block; margin: 0 auto 4px; background:
+    repeating-conic-gradient(#1a2232 0% 25%, #101624 0% 50%) 0 0 / 16px 16px; }
+  .note { color: #ffd76a; }
+</style>
+</head>
+<body>
+<h1>Sprite Preview — all ships should point RIGHT (+x)</h1>
+<p class="note">If a ship points the wrong way, adjust its entry in js/render/sprites.js (SHIP_ART / rot).</p>
+<div id="out"></div>
+<script type="module">
+import { loadAssets } from '../js/render/assets.js';
+import * as sprites from '../js/render/sprites.js';
+
+const FACTIONS = ['aurelian','kaldari','meridian','varkhald','sisters','nathari','directorate','blood_reavers','crimson_hand','ashfang'];
+const CLASSES = ['frigate','destroyer','cruiser','battleship'];
+const FX = ['flame_01','flame_05','fire_01','flare_01','light_01','light_02','magic_01','magic_04',
+  'smoke_01','smoke_05','smoke_08','spark_01','spark_04','star_02','star_06','trace_01','trace_04','twirl_01','twirl_02'];
+
+function cell(canvas, label) {
+  const d = document.createElement('div');
+  d.className = 'cell';
+  d.appendChild(canvas);
+  d.insertAdjacentHTML('beforeend', `<div>${label}</div>`);
+  return d;
+}
+function show(spr, label, scale = 1) {
+  const c = document.createElement('canvas');
+  c.width = spr.width * scale; c.height = spr.height * scale;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(spr, 0, 0, c.width, c.height);
+  // red arrow pointing +x (expected nose direction)
+  ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(c.width * 0.72, c.height / 2); ctx.lineTo(c.width * 0.94, c.height / 2);
+  ctx.moveTo(c.width * 0.86, c.height / 2 - 6); ctx.lineTo(c.width * 0.94, c.height / 2);
+  ctx.lineTo(c.width * 0.86, c.height / 2 + 6);
+  ctx.stroke();
+  return cell(c, label);
+}
+
+await loadAssets();
+const out = document.getElementById('out');
+
+for (const f of FACTIONS) {
+  out.insertAdjacentHTML('beforeend', `<h2>${f}</h2>`);
+  const g = document.createElement('div'); g.className = 'grid';
+  for (const cls of CLASSES) {
+    g.appendChild(show(sprites.getShipSprite(`${f}-${cls}`, cls, f), cls));
+  }
+  out.appendChild(g);
+}
+
+out.insertAdjacentHTML('beforeend', '<h2>stations / gate</h2>');
+const sg = document.createElement('div'); sg.className = 'grid';
+for (const [t, f] of [['empire','aurelian'],['empire','kaldari'],['empire','meridian'],['empire','varkhald'],['sisters','sisters'],['police','directorate'],['pirate','blood_reavers']]) {
+  sg.appendChild(show(sprites.getStationSprite(t, f), `${t}:${f}`));
+}
+sg.appendChild(show(sprites.getGateSprite(), 'gate'));
+out.appendChild(sg);
+
+out.insertAdjacentHTML('beforeend', '<h2>fx textures</h2>');
+const fg = document.createElement('div'); fg.className = 'grid';
+for (const n of FX) {
+  const img = sprites.getFxSprite(n);
+  if (!img) continue;
+  const c = document.createElement('canvas');
+  c.width = 72; c.height = 72;
+  c.getContext('2d').drawImage(img, 4, 4, 64, 64);
+  fg.appendChild(cell(c, n));
+}
+out.appendChild(fg);
+</script>
+</body>
+</html>
