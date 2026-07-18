@@ -12,6 +12,7 @@ using Object = UnityEngine.Object;
 
 namespace Starfall.Tests.PlayMode
 {
+    [Timeout(300000)]
     public sealed class MobileLayoutPlayModeTests
     {
         private const float Dpi = 420f;

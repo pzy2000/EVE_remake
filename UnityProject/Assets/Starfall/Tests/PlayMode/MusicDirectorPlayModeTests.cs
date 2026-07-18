@@ -103,9 +103,15 @@ namespace Starfall.Tests.PlayMode
                 MusicDirector.CrossFadeSeconds + 2f, "Initial space cross-fade did not finish.");
 
             var firstClip = director.CurrentClip;
+            // A headless audio backend can report the source as stopped for the one frame in
+            // which MusicDirector advances it. Keep the fixture anchored to the clip instead
+            // of racing AudioSource.isPlaying; a stopped source will advance on the next Update.
             var activeSource = director.GetComponentsInChildren<AudioSource>()
-                .First(source => source.clip == firstClip && source.isPlaying);
-            activeSource.time = Mathf.Max(0f, firstClip.length - 0.25f);
+                .FirstOrDefault(source => source.clip == firstClip);
+            Assert.That(activeSource, Is.Not.Null,
+                "The current space clip must remain assigned to one of the director's sources.");
+            if (activeSource.isPlaying)
+                activeSource.time = Mathf.Max(0f, firstClip.length - 0.25f);
             yield return WaitForCondition(() => director.CurrentClip != firstClip,
                 2f, "The space playlist did not advance near the end of the current track.");
 

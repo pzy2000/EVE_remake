@@ -267,5 +267,5 @@
 .mobile.hinge-horizontal .description { min-height: 22px; margin-top: 0; }
 .mobile.hinge-horizontal .primary { height: 48px; }
 .mobile.hinge-horizontal .button-row { margin-top: 4px; }
-.mobile.hinge-horizontal .legacy-import-status { margin-top: 4px; }
+.mobile.hinge-horizontal .legacy-import-status { margin-top: 0; }
 .mobile.hinge-horizontal .footer { display: none; }

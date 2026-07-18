@@ -173,6 +173,10 @@ namespace Starfall.UI
             rack.contentContainer.style.flexDirection = FlexDirection.Row;
             rack.contentContainer.style.flexWrap = compact ? Wrap.NoWrap : Wrap.Wrap;
             rack.contentContainer.style.alignItems = Align.FlexStart;
+            // Leave a deterministic scroll terminus after the final wrapped row. Without this,
+            // Linux UI Toolkit can round the last button fractionally below the viewport even
+            // after ScrollTo, making the bottom edge untouchable on a vertical-hinge layout.
+            rack.contentContainer.style.paddingBottom = compact ? 0f : 8f;
         }
 
 #if UNITY_EDITOR || STARFALL_ANDROID_CI
