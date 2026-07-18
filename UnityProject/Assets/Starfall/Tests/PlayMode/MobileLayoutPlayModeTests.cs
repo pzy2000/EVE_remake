@@ -12,7 +12,10 @@ using Object = UnityEngine.Object;
 
 namespace Starfall.Tests.PlayMode
 {
-    [Timeout(300000)]
+    // Full-scene UI Toolkit geometry settles substantially more slowly on
+    // GitHub's software-rendered Unity runner than on the local editor.
+    // Preserve the complete scene matrix while allowing for runner variance.
+    [Timeout(600000)]
     public sealed class MobileLayoutPlayModeTests
     {
         private const float Dpi = 420f;
