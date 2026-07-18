@@ -101,7 +101,7 @@ export class Effects {
   warpStreak(x, y, angle) {
     this.particles.push({
       x, y, vx: 0, vy: 0, life: 0.3, maxLife: 0.3,
-      size: 30 + Math.random() * 60, color: '#aaddff', type: 'streak', angle, drag: 1,
+      size: 24 + Math.random() * 36, color: '#aaddff', type: 'streak', angle, drag: 1,
       tex: pick(['trace_01', 'trace_04']), rot: 0,
     });
   }
@@ -178,8 +178,8 @@ export class Effects {
       if (p.type === 'smoke' || p.type === 'debris') continue;
       const a = Math.max(0, p.life / p.maxLife);
       if (p.type === 'streak') {
-        if (!this.drawTex(ctx, p, a * 0.6, 2.2, p.angle)) {
-          ctx.globalAlpha = a * 0.5;
+        if (!this.drawTex(ctx, p, a * 0.35, 2.2, p.angle)) {
+          ctx.globalAlpha = a * 0.3;
           ctx.strokeStyle = p.color; ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(p.x - Math.cos(p.angle) * p.size, p.y - Math.sin(p.angle) * p.size);

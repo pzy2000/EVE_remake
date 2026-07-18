@@ -166,11 +166,13 @@ export function showHelp() {
     <p>You are a capsuleer in a connected universe of ${''}star systems. Run missions for agents, mine asteroids, fight pirates, and raise your standing with the four empires — or with the pirates themselves.</p>
     <h4>Controls</h4>
     <ul>
-      <li><b>Click</b> an object in the Overview (right) to select it</li>
+      <li><b>Click</b> an object in space or in the Overview (right) to select it</li>
+      <li><b>Right-drag</b> rotate camera · <b>Right-click</b> object context menu</li>
+      <li><b>Double-click</b> space to fly there · <b>Mouse wheel</b> zoom</li>
+      <li><b>V</b> camera: track selected object (press again or <b>X</b> to return to your ship)</li>
       <li><b>W</b> warp to selected · <b>L</b> lock target · <b>D</b> dock / jump when in range</li>
       <li><b>1-9</b> toggle ship modules (weapons fire on locked target)</li>
       <li><b>M</b> starmap · <b>J</b> journal · <b>C</b> character · <b>Esc</b> close panels</li>
-      <li><b>Mouse wheel</b> zoom</li>
     </ul>
     <h4>Tips</h4>
     <ul>

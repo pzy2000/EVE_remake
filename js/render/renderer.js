@@ -2,7 +2,7 @@
 import { FACTIONS } from '../data/factions.js';
 import { SHIPS } from '../data/ships.js';
 import { makeRng, hashString } from '../core/rng.js';
-import { clamp } from '../core/utils.js';
+import { clamp, formatDistance } from '../core/utils.js';
 import { disposition } from '../systems/standings.js';
 import { routeBetween } from '../data/universe.js';
 import { qualityPreset, getSettings } from '../core/settings.js';
@@ -27,13 +27,22 @@ export class Renderer {
     this.bgCache = null;
   }
   w2s(cam, x, y) {
-    return [(x - cam.x) * cam.zoom + this.canvas.width / 2,
-            (y - cam.y) * cam.zoom + this.canvas.height / 2];
+    const dx = x - cam.x, dy = y - cam.y;
+    const c = Math.cos(cam.rot), s = Math.sin(cam.rot);
+    return [(dx * c + dy * s) * cam.zoom + this.canvas.width / 2,
+            (-dx * s + dy * c) * cam.zoom + this.canvas.height / 2];
+  }
+  // Inverse of w2s: screen -> world (for input picking).
+  s2w(cam, sx, sy) {
+    const dx = (sx - this.canvas.width / 2) / cam.zoom;
+    const dy = (sy - this.canvas.height / 2) / cam.zoom;
+    const c = Math.cos(cam.rot), s = Math.sin(cam.rot);
+    return [dx * c - dy * s + cam.x, dx * s + dy * c + cam.y];
   }
 
   buildBackground(sys) {
     const W = this.canvas.width, H = this.canvas.height;
-    const tile = Math.max(W, H) + 300;
+    const tile = Math.hypot(W, H) + 300; // diagonal so rotated corners stay covered
     const rng = makeRng(hashString('bg' + sys.id));
     const qp = qualityPreset();
     const layers = [];
@@ -80,7 +89,13 @@ export class Renderer {
     const cam = state.camera;
     const sys = state.universe.systems[state.currentSystemId];
     const player = state.entities.find(e => e.kind === 'player');
-    const focus = player ?? { x: 0, y: 0 };
+    // camera focus: tracked object (EVE-style "look at") or the player ship
+    let focus = null;
+    if (cam.focusId) {
+      focus = this.findDrawable(state, cam.focusId);
+      if (!focus) cam.focusId = null; // target gone (destroyed / left behind)
+    }
+    focus = focus ?? player ?? { x: 0, y: 0 };
     cam.x += (focus.x - cam.x) * Math.min(1, dt * 5);
     cam.y += (focus.y - cam.y) * Math.min(1, dt * 5);
 
@@ -91,6 +106,12 @@ export class Renderer {
 
     ctx.fillStyle = '#04060e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // background layers rotate with the camera (deep-space parallax)
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(-cam.rot);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
     // nebulae
     for (const neb of bg.nebulae) {
@@ -131,6 +152,7 @@ export class Renderer {
       ctx.fillRect(sx, sy, d.r, d.r);
     }
     ctx.globalAlpha = 1;
+    ctx.restore(); // end rotated background
 
     // star (sprite + slow corona shimmer)
     const [stx, sty] = this.w2s(cam, 0, 0);
@@ -141,7 +163,7 @@ export class Renderer {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.22 + 0.1 * Math.sin(state.time * 0.7);
     ctx.translate(stx, sty);
-    ctx.rotate(state.time * 0.05);
+    ctx.rotate(state.time * 0.05 - cam.rot);
     ctx.drawImage(starSpr, -starSize / 2, -starSize / 2, starSize, starSize);
     ctx.restore();
 
@@ -177,21 +199,25 @@ export class Renderer {
     }
     ctx.restore();
 
-    // effects in world space
+    // effects in world space (same mapping as w2s: translate -> scale -> rotate -> translate)
     ctx.save();
-    ctx.translate(canvas.width / 2 - cam.x * cam.zoom, canvas.height / 2 - cam.y * cam.zoom);
+    ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(cam.zoom, cam.zoom);
+    ctx.rotate(-cam.rot);
+    ctx.translate(-cam.x, -cam.y);
     state.fx?.draw(ctx);
     ctx.restore();
 
+    this.drawNavAids(state, player);
     this.drawSelection(state, player);
+    this.drawEdgeIndicators(state, player);
 
     // warp tunnel
     if (player?.warp) {
       const lines = qp.warpLines;
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.strokeStyle = 'rgba(150,200,255,0.3)';
+      ctx.strokeStyle = 'rgba(150,200,255,0.15)';
       for (let i = 0; i < lines; i++) {
         const a = (i / lines) * Math.PI * 2 + state.time * 0.4;
         const r1 = 60 + ((i * 131 + state.time * 1100) % (canvas.width / 2));
@@ -212,7 +238,7 @@ export class Renderer {
           ctx.save();
           ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
           ctx.rotate(a);
-          ctx.globalAlpha = 0.35;
+          ctx.globalAlpha = 0.2;
           ctx.drawImage(trace, -len / 2, -6, len, 12);
           ctx.restore();
         }
@@ -309,6 +335,78 @@ export class Renderer {
     }
   }
 
+  // Orbit ring / approach & warp destination lines (world-space, rotate with camera).
+  drawNavAids(state, player) {
+    if (!player || player.dead) return;
+    const { ctx } = this;
+    const cam = state.camera;
+    const [px, py] = this.w2s(cam, player.x, player.y);
+    ctx.save();
+    ctx.lineWidth = 1;
+    if (player.mode === 'orbit' && player.moveTarget) {
+      const [tx, ty] = this.w2s(cam, player.moveTarget.x, player.moveTarget.y);
+      ctx.strokeStyle = 'rgba(90,255,216,0.35)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath(); ctx.arc(tx, ty, player.orbitDist * cam.zoom, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
+    } else if (player.mode === 'approach' && player.moveTarget) {
+      const [tx, ty] = this.w2s(cam, player.moveTarget.x, player.moveTarget.y);
+      ctx.strokeStyle = 'rgba(90,255,216,0.4)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
+      // destination marker
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(tx, ty, 5, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (player.warp) {
+      const [tx, ty] = this.w2s(cam, player.warp.tx, player.warp.ty);
+      ctx.setLineDash([10, 6]);
+      ctx.strokeStyle = 'rgba(150,200,255,0.55)';
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Edge arrows for off-screen objects: selection (white), locked target & hostiles (red).
+  drawEdgeIndicators(state, player) {
+    const { ctx, canvas } = this;
+    const cam = state.camera;
+    const m = 26;
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const draw = (wx, wy, color, label) => {
+      const [sx, sy] = this.w2s(cam, wx, wy);
+      if (sx >= -m && sx <= canvas.width + m && sy >= -m && sy <= canvas.height + m) return;
+      const ang = Math.atan2(sy - cy, sx - cx);
+      const ex = clamp(sx, m, canvas.width - m), ey = clamp(sy, m, canvas.height - m);
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.rotate(ang);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(9, 0); ctx.lineTo(-5, 5.5); ctx.lineTo(-5, -5.5);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (label) {
+        ctx.fillStyle = color; ctx.font = '10px "Rajdhani", "Segoe UI"'; ctx.textAlign = 'center';
+        ctx.fillText(label, ex, ey + 16);
+      }
+    };
+    const sel = this.findDrawable(state, state.selectedId);
+    if (sel && sel.id !== player?.id) {
+      const d = player ? Math.hypot(sel.x - player.x, sel.y - player.y) : 0;
+      draw(sel.x, sel.y, '#e8e8e8', `${sel.name} · ${formatDistance(d)}`);
+    }
+    let shown = 0;
+    for (const e of state.entities) {
+      if (e.dead || e.kind === 'player' || shown >= 8) continue;
+      const isTarget = player?.targetId === e.id;
+      if (!isTarget && disposition(state, e.faction) !== 'hostile') continue;
+      draw(e.x, e.y, '#ff5544', isTarget ? e.name : null);
+      shown++;
+    }
+  }
+
   drawPlanet(state, p) {
     const { ctx, canvas } = this;
     const [x, y] = this.w2s(state.camera, p.x, p.y);
@@ -335,7 +433,7 @@ export class Renderer {
     const spr = sprites.getAsteroidSprite(hashString(a.id) % 8);
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate((hashString(a.id) % 628) / 100);
+    ctx.rotate((hashString(a.id) % 628) / 100 - state.camera.rot);
     if (a.amount <= 0) ctx.globalAlpha = 0.45;
     ctx.drawImage(spr, -size / 2, -size / 2, size, size);
     ctx.restore();
@@ -384,7 +482,7 @@ export class Renderer {
     ctx.globalAlpha = 0.6;
     ctx.lineWidth = 1.2;
     for (let i = 0; i < 3; i++) {
-      const a0 = state.time * 1.5 + (i / 3) * Math.PI * 2;
+      const a0 = state.time * 1.5 + (i / 3) * Math.PI * 2 - cam.rot;
       ctx.beginPath();
       ctx.arc(x, y, R * 0.7, a0, a0 + Math.PI * 0.7);
       ctx.stroke();
@@ -396,11 +494,11 @@ export class Renderer {
       const vs = size * 1.2;
       ctx.globalAlpha = 0.45 + 0.15 * Math.sin(state.time * 3);
       if (tw1) {
-        ctx.save(); ctx.translate(x, y); ctx.rotate(state.time * 0.9);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(state.time * 0.9 - cam.rot);
         ctx.drawImage(tw1, -vs / 2, -vs / 2, vs, vs); ctx.restore();
       }
       if (tw2) {
-        ctx.save(); ctx.translate(x, y); ctx.rotate(-state.time * 0.55);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(-state.time * 0.55 - cam.rot);
         ctx.globalAlpha *= 0.7;
         ctx.drawImage(tw2, -vs / 2, -vs / 2, vs, vs); ctx.restore();
       }
@@ -424,7 +522,7 @@ export class Renderer {
     const [x, y] = this.w2s(state.camera, b.x, b.y);
     const r = 10 * state.camera.zoom;
     ctx.strokeStyle = '#ff9a3a'; ctx.lineWidth = 2;
-    ctx.save(); ctx.translate(x, y); ctx.rotate(state.time * 0.8);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(state.time * 0.8 - state.camera.rot);
     ctx.strokeRect(-r, -r, r * 2, r * 2);
     ctx.restore();
     ctx.save();
@@ -448,17 +546,21 @@ export class Renderer {
     const drawLen = worldLen * cam.zoom * (e.kind === 'player' ? 1.15 : 1);
     const drawH = drawLen * (spr.height / spr.width);
 
-    // engine trail & warp streaks
+    // engine trail & warp streaks (throttled during warp to avoid additive over-exposure)
     if (e.speed > 1 && state.fx) {
-      const bx = e.x - Math.cos(e.angle) * worldLen * 0.42;
-      const by = e.y - Math.sin(e.angle) * worldLen * 0.42;
-      state.fx.trail(bx, by, e.warp ? '#aaddff' : '#ff9a55', e.warp ? 3.5 : 2.2);
-      if (e.warp) state.fx.warpStreak(e.x, e.y, e.angle);
+      e.fxAcc = (e.fxAcc ?? 0) + dt;
+      if (!e.warp || e.fxAcc >= 0.05) {
+        e.fxAcc = 0;
+        const bx = e.x - Math.cos(e.angle) * worldLen * 0.42;
+        const by = e.y - Math.sin(e.angle) * worldLen * 0.42;
+        state.fx.trail(bx, by, e.warp ? '#aaddff' : '#ff9a55', e.warp ? 2.6 : 2.2);
+        if (e.warp) state.fx.warpStreak(e.x, e.y, e.angle);
+      }
     }
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(e.angle);
+    ctx.rotate(e.angle - cam.rot);
     if (e.warp) ctx.scale(1.5, 0.72);
     ctx.drawImage(spr, -drawLen / 2, -drawH / 2, drawLen, drawH);
     // engine flame & glow (additive, pulsing)
@@ -468,15 +570,15 @@ export class Renderer {
       const pulse = 1 + Math.sin(state.time * 12 + e.x) * 0.25;
       const flame = sprites.getFxSprite(e.warp ? 'flame_05' : 'flame_01');
       if (flame) {
-        const fl = (e.warp ? 3.4 : 1.7) * drawH * pulse;
+        const fl = (e.warp ? 2.4 : 1.7) * drawH * pulse;
         const fw = drawH * (e.warp ? 1.0 : 0.75);
         ctx.save();
         ctx.translate(ex, 0);
         ctx.rotate(-Math.PI / 2); // texture "up" -> ship rear (-x)
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = e.warp ? 0.65 : 0.9;
         ctx.drawImage(flame, -fw / 2, -fl, fw, fl);
         ctx.restore();
-        const g = ctx.createRadialGradient(ex, 0, 0, ex, 0, drawH * 0.42);
+        const g = ctx.createRadialGradient(ex, 0, 0, ex, 0, drawH * (e.warp ? 0.34 : 0.42));
         g.addColorStop(0, e.warp ? '#cfe8ff' : '#ffd9a0');
         g.addColorStop(1, 'transparent');
         ctx.fillStyle = g;

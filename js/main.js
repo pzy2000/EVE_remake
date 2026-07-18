@@ -113,16 +113,16 @@ class Game {
   enterStation() {
     const s = this.state;
     s.docked = true;
+    s.camera.focusId = null; s.camera.rot = 0;
     syncPlayerHp(s);
     s.entities = s.entities.filter(e => e.kind !== 'player');
     stationUI.openStation(this);
     storage.saveToSlot(s, 'auto');
   }
 
-  selectedObject() {
+  objectById(id) {
     const s = this.state;
-    const id = s?.selectedId;
-    if (!id) return null;
+    if (!s || !id) return null;
     const sys = s.universe.systems[s.currentSystemId];
     const e = s.entities.find(e => e.id === id && !e.dead);
     if (e) return { ...e, kind: 'ship' };
@@ -144,6 +144,37 @@ class Game {
     return null;
   }
 
+  selectedObject() {
+    return this.objectById(this.state?.selectedId);
+  }
+
+  // Nearest clickable object to a world position (canvas picking).
+  // Score = distance / pick radius, so small objects aren't masked by big planets.
+  pickAt(wx, wy) {
+    const s = this.state;
+    const base = 30 / s.camera.zoom;
+    let best = null, bestScore = Infinity;
+    const consider = (o, r) => {
+      const rad = Math.max(base, r ?? 0);
+      const d = Math.hypot(o.x - wx, o.y - wy);
+      if (d > rad) return;
+      const score = d / rad;
+      if (score < bestScore) { bestScore = score; best = o; }
+    };
+    s.entities.forEach(e => !e.dead && consider(e));
+    s.asteroids.forEach(consider);
+    s.beacons.forEach(consider);
+    const sys = s.universe.systems[s.currentSystemId];
+    sys.stations.forEach(consider);
+    sys.gates.forEach(consider);
+    // planets & moons are large: pick by their visual radius
+    for (const p of sys.planets) {
+      consider(p, p.r * 2.4);
+      for (const m of p.moons) consider(m, m.r * 2.4);
+    }
+    return best;
+  }
+
   makeActions() {
     const g = this;
     return {
@@ -162,6 +193,24 @@ class Game {
         const s = g.state, pe = playerEntity(s), o = g.selectedObject();
         if (!pe || !o || s.docked) return;
         pe.warp = null; pe.mode = 'orbit'; pe.moveTarget = o; pe.orbitDist = 50;
+      },
+      lookAt(id) {
+        const s = g.state, o = g.objectById(id);
+        if (!s || !o || s.docked) return;
+        s.camera.focusId = id;
+        g.log(`Camera tracking: ${o.name} (press V or X to release)`, 'info');
+      },
+      lookAtSelected() {
+        const s = g.state;
+        if (s?.selectedId) this.lookAt(s.selectedId);
+      },
+      resetCamera() {
+        const s = g.state;
+        if (!s) return;
+        if (!s.camera.focusId && s.camera.rot === 0) return;
+        s.camera.focusId = null;
+        s.camera.rot = 0;
+        g.log('Camera reset to your ship.', 'info');
       },
       lockSelected() {
         const s = g.state, pe = playerEntity(s), o = g.selectedObject();
@@ -205,6 +254,7 @@ class Game {
         const s = g.state;
         const st = g.dockedStation();
         s.docked = false;
+        s.camera.focusId = null; s.camera.rot = 0;
         s.player.location.dockedAt = null;
         stationUI.closeStation();
         spawnPlayerEntity(s, st.x + 45, st.y + 10);
@@ -265,6 +315,7 @@ class Game {
     sfx('jump');
     s.currentSystemId = gate.to;
     s.player.location.systemId = gate.to;
+    s.camera.focusId = null; s.camera.rot = 0;
     s.player.stats.jumps++;
     const back = newSys.gates.find(g2 => g2.to === oldId) ?? newSys.gates[0];
     spawnPlayerEntity(s, back.x + 35, back.y + 15);
@@ -284,6 +335,7 @@ class Game {
       const k = ev.key.toLowerCase();
       if (k === 'escape') {
         dialogs.closeModal();
+        panels.hideContextMenu();
         $('journal-panel').classList.remove('visible');
         $('character-panel').classList.remove('visible');
         settingsUI.toggleSettings(false);
@@ -298,6 +350,13 @@ class Game {
       else if (k === 'w') this.actions.warpToSelected();
       else if (k === 'l') this.actions.lockSelected();
       else if (k === 'd') this.actions.dockOrJumpSelected();
+      else if (k === 'v') {
+        const cam = this.state.camera;
+        if (this.state.selectedId && cam.focusId !== this.state.selectedId) {
+          this.actions.lookAt(this.state.selectedId);
+        } else this.actions.resetCamera();
+      }
+      else if (k === 'x') this.actions.resetCamera();
       else if (k >= '1' && k <= '9') this.actions.toggleModule(+k - 1);
     });
     window.addEventListener('wheel', (ev) => {
@@ -305,24 +364,59 @@ class Game {
       const cam = this.state.camera;
       cam.zoom = clamp(cam.zoom * (ev.deltaY > 0 ? 0.9 : 1.1), 0.35, 2.5);
     }, { passive: true });
-    $('game-canvas').addEventListener('click', (ev) => {
+    const canvas = $('game-canvas');
+    canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    canvas.addEventListener('click', (ev) => {
       const s = this.state;
       if (!s || s.docked) return;
-      const cam = s.camera;
-      const wx = (ev.clientX - window.innerWidth / 2) / cam.zoom + cam.x;
-      const wy = (ev.clientY - window.innerHeight / 2) / cam.zoom + cam.y;
-      let best = null, bd = 30 / cam.zoom;
-      const consider = (o) => {
-        const d = Math.hypot(o.x - wx, o.y - wy);
-        if (d < bd) { bd = d; best = o; }
-      };
-      s.entities.forEach(e => !e.dead && consider(e));
-      s.asteroids.forEach(consider);
-      s.beacons.forEach(consider);
-      const sys = s.universe.systems[s.currentSystemId];
-      sys.stations.forEach(consider);
-      sys.gates.forEach(consider);
+      const [wx, wy] = this.renderer.s2w(s.camera, ev.clientX, ev.clientY);
+      const best = this.pickAt(wx, wy);
       if (best) s.selectedId = best.id;
+    });
+    // EVE-style: double-click in space flies the ship to that point
+    canvas.addEventListener('dblclick', (ev) => {
+      const s = this.state;
+      if (!s || s.docked) return;
+      const pe = playerEntity(s);
+      if (!pe || pe.dead) return;
+      const [wx, wy] = this.renderer.s2w(s.camera, ev.clientX, ev.clientY);
+      const obj = this.pickAt(wx, wy);
+      const named = obj ? this.objectById(obj.id) : null;
+      pe.warp = null; pe.mode = 'approach';
+      pe.moveTarget = named ?? { x: wx, y: wy };
+      pe.approachDist = 5;
+      this.log(named ? `Approaching ${named.name}.` : 'Approaching coordinates.', 'info');
+    });
+    // EVE-style camera: right-drag rotates the view; right-click opens a context menu
+    let rDown = null;
+    canvas.addEventListener('pointerdown', (ev) => {
+      if (ev.button === 2) rDown = { x: ev.clientX, y: ev.clientY, lastX: ev.clientX, moved: false };
+    });
+    window.addEventListener('pointermove', (ev) => {
+      if (!rDown) return;
+      const s = this.state;
+      if (!s || s.docked) { rDown = null; return; }
+      if (!rDown.moved && Math.hypot(ev.clientX - rDown.x, ev.clientY - rDown.y) > 4) {
+        rDown.moved = true;
+        panels.hideContextMenu();
+      }
+      if (rDown.moved) s.camera.rot += (ev.clientX - rDown.lastX) * 0.005;
+      rDown.lastX = ev.clientX;
+    });
+    window.addEventListener('pointerup', (ev) => {
+      if (ev.button !== 2 || !rDown) return;
+      const wasDrag = rDown.moved;
+      rDown = null;
+      const s = this.state;
+      if (wasDrag || !s || s.docked || ev.target !== canvas) return;
+      const [wx, wy] = this.renderer.s2w(s.camera, ev.clientX, ev.clientY);
+      const obj = this.pickAt(wx, wy);
+      if (obj) {
+        s.selectedId = obj.id;
+        panels.showContextMenu(this, ev.clientX, ev.clientY, this.objectById(obj.id));
+      } else {
+        panels.hideContextMenu();
+      }
     });
   }
 
@@ -405,4 +499,4 @@ class Game {
   }
 }
 
-new Game();
+window.__game = new Game(); // debug/testing handle

@@ -20,11 +20,52 @@ export function initPanels(game) {
   $('act-approach').onclick = () => game.actions.approachSelected();
   $('act-orbit').onclick = () => game.actions.orbitSelected();
   $('act-lock').onclick = () => game.actions.lockSelected();
+  $('act-look').onclick = () => game.actions.lookAtSelected();
   $('act-dock').onclick = () => game.actions.dockOrJumpSelected();
+  $('cam-reset').onclick = () => game.actions.resetCamera();
   $('overview-list').addEventListener('click', (ev) => {
     const row = ev.target.closest('[data-id]');
     if (row) game.actions.select(row.dataset.id);
   });
+  // context menu closes on any outside interaction
+  window.addEventListener('pointerdown', (ev) => {
+    const menu = $('context-menu');
+    if (menu.style.display === 'block' && !menu.contains(ev.target)) hideContextMenu();
+  }, true);
+  window.addEventListener('wheel', hideContextMenu, { passive: true });
+}
+
+// ---- Context menu (right-click on an object) -------------------------------------
+export function showContextMenu(game, x, y, obj) {
+  const menu = $('context-menu');
+  if (!obj) { hideContextMenu(); return; }
+  const pe = playerEntity(game.state);
+  const items = [];
+  const add = (label, fn, disabled = false) => items.push({ label, fn, disabled });
+  add('Warp To', () => game.actions.warpToSelected());
+  add('Approach', () => game.actions.approachSelected());
+  add('Orbit', () => game.actions.orbitSelected());
+  if (obj.kind === 'ship' || obj.kind === 'asteroid') {
+    add('Lock Target', () => game.actions.lockSelected());
+  }
+  add('Look At', () => game.actions.lookAt(obj.id));
+  if (obj.kind === 'station') add('Dock', () => game.actions.dockOrJumpSelected(), !pe || dist(pe, obj) > 40);
+  if (obj.kind === 'gate') add('Jump', () => game.actions.dockOrJumpSelected(), !pe || dist(pe, obj) > 35);
+  menu.innerHTML = `<div class="ctx-title">${obj.name}</div>` +
+    items.map((it, i) => `<button data-i="${i}"${it.disabled ? ' disabled' : ''}>${it.label}</button>`).join('');
+  menu.querySelectorAll('button').forEach(b => b.onclick = () => {
+    hideContextMenu();
+    items[+b.dataset.i].fn();
+  });
+  menu.style.display = 'block';
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.max(4, Math.min(x, window.innerWidth - r.width - 8)) + 'px';
+  menu.style.top = Math.max(4, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
+}
+
+export function hideContextMenu() {
+  const menu = $('context-menu');
+  if (menu) menu.style.display = 'none';
 }
 
 export function logMessage(state, msg, cls = 'info') {
@@ -61,6 +102,15 @@ export function updatePanels(game, dt) {
     crim.style.display = 'inline';
     crim.textContent = `CRIMINAL ${Math.ceil(p.criminalTimer)}s`;
   } else crim.style.display = 'none';
+
+  // camera widget (visible when tracking an object or view is rotated)
+  const camBtn = $('cam-reset');
+  const cam = state.camera;
+  if (cam.focusId || Math.abs(cam.rot) > 0.01) {
+    camBtn.style.display = 'block';
+    const fo = cam.focusId ? game.objectById(cam.focusId) : null;
+    camBtn.textContent = fo ? `CAM ▸ ${fo.name} ✕` : 'RESET CAM ✕';
+  } else camBtn.style.display = 'none';
 
   // HUD
   if (pe) {
@@ -199,6 +249,7 @@ function rebuildOverview(game) {
   $('act-orbit').disabled = !has;
   const lockable = has && (sel.kind === 'ship' || sel.kind === 'asteroid');
   $('act-lock').disabled = !lockable;
+  $('act-look').disabled = !has;
   const dockEl = $('act-dock');
   if (has && sel.kind === 'station') {
     dockEl.textContent = 'Dock'; dockEl.disabled = dist(pe, sel) > 40;

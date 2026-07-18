@@ -35,7 +35,7 @@ export function makeRuntimeState(universe, player) {
     currentSystemId: player.location.systemId,
     entities: [], asteroids: [], beacons: [], projectiles: [],
     time: 0, visitCounter: 0,
-    selectedId: null, camera: { x: 0, y: 0, zoom: 1 },
+    selectedId: null, camera: { x: 0, y: 0, zoom: 1, rot: 0, focusId: null },
     fx: null, log: null, missionHooks: null, economyApi: { makeShipInstance },
     playerDead: false, docked: !!player.location.dockedAt,
   };
