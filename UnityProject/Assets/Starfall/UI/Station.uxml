@@ -8,6 +8,7 @@
                 <ui:Label name="pilot-summary" text="Pilot · Acolyte · 50,000 ISK" class="muted" />
             </ui:VisualElement>
             <ui:VisualElement class="header-spacer" />
+            <ui:Button name="settings" text="SETTINGS" />
             <ui:Button name="repair" text="REPAIR" />
             <ui:Button name="save" text="SAVE" />
             <ui:Button name="undock" text="UNDOCK" class="undock" />

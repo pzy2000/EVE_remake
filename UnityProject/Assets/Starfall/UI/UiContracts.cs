@@ -60,12 +60,19 @@ namespace Starfall.UI
     public interface IStarfallUiHost
     {
         UiSnapshot Snapshot { get; }
+        float MusicVolume { get; }
+        bool MusicMuted { get; }
+        string QualityPreset { get; }
         event Action SnapshotChanged;
         event Action TelemetryChanged;
+        event Action SettingsChanged;
         void StartNewGame(string pilotName, string empireId);
         void ContinueGame();
         void ImportLegacy();
         void Execute(string command, string argument = null);
+        void SetMusicVolume(float value);
+        void SetMusicMuted(bool value);
+        void CycleQuality();
     }
 
     public static class StarfallUiBridge

@@ -42,7 +42,7 @@ namespace Starfall.Presentation
             camera.fieldOfView = 52f;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 2500f;
-            camera.allowHDR = true;
+            CameraRenderQuality.Configure(camera);
 
             ProceduralSpaceMaterials.CreateSkyDome(camera.transform, "main-menu", 73421,
                 new Color(0.02f, 0.28f, 0.48f), new Color(0.30f, 0.08f, 0.38f));

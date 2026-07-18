@@ -734,6 +734,12 @@ namespace Starfall.Tests.PlayMode
             Assert.That(document, Is.Not.Null, $"{sceneName} controller must have a UIDocument.");
             Assert.That(document.visualTreeAsset, Is.Not.Null,
                 $"{sceneName} UIDocument must reference a UXML asset.");
+            Assert.That(document.panelSettings, Is.Not.Null,
+                $"{sceneName} UIDocument must reference shared panel settings.");
+            Assert.That(document.panelSettings.scaleMode, Is.EqualTo(PanelScaleMode.ConstantPixelSize),
+                $"{sceneName} UI must render at one-to-one pixel scale for crisp text.");
+            Assert.That(document.panelSettings.scale, Is.EqualTo(1f),
+                $"{sceneName} UI must not apply fractional panel scaling.");
             Assert.That(document.rootVisualElement, Is.Not.Null,
                 $"{sceneName} UIDocument must create a visual tree.");
             Assert.That(document.rootVisualElement.childCount, Is.GreaterThan(0),

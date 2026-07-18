@@ -11,6 +11,7 @@ namespace Starfall.UI
         private UIDocument document;
         private VisualElement root;
         private IStarfallUiHost host;
+        private StarfallSettingsPanel settingsPanel;
         private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
 
         private void OnEnable()
@@ -30,12 +31,15 @@ namespace Starfall.UI
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             ShowTab("agents");
+            settingsPanel = new StarfallSettingsPanel(root);
         }
 
         private void OnDisable()
         {
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null) host.SnapshotChanged -= Refresh;
+            settingsPanel?.Dispose();
+            settingsPanel = null;
         }
 
         private void BindHost()

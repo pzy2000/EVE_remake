@@ -1,11 +1,11 @@
 .station-header { position: absolute; left: 18px; right: 18px; top: 14px; height: 72px; flex-direction: row; align-items: center; }
-.station-title { font-size: 21px; -unity-text-align: middle-left; }
+.station-title { font-size: 23px; -unity-text-align: middle-left; }
 .header-spacer { flex-grow: 1; }
 .station-header Button { width: 104px; margin-left: 7px; }
 .station-header .undock { background-color: rgb(21, 103, 137); height: 42px; }
 .station-services { position: absolute; right: 18px; top: 104px; bottom: 54px; width: 480px; }
 .tabbar { flex-direction: row; }
-.tabbar Button { flex-grow: 1; font-size: 12px; margin-right: 3px; }
+.tabbar Button { flex-grow: 1; font-size: 14px; margin-right: 3px; }
 .service-panel { flex-grow: 1; margin-top: 12px; }
 .service-panel ScrollView { flex-grow: 1; margin-top: 8px; }
-.station-footer { position: absolute; left: 18px; right: 18px; bottom: 12px; height: 34px; -unity-text-align: middle-center; font-size: 11px; }
+.station-footer { position: absolute; left: 18px; right: 18px; bottom: 12px; height: 34px; -unity-text-align: middle-center; font-size: 13px; }

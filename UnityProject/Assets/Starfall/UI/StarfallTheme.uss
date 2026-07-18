@@ -10,8 +10,8 @@
 
 * {
     color: var(--text);
-    -unity-font-definition: url("/Assets/Starfall/Fonts/Rajdhani/Rajdhani-Medium.ttf");
-    font-size: 15px;
+    -unity-font-definition: url("/Assets/Starfall/Fonts/Rajdhani/Rajdhani-SemiBold.ttf");
+    font-size: 16px;
 }
 
 .screen {
@@ -43,14 +43,14 @@
     -unity-font-definition: url("/Assets/Starfall/Fonts/Orbitron/Orbitron-VariableFont_wght.ttf");
     color: var(--cyan);
     letter-spacing: 4px;
-    font-size: 34px;
+    font-size: 38px;
     -unity-text-align: middle-center;
 }
 
 .eyebrow {
     color: var(--cyan);
     letter-spacing: 2px;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 Button {
@@ -99,3 +99,66 @@ Button:hover, Button.active, Button.chosen {
 
 .service-row Label { flex-grow: 1; }
 .service-row Button { width: 92px; }
+
+.settings-overlay {
+    display: none;
+    background-color: rgba(0, 3, 12, 0.84);
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-card {
+    width: 440px;
+    max-width: 92%;
+    padding: 20px;
+}
+
+.settings-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+#settings-title {
+    -unity-font-definition: url("/Assets/Starfall/Fonts/Orbitron/Orbitron-VariableFont_wght.ttf");
+    color: var(--cyan);
+    letter-spacing: 3px;
+    font-size: 25px;
+}
+
+#settings-display-heading,
+#settings-audio-heading {
+    color: var(--cyan);
+    letter-spacing: 2px;
+    font-size: 13px;
+    margin-top: 8px;
+    margin-bottom: 6px;
+}
+
+.settings-control {
+    margin-bottom: 12px;
+}
+
+.settings-volume-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.settings-slider {
+    flex-grow: 1;
+}
+
+.settings-value {
+    width: 48px;
+    margin-left: 10px;
+    -unity-text-align: middle-right;
+    color: var(--cyan);
+}
+
+#settings-footer {
+    color: var(--muted);
+    margin-top: 8px;
+    font-size: 13px;
+}

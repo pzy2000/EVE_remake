@@ -40,6 +40,7 @@ namespace Starfall.App
         private ISaveService saves;
         private ILegacyV1Importer legacyImporter;
         private GameSession session;
+        private MusicDirector musicDirector;
         private SpaceWorldPresenter spacePresenter;
         private StationHangarPresenter stationPresenter;
         private string loadedGameplayScene = string.Empty;
@@ -55,8 +56,20 @@ namespace Starfall.App
         private string presentedStationShipInstanceId = string.Empty;
 
         public UiSnapshot Snapshot => snapshot;
+        public float MusicVolume => musicDirector ? musicDirector.MusicVolume : MusicDirector.DefaultMusicVolume;
+        public bool MusicMuted => musicDirector && musicDirector.Muted;
+        public string QualityPreset
+        {
+            get
+            {
+                var names = QualitySettings.names;
+                var index = QualitySettings.GetQualityLevel();
+                return names.Length > 0 && index >= 0 && index < names.Length ? names[index] : "Default";
+            }
+        }
         public event Action SnapshotChanged;
         public event Action TelemetryChanged;
+        public event Action SettingsChanged;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureRuntimeRoot()
@@ -79,6 +92,9 @@ namespace Starfall.App
             generator = new UniverseGenerator();
             saves = new FileSaveService();
             legacyImporter = new LegacyV1Importer();
+            musicDirector = GetComponent<MusicDirector>();
+            if (!musicDirector) musicDirector = gameObject.AddComponent<MusicDirector>();
+            musicDirector.SettingsChanged += OnMusicSettingsChanged;
             StarfallUiBridge.Bind(this);
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
@@ -93,6 +109,7 @@ namespace Starfall.App
         {
             if (instance != this) return;
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            if (musicDirector) musicDirector.SettingsChanged -= OnMusicSettingsChanged;
             instance = null;
         }
 
@@ -215,11 +232,7 @@ namespace Starfall.App
         {
             if (command == "settings")
             {
-                var next = QualitySettings.GetQualityLevel() >= QualitySettings.names.Length - 1 ? 0 : QualitySettings.GetQualityLevel() + 1;
-                QualitySettings.SetQualityLevel(next, true);
-                PlayerPrefs.SetInt("starfall.quality", next);
-                PlayerPrefs.Save();
-                AddLog("Quality preset: " + QualitySettings.names[next] + ".");
+                CycleQuality();
                 return;
             }
             if (session == null) return;
@@ -253,6 +266,47 @@ namespace Starfall.App
                 case "journal": journalVisible = !journalVisible; AddJournalLog(); break;
                 case "pilot": AddPilotLog(); break;
             }
+        }
+
+        public void SetMusicVolume(float value)
+        {
+            if (musicDirector) musicDirector.SetMusicVolume(value);
+        }
+
+        public void SetMusicMuted(bool value)
+        {
+            if (musicDirector) musicDirector.SetMuted(value);
+        }
+
+        public void CycleQuality()
+        {
+            var next = NextQualityLevel();
+            QualitySettings.SetQualityLevel(next, true);
+            PlayerPrefs.SetInt("starfall.quality", next);
+            PlayerPrefs.Save();
+            AddLog("Quality preset: " + QualityPreset + ".");
+            SettingsChanged?.Invoke();
+        }
+
+        private void OnMusicSettingsChanged()
+        {
+            SettingsChanged?.Invoke();
+        }
+
+        private static int NextQualityLevel()
+        {
+            var names = QualitySettings.names;
+            if (names.Length == 0) return 0;
+
+            if (!Application.isMobilePlatform)
+            {
+                var desktop = Array.FindIndex(names,
+                    name => string.Equals(name, "PC", StringComparison.OrdinalIgnoreCase));
+                return desktop >= 0 ? desktop : names.Length - 1;
+            }
+
+            var current = QualitySettings.GetQualityLevel();
+            return current >= names.Length - 1 ? 0 : current + 1;
         }
 
         private void Queue(GameCommandType type, string argument = null)
@@ -338,6 +392,7 @@ namespace Starfall.App
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             sceneTransitionQueued = false;
+            if (musicDirector) musicDirector.PlayForScene(scene.name);
             loadedGameplayScene = scene.name == "Space" || scene.name == "Station" ? scene.name : string.Empty;
             spacePresenter = FindFirstObjectByType<SpaceWorldPresenter>();
             stationPresenter = FindFirstObjectByType<StationHangarPresenter>();

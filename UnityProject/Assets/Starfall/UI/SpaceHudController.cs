@@ -8,7 +8,7 @@ namespace Starfall.UI
     [RequireComponent(typeof(UIDocument))]
     public sealed class SpaceHudController : MonoBehaviour
     {
-        private const float OverviewRowHeight = 26f;
+        private const float OverviewRowHeight = 30f;
         private const double DockInteractionDistance = 40d;
         private const double JumpInteractionDistance = 35d;
         private const string OverviewPreferencePrefix = "starfall.overview.v1";
@@ -39,6 +39,7 @@ namespace Starfall.UI
         private Button warpButton;
         private Button lockButton;
         private Button dockButton;
+        private StarfallSettingsPanel settingsPanel;
         private OverviewPresetId activePreset;
         private string selectedContactId = string.Empty;
         private bool controlsBound;
@@ -82,6 +83,7 @@ namespace Starfall.UI
 
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
+            settingsPanel = new StarfallSettingsPanel(root);
         }
 
         private void OnDisable()
@@ -92,6 +94,8 @@ namespace Starfall.UI
                 host.SnapshotChanged -= Refresh;
                 host.TelemetryChanged -= RefreshTelemetry;
             }
+            settingsPanel?.Dispose();
+            settingsPanel = null;
             PlayerPrefs.Save();
         }
 
@@ -122,7 +126,6 @@ namespace Starfall.UI
             Bind("journal", "journal");
             Bind("pilot", "pilot");
             Bind("save", "save");
-            Bind("settings", "settings");
             Bind("respawn", "respawn");
             Bind("map-close", "map");
             Bind("journal-close", "journal");

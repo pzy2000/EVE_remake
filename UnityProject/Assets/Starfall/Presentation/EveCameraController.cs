@@ -33,7 +33,7 @@ namespace Starfall.Presentation
             controlledCamera.farClipPlane = 12000f;
             controlledCamera.clearFlags = CameraClearFlags.SolidColor;
             controlledCamera.backgroundColor = new Color(0.0015f, 0.0035f, 0.011f, 1f);
-            controlledCamera.allowHDR = true;
+            CameraRenderQuality.Configure(controlledCamera);
         }
 
         public void SetPlayerTarget(Transform target)

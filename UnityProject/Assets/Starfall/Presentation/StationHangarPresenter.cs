@@ -78,8 +78,7 @@ namespace Starfall.Presentation
             camera.fieldOfView = 49f;
             camera.nearClipPlane = 0.15f;
             camera.farClipPlane = 110f;
-            camera.allowHDR = true;
-            camera.allowMSAA = true;
+            CameraRenderQuality.Configure(camera);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.002f, 0.006f, 0.014f);
 

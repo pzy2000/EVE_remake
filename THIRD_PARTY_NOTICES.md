@@ -76,3 +76,21 @@ included for traceability even where it is not required by the license.
 - License text: `UnityProject/Assets/Starfall/Fonts/Rajdhani/OFL.txt`
 - Imported files: official Regular, Medium, SemiBold, and Bold TTF files,
   unmodified.
+
+## OpenGameArt — CC0 Space Music
+
+- Creators: isaiah658, Cleyton Kauffman, CodeManu, and wipics
+- Sources:
+  - https://opengameart.org/content/heavenly-loop
+  - https://opengameart.org/content/exploration-theme
+  - https://opengameart.org/content/magic-space
+  - https://opengameart.org/content/outer-space-loop
+  - https://opengameart.org/content/ambient-relaxing-loop
+- License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+- License and provenance record:
+  `UnityProject/Assets/Starfall/Audio/ThirdParty/OpenGameArt/SOURCE_AND_LICENSE.md`
+- Imported files: the original OGG files for Heavenly Loop, Exploration Theme,
+  and Ambient Relaxing Loop, plus the original MP3 files for Magic Space and
+  Outer Space Loop.
+- Changes: filenames were normalized for project clarity. Audio content is
+  unmodified; Unity applies platform import compression when building.

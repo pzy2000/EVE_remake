@@ -9,6 +9,7 @@ namespace Starfall.UI
         private UIDocument document;
         private TextField pilotName;
         private Label empireDescription;
+        private StarfallSettingsPanel settingsPanel;
         private string empireId = "aurelian";
 
         private void OnEnable()
@@ -25,7 +26,13 @@ namespace Starfall.UI
                 StarfallUiBridge.Host?.StartNewGame(string.IsNullOrWhiteSpace(pilotName?.value) ? "Pilot" : pilotName.value.Trim(), empireId));
             root.Q<Button>("continue")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.ContinueGame());
             root.Q<Button>("import")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.ImportLegacy());
-            root.Q<Button>("settings")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.Execute("settings"));
+            settingsPanel = new StarfallSettingsPanel(root);
+        }
+
+        private void OnDisable()
+        {
+            settingsPanel?.Dispose();
+            settingsPanel = null;
         }
 
         private void BindEmpire(VisualElement root, string elementName, string id, string description)

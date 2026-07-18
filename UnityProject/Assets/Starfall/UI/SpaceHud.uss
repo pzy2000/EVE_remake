@@ -1,5 +1,5 @@
 .topbar { position: absolute; left: 16px; right: 16px; top: 12px; height: 52px; flex-direction: row; align-items: center; }
-.system-title { font-size: 17px; width: 230px; -unity-text-align: middle-left; }
+.system-title { font-size: 19px; width: 250px; -unity-text-align: middle-left; }
 .security { color: rgb(89, 238, 133); width: 72px; }
 .mission { flex-grow: 1; }
 .topbar Button { margin-left: 5px; min-width: 82px; }
@@ -10,22 +10,22 @@
     width: 28%;
     min-width: 410px;
     max-width: 520px;
-    bottom: 185px;
+    bottom: 230px;
     padding: 8px;
 }
-.overview-heading { height: 21px; flex-direction: row; align-items: center; }
+.overview-heading { height: 24px; flex-direction: row; align-items: center; }
 .overview-title { flex-grow: 1; }
-.overview-count { color: rgb(106, 150, 173); font-size: 10px; letter-spacing: 1px; }
-.overview-tabs { height: 29px; flex-direction: row; margin-top: 4px; }
+.overview-count { color: rgb(128, 177, 199); font-size: 12px; letter-spacing: 1px; }
+.overview-tabs { height: 33px; flex-direction: row; margin-top: 4px; }
 .overview-tabs Button {
     min-width: 0;
-    min-height: 24px;
-    height: 24px;
+    min-height: 28px;
+    height: 28px;
     flex-grow: 1;
     margin-right: 3px;
     padding-left: 2px;
     padding-right: 2px;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 1px;
 }
 .overview-tabs .overview-tab-last { margin-right: 0; }
@@ -36,7 +36,7 @@
     color: white;
 }
 .overview-columns {
-    height: 25px;
+    height: 29px;
     flex-direction: row;
     align-items: stretch;
     margin-top: 1px;
@@ -46,8 +46,8 @@
 }
 .overview-column {
     min-width: 0;
-    min-height: 24px;
-    height: 24px;
+    min-height: 28px;
+    height: 28px;
     margin: 0;
     padding-left: 4px;
     padding-right: 4px;
@@ -62,7 +62,7 @@
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     color: rgb(112, 159, 182);
-    font-size: 10px;
+    font-size: 12px;
     -unity-text-align: middle-left;
 }
 .overview-column:hover, .overview-column.sorted {
@@ -87,7 +87,7 @@
 .overview-list .unity-collection-view__item { padding: 0; }
 .overview-list .unity-collection-view__item--selected { background-color: transparent; }
 .overview-row {
-    height: 26px;
+    height: 30px;
     flex-direction: row;
     align-items: stretch;
     border-bottom-width: 1px;
@@ -114,18 +114,18 @@
 .overview-row.mission { border-bottom-color: rgba(255, 184, 66, 0.55); }
 .overview-row.stale { opacity: 0.4; }
 .overview-cell {
-    height: 26px;
+    height: 30px;
     padding-left: 4px;
     padding-right: 4px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
     -unity-text-align: middle-left;
-    font-size: 12px;
+    font-size: 14px;
 }
 .overview-state-cell { width: 48px; flex-direction: row; align-items: center; padding-left: 3px; padding-right: 1px; }
-.overview-object-icon { width: 20px; height: 20px; flex-shrink: 0; }
-.overview-badges { flex-grow: 1; color: rgb(255, 196, 76); font-size: 9px; -unity-text-align: middle-center; }
+.overview-object-icon { width: 22px; height: 22px; flex-shrink: 0; }
+.overview-badges { flex-grow: 1; color: rgb(255, 205, 92); font-size: 11px; -unity-text-align: middle-center; }
 .overview-distance { width: 72px; color: rgb(178, 211, 226); -unity-text-align: middle-right; }
 .overview-name { flex-grow: 1; min-width: 92px; color: rgb(220, 238, 246); }
 .overview-type { width: 105px; color: rgb(125, 170, 191); }
@@ -137,7 +137,7 @@
     right: 8px;
     top: 118px;
     color: rgb(88, 124, 144);
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 1px;
     -unity-text-align: middle-center;
 }
@@ -147,10 +147,10 @@
 .button-row { flex-direction: row; margin-top: 7px; }
 .button-row Button { flex-grow: 1; margin-right: 4px; }
 .ship-status { position: absolute; left: 16px; bottom: 16px; width: 250px; }
-.module-rack { position: absolute; left: 285px; right: 285px; bottom: 16px; height: 83px; flex-direction: row; justify-content: center; }
-.module-rack Button { width: 74px; margin-right: 4px; white-space: normal; font-size: 11px; }
+.module-rack { position: absolute; left: 285px; right: 370px; bottom: 16px; height: 83px; flex-direction: row; justify-content: center; }
+.module-rack Button { width: 78px; margin-right: 4px; white-space: normal; font-size: 13px; }
 .module-rack Button.active { background-color: rgb(144, 73, 27); border-top-color: rgb(255, 181, 72); }
-.combat-log { position: absolute; right: 16px; bottom: 16px; width: 315px; min-height: 104px; color: rgb(155, 198, 218); font-size: 12px; }
+.combat-log { position: absolute; right: 16px; bottom: 16px; width: 335px; min-height: 112px; color: rgb(170, 211, 229); font-size: 14px; }
 .modal-overlay { display: none; background-color: rgba(0, 3, 12, 0.78); align-items: center; justify-content: center; }
 .modal-card { width: 700px; height: 610px; padding: 18px; }
 .starmap-card { width: 920px; }
