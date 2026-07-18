@@ -22,7 +22,7 @@ namespace Starfall.Editor
 
         private static async void ConnectOnce()
         {
-            if (connectionAttempted)
+            if (Application.isBatchMode || connectionAttempted)
             {
                 return;
             }

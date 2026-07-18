@@ -16,8 +16,13 @@ UnityProject/*.suo
 UnityProject/*.user
 UnityProject/*.userprefs
 
+# CI evidence and local dependency installs
+artifacts/
+vendor/bundle/
+__pycache__/
+*.py[cod]
+
 # macOS / IDE
 .DS_Store
 .idea/
 .vscode/
-

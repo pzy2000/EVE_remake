@@ -89,6 +89,24 @@ namespace Starfall.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator LegacyImportFailure_ShowsSpecificReasonOnMainMenu()
+        {
+            const string reason = "Legacy save JSON root must be an object";
+            app.OnAndroidLegacyDocumentPickerError("invalid_json:" + reason);
+            yield return null;
+
+            var controller = Object.FindFirstObjectByType<MainMenuUiController>();
+            Assert.That(controller, Is.Not.Null);
+            var status = controller.GetComponent<UIDocument>()
+                .rootVisualElement.Q<Label>("legacy-import-status");
+            Assert.That(status, Is.Not.Null, "MainMenu must expose a stable legacy import status label.");
+            Assert.That(status.text, Is.EqualTo("Legacy import failed: " + reason));
+            Assert.That(status.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(status.ClassListContains("danger"), Is.True);
+            Assert.That(app.LegacyImportStatusIsError, Is.True);
+        }
+
+        [UnityTest]
         public IEnumerator AurelianNewGame_EntersStation()
         {
             yield return StartNewGameAndAssertStation("aurelian");
@@ -261,7 +279,9 @@ namespace Starfall.Tests.PlayMode
             app.Execute("map");
             yield return WaitForCondition(() => app.Snapshot.MapVisible, "Starmap did not open.");
             app.Execute("journal");
-            yield return WaitForCondition(() => app.Snapshot.JournalVisible, "Journal did not open.");
+            yield return WaitForCondition(
+                () => app.Snapshot.JournalVisible && !app.Snapshot.MapVisible,
+                "Journal did not replace the starmap as the topmost full-screen overlay.");
 
             var session = GetSession();
             var player = session.State.PlayerEntity();
@@ -302,7 +322,6 @@ namespace Starfall.Tests.PlayMode
                       player.Movement == MovementMode.WarpDecelerate,
                 "Warp command did not enter a warp movement phase.");
 
-            app.Execute("map");
             app.Execute("journal");
             yield return WaitForCondition(
                 () => !app.Snapshot.MapVisible && !app.Snapshot.JournalVisible,

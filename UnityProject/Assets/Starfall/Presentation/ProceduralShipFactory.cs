@@ -31,6 +31,40 @@ namespace Starfall.Presentation
             Materials.Clear();
         }
 
+        public static int ReleaseUnusedRuntimeCaches()
+        {
+            var used = new HashSet<Material>();
+            foreach (var renderer in UnityEngine.Object.FindObjectsByType<Renderer>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                foreach (var material in renderer.sharedMaterials)
+                    if (material) used.Add(material);
+
+            var stale = new List<string>();
+            foreach (var pair in Materials)
+                if (!pair.Value || !used.Contains(pair.Value)) stale.Add(pair.Key);
+            foreach (var key in stale)
+            {
+                if (Materials.Remove(key, out var material) && material)
+                    UnityEngine.Object.Destroy(material);
+            }
+            return stale.Count;
+        }
+
+#if STARFALL_ANDROID_CI
+        public static int SeedAndroidCiDisposableCache()
+        {
+            var suffix = Materials.Count;
+            string key;
+            do
+            {
+                key = $"android-ci-disposable-{suffix++}";
+            } while (Materials.ContainsKey(key));
+
+            GetMaterial(key, Color.magenta, 0f, 0f, true);
+            return Materials.ContainsKey(key) ? 1 : 0;
+        }
+#endif
+
         public static GameObject CreateShip(string shipId, string shipClass, Color factionColor, bool hostile = false)
         {
             if (TryCreateCatalogShip(shipId, factionColor, hostile, out var catalogShip)) return catalogShip;

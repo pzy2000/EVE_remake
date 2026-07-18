@@ -147,10 +147,11 @@
 .button-row { flex-direction: row; margin-top: 7px; }
 .button-row Button { flex-grow: 1; margin-right: 4px; }
 .ship-status { position: absolute; left: 16px; bottom: 16px; width: 250px; }
-.module-rack { position: absolute; left: 285px; right: 370px; bottom: 16px; height: 83px; flex-direction: row; justify-content: center; }
-.module-rack Button { width: 78px; margin-right: 4px; white-space: normal; font-size: 13px; }
+.module-rack { position: absolute; left: 285px; right: 370px; bottom: 16px; height: 83px; }
+.module-rack Button { width: 78px; flex-shrink: 0; margin-right: 4px; white-space: normal; font-size: 13px; }
 .module-rack Button.active { background-color: rgb(144, 73, 27); border-top-color: rgb(255, 181, 72); }
 .combat-log { position: absolute; right: 16px; bottom: 16px; width: 335px; min-height: 112px; color: rgb(170, 211, 229); font-size: 14px; }
+.combat-log #combat-log { flex-shrink: 0; white-space: normal; }
 .modal-overlay { display: none; background-color: rgba(0, 3, 12, 0.78); align-items: center; justify-content: center; }
 .modal-card { width: 700px; height: 610px; padding: 18px; }
 .starmap-card { width: 920px; }

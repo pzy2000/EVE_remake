@@ -5,4 +5,8 @@
   <assembly fullname="Starfall.Domain" preserve="all" />
   <assembly fullname="Starfall.Simulation" preserve="all" />
   <assembly fullname="Starfall.Persistence" preserve="all" />
+  <!-- Native Android callbacks are dispatched by UnitySendMessage using method names. -->
+  <assembly fullname="Starfall.App">
+    <type fullname="Starfall.App.AppRoot" preserve="all" />
+  </assembly>
 </linker>

@@ -1,0 +1,20 @@
+{
+  "name": "Starfall.Mobile.EditModeTests",
+  "rootNamespace": "Starfall.Tests.EditMode.Mobile",
+  "references": [
+    "Starfall.App",
+    "Starfall.Presentation",
+    "Starfall.UI",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false,
+  "overrideReferences": false,
+  "noEngineReferences": false
+}

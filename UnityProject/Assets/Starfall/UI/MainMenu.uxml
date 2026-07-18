@@ -1,12 +1,13 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Style src="project://database/Assets/Starfall/UI/StarfallTheme.uss" />
     <ui:Style src="project://database/Assets/Starfall/UI/MainMenu.uss" />
+    <ui:Style src="project://database/Assets/Starfall/UI/StarfallMobile.uss" />
     <ui:VisualElement name="main-menu" class="screen main-menu">
         <ui:VisualElement class="menu-glow" />
-        <ui:VisualElement class="menu-card panel">
+        <ui:VisualElement name="menu-card" class="menu-card panel">
             <ui:Label text="STARFALL" class="title" />
             <ui:Label text="O D Y S S E Y" class="title subtitle" />
-            <ui:Label text="A COMMAND-DRIVEN SPACE SANDBOX" class="eyebrow" />
+            <ui:Label text="A COMMAND-DRIVEN SPACE SANDBOX" class="eyebrow menu-tagline" />
             <ui:TextField name="pilot-name" label="PILOT CALLSIGN" value="Pilot" max-length="24" />
             <ui:Label text="CHOOSE YOUR EMPIRE" class="eyebrow section-title" />
             <ui:VisualElement class="empire-grid">
@@ -22,6 +23,7 @@
                 <ui:Button name="import" text="IMPORT LEGACY V1" />
                 <ui:Button name="settings" text="SETTINGS" />
             </ui:VisualElement>
+            <ui:Label name="legacy-import-status" class="legacy-import-status muted" style="display: none;" />
             <ui:Label text="UNITY 6 · 3D REMASTER · v1.0" class="muted footer" />
         </ui:VisualElement>
     </ui:VisualElement>

@@ -13,6 +13,7 @@ namespace Starfall.Presentation
         private readonly Dictionary<string, GameObject> views = new();
         private readonly Dictionary<string, WorldObjectViewData> dataById = new();
         private readonly List<GameObject> transientVfx = new();
+        private readonly WorldGestureRecognizer touchGestures = new();
         private readonly HashSet<string> aliveIds = new(StringComparer.Ordinal);
         private readonly List<string> pendingRemoval = new();
         private SpaceSnapshot snapshot;
@@ -24,6 +25,7 @@ namespace Starfall.Presentation
         private string selectedId = string.Empty;
         private float lastClickTime = -10f;
         private Vector2 lastClickPosition;
+        private bool touchInputActive;
 
         public event Action<string> SelectionChanged;
         public event Action<Vector3, string> ApproachRequested;
@@ -37,6 +39,7 @@ namespace Starfall.Presentation
 
         private void Update()
         {
+            UpdateTouchInput();
             UpdatePicking();
             AnimateWorld();
             for (var i = transientVfx.Count - 1; i >= 0; i--)
@@ -134,6 +137,100 @@ namespace Starfall.Presentation
             transientVfx.Add(root);
             Destroy(root, 1.5f);
         }
+
+        public int ReleaseTransientResources()
+        {
+            var released = 0;
+            for (var i = transientVfx.Count - 1; i >= 0; i--)
+            {
+                if (!transientVfx[i]) continue;
+                Destroy(transientVfx[i]);
+                released++;
+            }
+            transientVfx.Clear();
+            return released;
+        }
+
+#if STARFALL_ANDROID_CI
+        public int SeedAndroidCiLowMemoryFixture()
+        {
+            var fixture = new GameObject("AndroidCiLowMemoryFixture");
+            fixture.hideFlags = HideFlags.DontSave;
+            transientVfx.Add(fixture);
+            return 1;
+        }
+
+        public float AndroidCiCameraYawDegrees => cameraController
+            ? cameraController.AndroidCiYawDegrees
+            : float.NaN;
+
+        public float AndroidCiCameraDistance => cameraController
+            ? cameraController.AndroidCiDistance
+            : float.NaN;
+
+        public bool TryGetAndroidCiTouchTarget(out string stableId, out Vector2 screenPosition)
+        {
+            stableId = string.Empty;
+            screenPosition = default;
+            if (!cameraController || !cameraController.Camera) return false;
+
+            Physics.SyncTransforms();
+            foreach (var pair in views)
+            {
+                var view = pair.Value;
+                if (!view || !dataById.TryGetValue(pair.Key, out var data) || data.IsPlayer) continue;
+                var projected = cameraController.Camera.WorldToScreenPoint(view.transform.position);
+                var candidate = new Vector2(projected.x, projected.y);
+                if (projected.z <= 0f || !IsInsideScreen(candidate) || WorldPointerBlocker.Blocks(candidate))
+                    continue;
+                var ray = cameraController.Camera.ScreenPointToRay(candidate);
+                if (!Physics.Raycast(ray, out var hit, 15000f)) continue;
+                var selectable = hit.collider.GetComponentInParent<SelectableView>();
+                if (!selectable || !string.Equals(selectable.StableId, pair.Key, StringComparison.Ordinal))
+                    continue;
+                stableId = pair.Key;
+                screenPosition = candidate;
+                return true;
+            }
+            return false;
+        }
+
+        public bool TryGetAndroidCiDragPath(out Vector2 start, out Vector2 end)
+        {
+            start = default;
+            end = default;
+            if (!cameraController || !cameraController.Camera) return false;
+            var width = Mathf.Max(1f, Screen.width);
+            var height = Mathf.Max(1f, Screen.height);
+            var delta = new Vector2(Mathf.Max(96f, width * 0.08f), Mathf.Max(48f, height * 0.06f));
+            foreach (var normalized in new[]
+                     {
+                         new Vector2(0.50f, 0.52f), new Vector2(0.58f, 0.46f),
+                         new Vector2(0.43f, 0.42f), new Vector2(0.52f, 0.66f),
+                     })
+            {
+                var candidateStart = new Vector2(width * normalized.x, height * normalized.y);
+                var candidateEnd = candidateStart + delta;
+                if (!IsBlankWorldPoint(candidateStart) || !IsBlankWorldPoint(candidateEnd)) continue;
+                start = candidateStart;
+                end = candidateEnd;
+                return true;
+            }
+            return false;
+        }
+
+        private bool IsBlankWorldPoint(Vector2 position)
+        {
+            return IsInsideScreen(position) && !WorldPointerBlocker.Blocks(position) && !HitsSelectable(position);
+        }
+
+        private static bool IsInsideScreen(Vector2 position)
+        {
+            const float margin = 8f;
+            return position.x >= margin && position.y >= margin &&
+                   position.x <= Screen.width - margin && position.y <= Screen.height - margin;
+        }
+#endif
 
         private void EnsureEnvironment()
         {
@@ -267,10 +364,11 @@ namespace Starfall.Presentation
         private void UpdatePicking()
         {
             var mouse = Mouse.current;
-            if (mouse == null || !cameraController || !cameraController.Camera) return;
+            if (touchInputActive || mouse == null || !cameraController || !cameraController.Camera) return;
             if (mouse.leftButton.wasPressedThisFrame)
             {
                 var position = mouse.position.ReadValue();
+                if (WorldPointerBlocker.Blocks(position)) return;
                 var ray = cameraController.Camera.ScreenPointToRay(position);
                 if (Physics.Raycast(ray, out var hit, 15000f))
                 {
@@ -290,6 +388,7 @@ namespace Starfall.Presentation
             if (mouse.rightButton.wasReleasedThisFrame && mouse.delta.ReadValue().sqrMagnitude < 12f)
             {
                 var position = mouse.position.ReadValue();
+                if (WorldPointerBlocker.Blocks(position)) return;
                 var ray = cameraController.Camera.ScreenPointToRay(position);
                 if (Physics.Raycast(ray, out var hit, 15000f))
                 {
@@ -301,6 +400,94 @@ namespace Starfall.Presentation
                     }
                 }
             }
+        }
+
+        private void UpdateTouchInput()
+        {
+            var touchscreen = Touchscreen.current;
+            if (touchscreen == null)
+            {
+                if (touchGestures.ActivePointerCount > 0) touchGestures.Reset();
+                touchInputActive = false;
+                return;
+            }
+
+            touchGestures.ConfigureDpi(Screen.dpi);
+            var anyPressed = false;
+            foreach (var touch in touchscreen.touches)
+            {
+                var pointerId = (int)touch.touchId.ReadValue();
+                var position = touch.position.ReadValue();
+                var phase = touch.phase.ReadValue();
+                if (phase == UnityEngine.InputSystem.TouchPhase.Canceled)
+                {
+                    touchGestures.Cancel(pointerId);
+                    continue;
+                }
+                if (touch.press.wasPressedThisFrame)
+                    touchGestures.Begin(pointerId, position, Time.unscaledTimeAsDouble,
+                        WorldPointerBlocker.Blocks(position), !HitsSelectable(position));
+                if (touch.press.isPressed)
+                {
+                    anyPressed = true;
+                    if (!touch.press.wasPressedThisFrame && touch.delta.ReadValue().sqrMagnitude > 0f)
+                        DispatchGesture(touchGestures.Move(pointerId, position, Time.unscaledTimeAsDouble));
+                }
+                if (phase == UnityEngine.InputSystem.TouchPhase.Ended && touch.press.wasReleasedThisFrame)
+                    DispatchGesture(touchGestures.End(pointerId, position, Time.unscaledTimeAsDouble));
+            }
+            DispatchGesture(touchGestures.Tick(Time.unscaledTimeAsDouble));
+            touchInputActive = anyPressed || touchGestures.ActivePointerCount > 0;
+        }
+
+        private void DispatchGesture(WorldGestureEvent? gesture)
+        {
+            if (!gesture.HasValue || !cameraController || !cameraController.Camera) return;
+            var value = gesture.Value;
+            switch (value.Type)
+            {
+                case WorldGestureType.Tap:
+                    SelectAt(value.Position, false);
+                    break;
+                case WorldGestureType.DoubleTap:
+                    ApproachAt(value.Position);
+                    break;
+                case WorldGestureType.Drag:
+                    cameraController.ApplyOrbit(value.Delta);
+                    break;
+                case WorldGestureType.Pinch:
+                    cameraController.ApplyZoom(value.Scale);
+                    break;
+                case WorldGestureType.LongPress:
+                    SelectAt(value.Position, true);
+                    break;
+            }
+        }
+
+        private void SelectAt(Vector2 screenPosition, bool requestContext)
+        {
+            var ray = cameraController.Camera.ScreenPointToRay(screenPosition);
+            if (!Physics.Raycast(ray, out var hit, 15000f)) return;
+            var selectable = hit.collider.GetComponentInParent<SelectableView>();
+            if (!selectable) return;
+            Select(selectable.StableId);
+            if (requestContext) ContextRequested?.Invoke(selectable.StableId);
+        }
+
+        private bool HitsSelectable(Vector2 screenPosition)
+        {
+            if (!cameraController || !cameraController.Camera) return false;
+            var ray = cameraController.Camera.ScreenPointToRay(screenPosition);
+            return Physics.Raycast(ray, out var hit, 15000f) &&
+                   hit.collider.GetComponentInParent<SelectableView>();
+        }
+
+        private void ApproachAt(Vector2 screenPosition)
+        {
+            var ray = cameraController.Camera.ScreenPointToRay(screenPosition);
+            var plane = new Plane(Vector3.up, Vector3.zero);
+            if (plane.Raycast(ray, out var enter))
+                ApproachRequested?.Invoke(ray.GetPoint(enter), selectedId);
         }
 
         private void AnimateWorld()

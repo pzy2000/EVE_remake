@@ -65,6 +65,48 @@ namespace Starfall.Presentation
             SkyCacheKeys.Clear();
         }
 
+        public static int ReleaseUnusedRuntimeCaches()
+        {
+            var usedMaterials = new HashSet<Material>();
+            foreach (var renderer in UnityEngine.Object.FindObjectsByType<Renderer>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                foreach (var material in renderer.sharedMaterials)
+                    if (material) usedMaterials.Add(material);
+
+            var staleMaterials = new List<string>();
+            foreach (var pair in Materials)
+                if (!pair.Value || !usedMaterials.Contains(pair.Value)) staleMaterials.Add(pair.Key);
+            foreach (var key in staleMaterials)
+            {
+                if (Materials.Remove(key, out var material) && material)
+                    UnityEngine.Object.Destroy(material);
+            }
+
+            var usedTextures = new HashSet<Texture>();
+            foreach (var material in Materials.Values)
+            {
+                if (!material) continue;
+                foreach (var propertyName in material.GetTexturePropertyNames())
+                {
+                    var texture = material.GetTexture(propertyName);
+                    if (texture) usedTextures.Add(texture);
+                }
+            }
+            var staleTextures = new List<string>();
+            foreach (var pair in Textures)
+                if (!pair.Value || !usedTextures.Contains(pair.Value)) staleTextures.Add(pair.Key);
+            foreach (var key in staleTextures)
+            {
+                if (Textures.Remove(key, out var texture) && texture)
+                    UnityEngine.Object.Destroy(texture);
+            }
+
+            SkyCacheKeys.Clear();
+            foreach (var key in Materials.Keys)
+                if (key.StartsWith("sky-", StringComparison.Ordinal)) SkyCacheKeys.Enqueue(key);
+            return staleMaterials.Count + staleTextures.Count;
+        }
+
         public static GameObject CreateSkyDome(Transform parent, string key, int seed, Color nebulaA, Color nebulaB)
         {
             var style = CreateGenericStyle(key, seed, nebulaA, nebulaB);

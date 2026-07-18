@@ -63,6 +63,8 @@ namespace Starfall.UI
         float MusicVolume { get; }
         bool MusicMuted { get; }
         string QualityPreset { get; }
+        string LegacyImportStatus { get; }
+        bool LegacyImportStatusIsError { get; }
         event Action SnapshotChanged;
         event Action TelemetryChanged;
         event Action SettingsChanged;
@@ -73,6 +75,8 @@ namespace Starfall.UI
         void SetMusicVolume(float value);
         void SetMusicMuted(bool value);
         void CycleQuality();
+        void ReturnToMainMenu();
+        void QuitGame();
     }
 
     public static class StarfallUiBridge

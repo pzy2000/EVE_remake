@@ -72,7 +72,7 @@ namespace Starfall.Persistence
                 WriteDurable(temporaryPath, json);
                 if (File.Exists(path))
                 {
-                    File.Replace(temporaryPath, path, backupPath, true);
+                    ReplaceWithBackup(temporaryPath, path, backupPath);
                 }
                 else
                 {
@@ -84,6 +84,31 @@ namespace Starfall.Persistence
                 if (File.Exists(temporaryPath))
                 {
                     File.Delete(temporaryPath);
+                }
+            }
+        }
+
+        private static void ReplaceWithBackup(string temporaryPath, string path, string backupPath)
+        {
+            try
+            {
+                File.Replace(temporaryPath, path, backupPath, true);
+            }
+            catch (Exception exception) when (exception is PlatformNotSupportedException || exception is NotSupportedException)
+            {
+                // Some Android/Mono filesystem combinations do not expose File.Replace. Renames on the
+                // app-private filesystem are atomic; moving primary to .bak first guarantees that a
+                // force-stop always leaves at least one complete readable copy.
+                if (File.Exists(backupPath)) File.Delete(backupPath);
+                File.Move(path, backupPath);
+                try
+                {
+                    File.Move(temporaryPath, path);
+                }
+                catch
+                {
+                    if (!File.Exists(path) && File.Exists(backupPath)) File.Move(backupPath, path);
+                    throw;
                 }
             }
         }

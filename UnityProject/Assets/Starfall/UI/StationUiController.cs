@@ -6,17 +6,20 @@ using UnityEngine.UIElements;
 namespace Starfall.UI
 {
     [RequireComponent(typeof(UIDocument))]
-    public sealed class StationUiController : MonoBehaviour
+    public sealed class StationUiController : MonoBehaviour, IMobileBackHandler
     {
         private UIDocument document;
         private VisualElement root;
         private IStarfallUiHost host;
         private StarfallSettingsPanel settingsPanel;
+        private MobileUiCoordinator mobileUi;
+        private ConfirmationOverlay confirmation;
         private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
 
         private void OnEnable()
         {
             document = GetComponent<UIDocument>();
+            mobileUi = MobileUiCoordinator.Attach(document, MobileScreenKind.Station);
             root = document.rootVisualElement;
             root.Q<VisualElement>(className: "station-ui").pickingMode = PickingMode.Ignore;
             foreach (var tab in tabs)
@@ -31,7 +34,11 @@ namespace Starfall.UI
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             ShowTab("agents");
-            settingsPanel = new StarfallSettingsPanel(root);
+            var safeRoot = root.Q<VisualElement>("station-ui") ?? root;
+            settingsPanel = new StarfallSettingsPanel(safeRoot);
+            confirmation = new ConfirmationOverlay(safeRoot);
+            mobileUi?.ReapplyLayout();
+            MobileBackNavigation.Current = this;
         }
 
         private void OnDisable()
@@ -40,6 +47,29 @@ namespace Starfall.UI
             if (host != null) host.SnapshotChanged -= Refresh;
             settingsPanel?.Dispose();
             settingsPanel = null;
+            confirmation?.Dispose();
+            confirmation = null;
+            if (ReferenceEquals(MobileBackNavigation.Current, this)) MobileBackNavigation.Current = null;
+            mobileUi?.Dispose();
+            mobileUi = null;
+        }
+
+        public bool HandleMobileBack()
+        {
+            if (confirmation?.IsOpen == true)
+            {
+                confirmation.Close();
+                return true;
+            }
+            if (settingsPanel?.IsOpen == true)
+            {
+                settingsPanel.Close();
+                return true;
+            }
+            confirmation?.Show("RETURN TO MAIN MENU?",
+                "The current game will be saved before returning.", "SAVE & RETURN",
+                () => host?.ReturnToMainMenu());
+            return confirmation != null;
         }
 
         private void BindHost()

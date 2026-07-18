@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using Starfall.Presentation;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Starfall.UI
 {
     [RequireComponent(typeof(UIDocument))]
-    public sealed class SpaceHudController : MonoBehaviour
+    public sealed class SpaceHudController : MonoBehaviour, IMobileBackHandler, IWorldPointerBlocker
     {
         private const float OverviewRowHeight = 30f;
         private const double DockInteractionDistance = 40d;
@@ -40,6 +41,9 @@ namespace Starfall.UI
         private Button lockButton;
         private Button dockButton;
         private StarfallSettingsPanel settingsPanel;
+        private MobileUiCoordinator mobileUi;
+        private ConfirmationOverlay confirmation;
+        private string activeMobilePanel = "overview";
         private OverviewPresetId activePreset;
         private string selectedContactId = string.Empty;
         private bool controlsBound;
@@ -55,6 +59,7 @@ namespace Starfall.UI
         private void OnEnable()
         {
             document = GetComponent<UIDocument>();
+            mobileUi = MobileUiCoordinator.Attach(document, MobileScreenKind.Space);
             var nextRoot = document.rootVisualElement;
             if (!ReferenceEquals(root, nextRoot))
             {
@@ -83,7 +88,13 @@ namespace Starfall.UI
 
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
-            settingsPanel = new StarfallSettingsPanel(root);
+            var safeRoot = root.Q<VisualElement>("space-hud") ?? root;
+            settingsPanel = new StarfallSettingsPanel(safeRoot);
+            confirmation = new ConfirmationOverlay(safeRoot);
+            mobileUi?.ReapplyLayout();
+            MobileBackNavigation.Current = this;
+            WorldPointerBlocker.Current = this;
+            SetMobilePanel("overview");
         }
 
         private void OnDisable()
@@ -96,6 +107,12 @@ namespace Starfall.UI
             }
             settingsPanel?.Dispose();
             settingsPanel = null;
+            confirmation?.Dispose();
+            confirmation = null;
+            if (ReferenceEquals(MobileBackNavigation.Current, this)) MobileBackNavigation.Current = null;
+            if (ReferenceEquals(WorldPointerBlocker.Current, this)) WorldPointerBlocker.Current = null;
+            mobileUi?.Dispose();
+            mobileUi = null;
             PlayerPrefs.Save();
         }
 
@@ -129,6 +146,9 @@ namespace Starfall.UI
             Bind("respawn", "respawn");
             Bind("map-close", "map");
             Bind("journal-close", "journal");
+            BindMobilePanelButton("mobile-overview-toggle", "overview");
+            BindMobilePanelButton("mobile-target-toggle", "target");
+            BindMobilePanelButton("mobile-log-toggle", "log");
             for (var i = 0; i < 9; i++)
             {
                 var index = i;
@@ -145,6 +165,70 @@ namespace Starfall.UI
             return button;
         }
 
+        private void BindMobilePanelButton(string buttonName, string panelName)
+        {
+            root.Q<Button>(buttonName)?.RegisterCallback<ClickEvent>(_ => SetMobilePanel(panelName));
+        }
+
+        private void SetMobilePanel(string panelName)
+        {
+            var hud = root?.Q<VisualElement>("space-hud") ?? root;
+            if (hud == null) return;
+            activeMobilePanel = panelName;
+            foreach (var candidate in new[] { "overview", "target", "log" })
+            {
+                var selected = candidate == panelName;
+                hud.EnableInClassList("mobile-panel-" + candidate, selected);
+                root.Q<Button>("mobile-" + candidate + "-toggle")?.EnableInClassList("chosen", selected);
+            }
+        }
+
+        public bool HandleMobileBack()
+        {
+            if (confirmation?.IsOpen == true)
+            {
+                confirmation.Close();
+                return true;
+            }
+            if (settingsPanel?.IsOpen == true)
+            {
+                settingsPanel.Close();
+                return true;
+            }
+            if (host?.Snapshot?.MapVisible == true)
+            {
+                host.Execute("map");
+                return true;
+            }
+            if (host?.Snapshot?.JournalVisible == true)
+            {
+                host.Execute("journal");
+                return true;
+            }
+            if (!string.Equals(activeMobilePanel, "overview", StringComparison.Ordinal))
+            {
+                SetMobilePanel("overview");
+                return true;
+            }
+            confirmation?.Show("RETURN TO MAIN MENU?",
+                "The current game will be saved before returning.", "SAVE & RETURN",
+                () => host?.ReturnToMainMenu());
+            return confirmation != null;
+        }
+
+        public bool BlocksWorldPointer(Vector2 screenPosition)
+        {
+            if (root?.panel == null) return false;
+            // Input System positions use a bottom-left origin while UI Toolkit runtime
+            // panels use top-left screen coordinates (the same conversion performed by
+            // PanelRaycaster). Without this flip, touches can leak through mirrored HUD controls.
+            var topLeftScreenPosition = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
+            var panelPosition = RuntimePanelUtils.ScreenToPanel(root.panel, topLeftScreenPosition);
+            var picked = root.panel.Pick(panelPosition);
+            var hud = root.Q<VisualElement>("space-hud");
+            return picked != null && !ReferenceEquals(picked, root) && !ReferenceEquals(picked, hud);
+        }
+
         private void SetupOverview()
         {
             LoadOverviewPreferences();
@@ -153,7 +237,9 @@ namespace Starfall.UI
             overviewEmpty = root.Q<Label>("overview-empty");
             if (overviewList == null) return;
 
-            overviewList.fixedItemHeight = OverviewRowHeight;
+            overviewList.fixedItemHeight = mobileUi == null
+                ? OverviewRowHeight
+                : MobileUiCoordinator.MobileOverviewRowHeightDp;
             overviewList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
             overviewList.selectionType = SelectionType.Single;
             overviewList.reorderable = false;

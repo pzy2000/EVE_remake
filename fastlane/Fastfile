@@ -1,0 +1,62 @@
+require "json"
+require "time"
+
+default_platform(:android)
+
+platform :android do
+  desc "Upload the signed AAB to Internal Testing and verify its versionCode"
+  lane :internal do
+    package = "com.pzy.starfallodyssey"
+    aab = ENV.fetch("STARFALL_AAB")
+    credential = ENV.fetch("GOOGLE_PLAY_JSON_KEY")
+    expected_version_code = Integer(ENV.fetch("STARFALL_VERSION_CODE"), 10)
+
+    upload_to_play_store(
+      package_name: package,
+      json_key: credential,
+      aab: aab,
+      track: "internal",
+      release_status: "completed",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      timeout: 300
+    )
+
+    observed_version_codes = []
+    12.times do |attempt|
+      observed_version_codes = google_play_track_version_codes(
+        package_name: package,
+        json_key: credential,
+        track: "internal",
+        timeout: 300
+      ).map(&:to_i)
+      break if observed_version_codes.include?(expected_version_code)
+
+      UI.message(
+        "Internal track has not exposed versionCode #{expected_version_code} " \
+        "after query #{attempt + 1}/12; retrying in 10 seconds."
+      )
+      sleep(10)
+    end
+
+    unless observed_version_codes.include?(expected_version_code)
+      UI.user_error!(
+        "Internal track does not contain versionCode #{expected_version_code}; " \
+        "observed #{observed_version_codes.sort.inspect}."
+      )
+    end
+
+    evidence = {
+      packageName: package,
+      track: "internal",
+      releaseStatus: "completed",
+      versionCode: expected_version_code,
+      observedVersionCodes: observed_version_codes.sort,
+      aab: File.basename(aab),
+      verifiedAtUtc: Time.now.utc.iso8601
+    }
+    File.write(ENV.fetch("PLAY_EVIDENCE_PATH"), JSON.pretty_generate(evidence) + "\n")
+  end
+end

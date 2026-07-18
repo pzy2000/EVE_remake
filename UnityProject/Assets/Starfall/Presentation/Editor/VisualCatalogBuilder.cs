@@ -62,7 +62,7 @@ namespace Starfall.Presentation.Editor
 
         static VisualCatalogBuilder()
         {
-            QueueEnsureBuilt();
+            if (!Application.isBatchMode) QueueEnsureBuilt();
         }
 
         [MenuItem("Tools/STARFALL ODYSSEY/Rebuild Visual Catalog")]
@@ -73,6 +73,7 @@ namespace Starfall.Presentation.Editor
 
         private static void QueueEnsureBuilt()
         {
+            if (Application.isBatchMode) return;
             if (queued) return;
             queued = true;
             EditorApplication.delayCall += EnsureBuilt;
@@ -81,6 +82,7 @@ namespace Starfall.Presentation.Editor
         private static void EnsureBuilt()
         {
             queued = false;
+            if (Application.isBatchMode) return;
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
             {
                 QueueEnsureBuilt();
@@ -91,6 +93,16 @@ namespace Starfall.Presentation.Editor
             var catalog = AssetDatabase.LoadAssetAtPath<VisualCatalogAsset>(CatalogPath);
             if (catalog && catalog.GenerationVersion == GenerationVersion && ValidateCatalog(catalog, false)) return;
             BuildAll();
+        }
+
+        public static void ValidateGeneratedAssetsForCi()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<VisualCatalogAsset>(CatalogPath);
+            if (!catalog) throw new InvalidOperationException("VisualCatalog.asset is missing.");
+            if (catalog.GenerationVersion != GenerationVersion)
+                throw new InvalidOperationException($"Visual catalog generation version is {catalog.GenerationVersion}; expected {GenerationVersion}.");
+            if (!ValidateCatalog(catalog, false))
+                throw new InvalidOperationException("Generated visual catalog assets are stale or incomplete.");
         }
 
         private static void BuildAll()

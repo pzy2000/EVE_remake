@@ -46,4 +46,9 @@
 .primary { height: 46px; font-size: 19px; letter-spacing: 2px; }
 .button-row { flex-direction: row; margin-top: 8px; }
 .button-row Button { flex-grow: 1; margin-right: 6px; }
+.legacy-import-status {
+    margin-top: 8px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
 .footer { margin-top: 12px; -unity-text-align: middle-center; font-size: 13px; }

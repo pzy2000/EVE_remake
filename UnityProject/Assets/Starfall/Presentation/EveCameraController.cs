@@ -22,6 +22,10 @@ namespace Starfall.Presentation
 
         public Camera Camera => controlledCamera;
         public Transform FocusTarget => focusTarget;
+#if STARFALL_ANDROID_CI
+        internal float AndroidCiYawDegrees => yaw;
+        internal float AndroidCiDistance => distance;
+#endif
 
         private void Awake()
         {
@@ -63,27 +67,46 @@ namespace Starfall.Presentation
             if (focusTarget) smoothedFocus = focusTarget.position;
         }
 
+        public void ApplyOrbit(Vector2 deltaPixels)
+        {
+            yaw += deltaPixels.x * 0.18f;
+            pitch = Mathf.Clamp(pitch - deltaPixels.y * 0.14f, 8f, 78f);
+        }
+
+        public void ApplyZoom(float scaleRatio)
+        {
+            if (scaleRatio <= 0f || float.IsNaN(scaleRatio) || float.IsInfinity(scaleRatio)) return;
+            distance = Mathf.Clamp(distance / scaleRatio, minDistance, maxDistance);
+        }
+
         private void Update()
         {
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
-            if (mouse != null)
+            if (mouse != null && !HasActiveTouch())
             {
                 if (mouse.rightButton.isPressed)
                 {
-                    var delta = mouse.delta.ReadValue();
-                    yaw += delta.x * 0.18f;
-                    pitch = Mathf.Clamp(pitch - delta.y * 0.14f, 8f, 78f);
+                    ApplyOrbit(mouse.delta.ReadValue());
                 }
                 var scroll = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(scroll) > 0.01f)
-                    distance = Mathf.Clamp(distance * Mathf.Exp(-scroll * 0.0014f), minDistance, maxDistance);
+                    ApplyZoom(Mathf.Exp(scroll * 0.0014f));
             }
             if (keyboard != null)
             {
                 if (keyboard.vKey.wasPressedThisFrame) ToggleSelectedFocus();
                 if (keyboard.xKey.wasPressedThisFrame) ResetToPlayer();
             }
+        }
+
+        private static bool HasActiveTouch()
+        {
+            var touchscreen = Touchscreen.current;
+            if (touchscreen == null) return false;
+            foreach (var touch in touchscreen.touches)
+                if (touch.press.isPressed) return true;
+            return false;
         }
 
         private void LateUpdate()

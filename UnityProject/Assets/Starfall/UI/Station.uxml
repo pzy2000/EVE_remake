@@ -1,19 +1,22 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Style src="project://database/Assets/Starfall/UI/StarfallTheme.uss" />
     <ui:Style src="project://database/Assets/Starfall/UI/Station.uss" />
-    <ui:VisualElement class="screen station-ui">
+    <ui:Style src="project://database/Assets/Starfall/UI/StarfallMobile.uss" />
+    <ui:VisualElement name="station-ui" class="screen station-ui">
         <ui:VisualElement class="station-header panel">
-            <ui:VisualElement>
+            <ui:VisualElement name="station-header-info">
                 <ui:Label name="station-title" text="HELIOS PRIME ORBITAL" class="title station-title" />
                 <ui:Label name="pilot-summary" text="Pilot · Acolyte · 50,000 ISK" class="muted" />
             </ui:VisualElement>
-            <ui:VisualElement class="header-spacer" />
-            <ui:Button name="settings" text="SETTINGS" />
-            <ui:Button name="repair" text="REPAIR" />
-            <ui:Button name="save" text="SAVE" />
-            <ui:Button name="undock" text="UNDOCK" class="undock" />
+            <ui:VisualElement name="station-header-spacer" class="header-spacer station-header-spacer" />
+            <ui:VisualElement name="station-header-actions" class="station-header-actions">
+                <ui:Button name="settings" text="SETTINGS" />
+                <ui:Button name="repair" text="REPAIR" />
+                <ui:Button name="save" text="SAVE" />
+                <ui:Button name="undock" text="UNDOCK" class="undock" />
+            </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement class="station-services panel">
+        <ui:VisualElement name="station-services" class="station-services panel">
             <ui:VisualElement class="tabbar">
                 <ui:Button name="tab-agents" text="AGENTS" class="active" />
                 <ui:Button name="tab-market" text="MARKET" />

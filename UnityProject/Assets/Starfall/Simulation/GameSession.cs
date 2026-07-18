@@ -9,7 +9,7 @@ namespace Starfall.Simulation
     /// Deterministic, fixed-step gameplay session. The class deliberately has no
     /// dependency on GameObjects, Unity physics, wall-clock time or Unity random.
     /// </summary>
-    public sealed class GameSession : IGameSession
+    public sealed partial class GameSession : IGameSession
     {
         public const double FixedStepSeconds = 0.05d;
         private const double TwoPi = Math.PI * 2d;

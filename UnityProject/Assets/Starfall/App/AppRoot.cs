@@ -14,10 +14,14 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
+#if UNITY_EDITOR
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Starfall.Mobile.EditModeTests")]
+#endif
+
 namespace Starfall.App
 {
     [DefaultExecutionOrder(-1000)]
-    public sealed class AppRoot : MonoBehaviour, IStarfallUiHost
+    public sealed partial class AppRoot : MonoBehaviour, IStarfallUiHost
     {
         private const uint DefaultSeed = 12345u;
         private const float UiTelemetryRefreshInterval = 0.1f;
@@ -25,9 +29,13 @@ namespace Starfall.App
         private const string SellModuleActionPrefix = "sell-module|";
         private const string FitModuleActionPrefix = "fit-module|";
         private const string UnfitActionPrefix = "unfit|";
+        private const string QualityPreferenceKey = "starfall.quality";
+        private const string LegacyImportCacheDirectory = "legacy-import";
+        private const string LegacyImportCachePrefix = "legacy-v1-";
         private static AppRoot instance;
         private readonly UiSnapshot snapshot = new UiSnapshot();
         private readonly List<string> log = new List<string>();
+        private readonly LifecycleSaveCoordinator lifecycleSaves = new LifecycleSaveCoordinator();
         private readonly JsonSerializer serializer = JsonSerializer.Create(new JsonSerializerSettings
         {
             Culture = System.Globalization.CultureInfo.InvariantCulture,
@@ -41,6 +49,7 @@ namespace Starfall.App
         private ILegacyV1Importer legacyImporter;
         private GameSession session;
         private MusicDirector musicDirector;
+        private AndroidWindowMetricsProvider androidWindowMetrics;
         private SpaceWorldPresenter spacePresenter;
         private StationHangarPresenter stationPresenter;
         private string loadedGameplayScene = string.Empty;
@@ -54,10 +63,14 @@ namespace Starfall.App
         private bool stationVisualDirty = true;
         private float uiTelemetryElapsed;
         private string presentedStationShipInstanceId = string.Empty;
+        private string legacyImportStatus = string.Empty;
+        private bool legacyImportStatusIsError;
 
         public UiSnapshot Snapshot => snapshot;
         public float MusicVolume => musicDirector ? musicDirector.MusicVolume : MusicDirector.DefaultMusicVolume;
         public bool MusicMuted => musicDirector && musicDirector.Muted;
+        public string LegacyImportStatus => legacyImportStatus;
+        public bool LegacyImportStatusIsError => legacyImportStatusIsError;
         public string QualityPreset
         {
             get
@@ -92,11 +105,16 @@ namespace Starfall.App
             generator = new UniverseGenerator();
             saves = new FileSaveService();
             legacyImporter = new LegacyV1Importer();
+            RestoreQualityPreference();
+            androidWindowMetrics = new AndroidWindowMetricsProvider();
+            MobileWindowing.ProviderFactory = () => androidWindowMetrics;
             musicDirector = GetComponent<MusicDirector>();
             if (!musicDirector) musicDirector = gameObject.AddComponent<MusicDirector>();
             musicDirector.SettingsChanged += OnMusicSettingsChanged;
             StarfallUiBridge.Bind(this);
             SceneManager.sceneLoaded += OnSceneLoaded;
+            Application.lowMemory += OnLowMemory;
+            AndroidPlatformBridge.Initialize(gameObject.name);
         }
 
         private void Start()
@@ -109,6 +127,11 @@ namespace Starfall.App
         {
             if (instance != this) return;
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            Application.lowMemory -= OnLowMemory;
+            androidWindowMetrics?.Dispose();
+            androidWindowMetrics = null;
+            MobileWindowing.ProviderFactory = null;
+            AndroidPlatformBridge.Shutdown();
             if (musicDirector) musicDirector.SettingsChanged -= OnMusicSettingsChanged;
             instance = null;
         }
@@ -197,34 +220,62 @@ namespace Starfall.App
 
         public void ImportLegacy()
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (!AndroidPlatformBridge.OpenLegacyDocumentPicker(out var error))
+                OnAndroidLegacyDocumentPickerError("picker_unavailable:" + error);
+            return;
+#else
             var path = FindLegacySave();
             if (path == null)
             {
-                AddLog("Place a legacy JSON save in Downloads or as persistentDataPath/legacy-v1.json, then try again.");
-                SnapshotChanged?.Invoke();
+                ReportLegacyImport(
+                    "Place a legacy JSON save in Downloads or as persistentDataPath/legacy-v1.json, then try again.",
+                    true);
                 return;
             }
             try
             {
-                var bytes = File.ReadAllBytes(path);
+                ImportLegacyBytes(File.ReadAllBytes(path));
+            }
+            catch (Exception exception)
+            {
+                ReportLegacyImport("Legacy import failed: " + exception.Message, true);
+            }
+#endif
+        }
+
+        public bool ImportLegacyBytes(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length == 0)
+            {
+                ReportLegacyImport("Legacy import rejected: the selected file is empty.", true);
+                return false;
+            }
+            if (bytes.Length > LegacyV1Importer.MaximumSourceBytes)
+            {
+                ReportLegacyImport("Legacy import rejected: the selected file exceeds 5 MiB.", true);
+                return false;
+            }
+            try
+            {
                 var seed = ReadLegacySeed(bytes);
                 var universe = generator.Generate(seed);
                 var references = BuildLegacyReferences(universe);
                 var converted = legacyImporter.Convert(bytes, references);
                 if (!converted.IsSuccess)
                 {
-                    AddLog("Legacy import rejected: " + converted.Inspection.ErrorMessage);
-                    SnapshotChanged?.Invoke();
-                    return;
+                    ReportLegacyImport("Legacy import rejected: " + converted.Inspection.ErrorMessage, true);
+                    return false;
                 }
                 saves.Save(SaveSlot.Slot1, converted.Envelope);
                 LoadEnvelope(converted.Envelope);
-                AddLog("Legacy v1 imported to slot1. The source file was not modified.");
+                ReportLegacyImport("Legacy v1 imported to slot1. The source file was not modified.", false);
+                return true;
             }
             catch (Exception exception)
             {
-                AddLog("Legacy import failed: " + exception.Message);
-                SnapshotChanged?.Invoke();
+                ReportLegacyImport("Legacy import failed: " + exception.Message, true);
+                return false;
             }
         }
 
@@ -262,8 +313,17 @@ namespace Starfall.App
                     mapVisible = false;
                     MarkUiDirty(true);
                     break;
-                case "map": mapVisible = !mapVisible; MarkUiDirty(mapVisible); AddMapLog(); break;
-                case "journal": journalVisible = !journalVisible; AddJournalLog(); break;
+                case "map":
+                    mapVisible = !mapVisible;
+                    if (mapVisible) journalVisible = false;
+                    MarkUiDirty(mapVisible);
+                    AddMapLog();
+                    break;
+                case "journal":
+                    journalVisible = !journalVisible;
+                    if (journalVisible) mapVisible = false;
+                    AddJournalLog();
+                    break;
                 case "pilot": AddPilotLog(); break;
             }
         }
@@ -282,7 +342,7 @@ namespace Starfall.App
         {
             var next = NextQualityLevel();
             QualitySettings.SetQualityLevel(next, true);
-            PlayerPrefs.SetInt("starfall.quality", next);
+            PlayerPrefs.SetInt(QualityPreferenceKey, next);
             PlayerPrefs.Save();
             AddLog("Quality preset: " + QualityPreset + ".");
             SettingsChanged?.Invoke();
@@ -295,18 +355,35 @@ namespace Starfall.App
 
         private static int NextQualityLevel()
         {
-            var names = QualitySettings.names;
-            if (names.Length == 0) return 0;
+            return QualityLevelPolicy.Next(QualitySettings.names, QualitySettings.GetQualityLevel(),
+                Application.isMobilePlatform);
+        }
 
-            if (!Application.isMobilePlatform)
-            {
-                var desktop = Array.FindIndex(names,
-                    name => string.Equals(name, "PC", StringComparison.OrdinalIgnoreCase));
-                return desktop >= 0 ? desktop : names.Length - 1;
-            }
-
+        private static void RestoreQualityPreference()
+        {
             var current = QualitySettings.GetQualityLevel();
-            return current >= names.Length - 1 ? 0 : current + 1;
+            var persisted = PlayerPrefs.HasKey(QualityPreferenceKey)
+                ? PlayerPrefs.GetInt(QualityPreferenceKey)
+                : current;
+            var resolved = QualityLevelPolicy.ResolvePersisted(QualitySettings.names, persisted, current,
+                Application.isMobilePlatform);
+            if (resolved != current) QualitySettings.SetQualityLevel(resolved, true);
+        }
+
+        public void ReturnToMainMenu()
+        {
+            TrySaveAuto("return to main menu");
+            session = null;
+            mapVisible = false;
+            journalVisible = false;
+            loadedGameplayScene = string.Empty;
+            RequestScene("MainMenu");
+        }
+
+        public void QuitGame()
+        {
+            TrySaveAuto("quit");
+            Application.Quit();
         }
 
         private void Queue(GameCommandType type, string argument = null)
@@ -318,7 +395,9 @@ namespace Starfall.App
         private void HandleKeyboard()
         {
             var keyboard = Keyboard.current;
-            if (keyboard == null || session == null) return;
+            if (keyboard == null) return;
+            if (keyboard.escapeKey.wasPressedThisFrame) HandleMobileBack();
+            if (session == null) return;
             if (keyboard.wKey.wasPressedThisFrame) Queue(GameCommandType.Warp);
             if (keyboard.lKey.wasPressedThisFrame) Queue(GameCommandType.Lock);
             if (keyboard.dKey.wasPressedThisFrame) Queue(GameCommandType.DockOrJump);
@@ -333,6 +412,181 @@ namespace Starfall.App
                     i == 6 ? keyboard.digit7Key : i == 7 ? keyboard.digit8Key : keyboard.digit9Key;
                 if (key.wasPressedThisFrame) session.Enqueue(new GameCommand(GameCommandType.ActivateModule, index: i));
             }
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            lifecycleSaves.SetPaused(paused, () => Save(SaveSlot.Auto), OnLifecycleSaveError);
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            lifecycleSaves.SetFocused(focused, () => Save(SaveSlot.Auto), OnLifecycleSaveError);
+        }
+
+        private void OnLifecycleSaveError(Exception exception)
+        {
+            AddLog("Autosave failed: " + exception.Message);
+        }
+
+        private void TrySaveAuto(string reason)
+        {
+            if (session == null) return;
+            try
+            {
+                Save(SaveSlot.Auto);
+            }
+            catch (Exception exception)
+            {
+                AddLog("Autosave failed during " + reason + ": " + exception.Message);
+            }
+        }
+
+        private void OnLowMemory()
+        {
+            var releasedTransientVfx = spacePresenter
+                ? spacePresenter.ReleaseTransientResources()
+                : 0;
+            var releasedSpaceCacheEntries = ProceduralSpaceMaterials.ReleaseUnusedRuntimeCaches();
+            var releasedShipCacheEntries = ProceduralShipFactory.ReleaseUnusedRuntimeCaches();
+            Resources.UnloadUnusedAssets();
+            worldDirty = true;
+#if STARFALL_ANDROID_CI
+            WriteAndroidCiLowMemoryEvidence(
+                releasedTransientVfx,
+                releasedSpaceCacheEntries,
+                releasedShipCacheEntries);
+#endif
+        }
+
+        private void HandleMobileBack()
+        {
+            if (MobileBackNavigation.HandleBack()) return;
+            AddLog("Back action is unavailable while this screen is loading.");
+        }
+
+        public void OnAndroidBackInvoked(string payload)
+        {
+            HandleMobileBack();
+        }
+
+        public void OnAndroidWindowLayoutInfo(string json)
+        {
+            AndroidPlatformBridge.PublishWindowLayoutInfo(json);
+        }
+
+        public void OnAndroidLegacyDocumentPicked(string absoluteCachePath)
+        {
+            if (string.IsNullOrWhiteSpace(absoluteCachePath))
+            {
+                OnAndroidLegacyDocumentPickerError("empty_path:No document was returned.");
+                return;
+            }
+            try
+            {
+                if (!AndroidPlatformBridge.TryGetLegacyImportCacheRoot(out var cacheRoot, out var cacheError))
+                    throw new InvalidOperationException("Could not verify the Android import cache: " + cacheError);
+                var bytes = ReadAndDeleteLegacyImportCache(
+                    absoluteCachePath, cacheRoot, out var cleanupWarning);
+                if (!string.IsNullOrEmpty(cleanupWarning))
+                    Debug.LogWarning("Could not clean legacy import cache: " + cleanupWarning);
+                ImportLegacyBytes(bytes);
+            }
+            catch (Exception exception)
+            {
+                ReportLegacyImport("Legacy import failed: " + exception.Message, true);
+            }
+            finally
+            {
+                AndroidPlatformBridge.AcknowledgeLegacyDocument(absoluteCachePath);
+            }
+        }
+
+        internal static byte[] ReadAndDeleteLegacyImportCache(
+            string untrustedPath, string cacheRootPath, out string cleanupWarning)
+        {
+            cleanupWarning = string.Empty;
+            string validatedCachePath = null;
+            try
+            {
+                validatedCachePath = ValidateLegacyImportCachePath(untrustedPath, cacheRootPath);
+                return ReadBoundedLegacyImport(validatedCachePath);
+            }
+            finally
+            {
+                if (validatedCachePath != null)
+                {
+                    try
+                    {
+                        if (File.Exists(validatedCachePath)) File.Delete(validatedCachePath);
+                    }
+                    catch (Exception exception)
+                    {
+                        cleanupWarning = exception.Message;
+                    }
+                }
+            }
+        }
+
+        internal static string ValidateLegacyImportCachePath(string untrustedPath, string cacheRootPath)
+        {
+            if (string.IsNullOrWhiteSpace(untrustedPath) || string.IsNullOrWhiteSpace(cacheRootPath))
+                throw new InvalidDataException("The picker returned an invalid cache path.");
+
+            var fullPath = Path.GetFullPath(untrustedPath);
+            var importRoot = Path.GetFullPath(Path.Combine(cacheRootPath, LegacyImportCacheDirectory))
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var parentDirectory = Path.GetDirectoryName(fullPath)?.TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var fileName = Path.GetFileName(fullPath);
+            if (!string.Equals(parentDirectory, importRoot, StringComparison.Ordinal) ||
+                !fileName.StartsWith(LegacyImportCachePrefix, StringComparison.Ordinal) ||
+                !string.Equals(Path.GetExtension(fileName), ".json", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The picker returned an invalid cache path.");
+            return fullPath;
+        }
+
+        internal static byte[] ReadBoundedLegacyImport(string validatedCachePath)
+        {
+            using var stream = new FileStream(
+                validatedCachePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length > LegacyV1Importer.MaximumSourceBytes)
+                throw new InvalidDataException("The selected file exceeds 5 MiB.");
+
+            var bytes = new byte[(int)stream.Length];
+            var offset = 0;
+            while (offset < bytes.Length)
+            {
+                var read = stream.Read(bytes, offset, bytes.Length - offset);
+                if (read == 0) throw new EndOfStreamException("The selected file changed while it was being read.");
+                offset += read;
+            }
+            if (stream.ReadByte() != -1)
+                throw new InvalidDataException("The selected file changed while it was being read.");
+            return bytes;
+        }
+
+        public void OnAndroidLegacyDocumentPickerError(string error)
+        {
+            if (string.IsNullOrWhiteSpace(error) || error.StartsWith("cancelled", StringComparison.OrdinalIgnoreCase))
+                ReportLegacyImport("Legacy import cancelled.", false);
+            else
+            {
+                var separator = error.IndexOf(':');
+                var detail = separator >= 0 && separator + 1 < error.Length
+                    ? error.Substring(separator + 1).Trim()
+                    : error.Trim();
+                ReportLegacyImport("Legacy import failed: " + detail, true);
+            }
+        }
+
+        private void ReportLegacyImport(string message, bool isError)
+        {
+            legacyImportStatus = message ?? string.Empty;
+            legacyImportStatusIsError = isError;
+            AddLog(legacyImportStatus);
+            // MainMenu has no live session, so it cannot rely on the normal dirty-snapshot update loop.
+            SnapshotChanged?.Invoke();
         }
 
         private void HandleEvents(SimulationEventBatch batch)
