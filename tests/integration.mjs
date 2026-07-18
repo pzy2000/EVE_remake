@@ -5,6 +5,12 @@ import * as npcSys from '../js/systems/npc.js';
 import * as missions from '../js/systems/missions.js';
 import * as eco from '../js/systems/economy.js';
 import { dist } from '../js/core/utils.js';
+import { installDeterministicMathRandom } from './helpers/deterministic-random.mjs';
+
+const TEST_RANDOM_SEED = 0x46414c4c; // "FALL"
+const restoreMathRandom = installDeterministicMathRandom(TEST_RANDOM_SEED);
+process.once('exit', restoreMathRandom);
+console.log(`Test RNG seed: ${TEST_RANDOM_SEED}`);
 
 let passed = 0, failed = 0;
 function ok(cond, name) {

@@ -1,0 +1,11 @@
+{
+  "name": "Starfall.Presentation",
+  "rootNamespace": "Starfall.Presentation",
+  "references": [
+    "Unity.InputSystem",
+    "Unity.Cinemachine",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "autoReferenced": true
+}

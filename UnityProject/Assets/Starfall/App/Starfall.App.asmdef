@@ -1,0 +1,15 @@
+{
+  "name": "Starfall.App",
+  "rootNamespace": "Starfall.App",
+  "references": [
+    "Starfall.Domain",
+    "Starfall.Content",
+    "Starfall.Simulation",
+    "Starfall.Persistence",
+    "Starfall.Presentation",
+    "Starfall.UI",
+    "Unity.InputSystem",
+    "Unity.Newtonsoft.Json"
+  ],
+  "autoReferenced": true
+}

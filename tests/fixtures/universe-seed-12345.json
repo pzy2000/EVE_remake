@@ -1,0 +1,2927 @@
+{
+  "schemaVersion": 1,
+  "universeGeneratorVersion": 1,
+  "seed": 12345,
+  "counts": {
+    "systems": 48,
+    "stations": 68,
+    "agents": 142,
+    "planets": 216,
+    "moons": 221,
+    "belts": 107,
+    "undirectedGates": 83,
+    "directedGateEndpoints": 166
+  },
+  "catalogs": {
+    "factions": {
+      "count": 10,
+      "ids": [
+        "aurelian",
+        "kaldari",
+        "meridian",
+        "varkhald",
+        "blood_reavers",
+        "nathari",
+        "crimson_hand",
+        "ashfang",
+        "sisters",
+        "directorate"
+      ]
+    },
+    "ships": {
+      "count": 18,
+      "ids": [
+        "acolyte",
+        "templar",
+        "dawnbringer",
+        "seraph",
+        "shrike",
+        "heron",
+        "rook",
+        "onyx",
+        "wasp",
+        "anvil",
+        "mantis",
+        "colossus",
+        "fang",
+        "maul",
+        "broadsword",
+        "stormcaller",
+        "pilgrim",
+        "enforcer"
+      ]
+    },
+    "modules": {
+      "count": 14,
+      "ids": [
+        "pulse_laser",
+        "heavy_laser",
+        "railgun",
+        "missile_launcher",
+        "blaster",
+        "autocannon",
+        "mining_laser",
+        "shield_booster",
+        "afterburner",
+        "armor_repairer",
+        "shield_extender",
+        "armor_plate",
+        "damage_amp",
+        "cargo_expander"
+      ]
+    },
+    "items": {
+      "count": 4,
+      "ids": [
+        "ferrite",
+        "novacite",
+        "crystalline",
+        "sealed_cargo"
+      ]
+    }
+  },
+  "startSystems": {
+    "aurelian": "sys_0",
+    "kaldari": "sys_7",
+    "meridian": "sys_14",
+    "varkhald": "sys_21"
+  },
+  "undirectedGateEdges": [
+    [
+      "sys_0",
+      "sys_2"
+    ],
+    [
+      "sys_0",
+      "sys_35"
+    ],
+    [
+      "sys_0",
+      "sys_4"
+    ],
+    [
+      "sys_10",
+      "sys_13"
+    ],
+    [
+      "sys_10",
+      "sys_37"
+    ],
+    [
+      "sys_10",
+      "sys_7"
+    ],
+    [
+      "sys_11",
+      "sys_8"
+    ],
+    [
+      "sys_11",
+      "sys_9"
+    ],
+    [
+      "sys_12",
+      "sys_7"
+    ],
+    [
+      "sys_12",
+      "sys_8"
+    ],
+    [
+      "sys_13",
+      "sys_36"
+    ],
+    [
+      "sys_13",
+      "sys_9"
+    ],
+    [
+      "sys_14",
+      "sys_17"
+    ],
+    [
+      "sys_14",
+      "sys_20"
+    ],
+    [
+      "sys_15",
+      "sys_19"
+    ],
+    [
+      "sys_15",
+      "sys_20"
+    ],
+    [
+      "sys_16",
+      "sys_17"
+    ],
+    [
+      "sys_16",
+      "sys_18"
+    ],
+    [
+      "sys_16",
+      "sys_19"
+    ],
+    [
+      "sys_16",
+      "sys_20"
+    ],
+    [
+      "sys_16",
+      "sys_32"
+    ],
+    [
+      "sys_17",
+      "sys_18"
+    ],
+    [
+      "sys_17",
+      "sys_20"
+    ],
+    [
+      "sys_17",
+      "sys_31"
+    ],
+    [
+      "sys_18",
+      "sys_31"
+    ],
+    [
+      "sys_19",
+      "sys_20"
+    ],
+    [
+      "sys_1",
+      "sys_3"
+    ],
+    [
+      "sys_1",
+      "sys_6"
+    ],
+    [
+      "sys_21",
+      "sys_22"
+    ],
+    [
+      "sys_21",
+      "sys_23"
+    ],
+    [
+      "sys_21",
+      "sys_24"
+    ],
+    [
+      "sys_21",
+      "sys_25"
+    ],
+    [
+      "sys_21",
+      "sys_26"
+    ],
+    [
+      "sys_21",
+      "sys_27"
+    ],
+    [
+      "sys_21",
+      "sys_29"
+    ],
+    [
+      "sys_22",
+      "sys_24"
+    ],
+    [
+      "sys_23",
+      "sys_27"
+    ],
+    [
+      "sys_25",
+      "sys_26"
+    ],
+    [
+      "sys_25",
+      "sys_29"
+    ],
+    [
+      "sys_26",
+      "sys_29"
+    ],
+    [
+      "sys_28",
+      "sys_29"
+    ],
+    [
+      "sys_28",
+      "sys_37"
+    ],
+    [
+      "sys_28",
+      "sys_44"
+    ],
+    [
+      "sys_28",
+      "sys_45"
+    ],
+    [
+      "sys_28",
+      "sys_47"
+    ],
+    [
+      "sys_29",
+      "sys_30"
+    ],
+    [
+      "sys_2",
+      "sys_3"
+    ],
+    [
+      "sys_2",
+      "sys_35"
+    ],
+    [
+      "sys_30",
+      "sys_31"
+    ],
+    [
+      "sys_30",
+      "sys_42"
+    ],
+    [
+      "sys_30",
+      "sys_43"
+    ],
+    [
+      "sys_31",
+      "sys_32"
+    ],
+    [
+      "sys_31",
+      "sys_42"
+    ],
+    [
+      "sys_31",
+      "sys_43"
+    ],
+    [
+      "sys_32",
+      "sys_33"
+    ],
+    [
+      "sys_33",
+      "sys_34"
+    ],
+    [
+      "sys_33",
+      "sys_38"
+    ],
+    [
+      "sys_33",
+      "sys_39"
+    ],
+    [
+      "sys_34",
+      "sys_35"
+    ],
+    [
+      "sys_34",
+      "sys_38"
+    ],
+    [
+      "sys_34",
+      "sys_39"
+    ],
+    [
+      "sys_34",
+      "sys_46"
+    ],
+    [
+      "sys_35",
+      "sys_36"
+    ],
+    [
+      "sys_35",
+      "sys_40"
+    ],
+    [
+      "sys_35",
+      "sys_41"
+    ],
+    [
+      "sys_35",
+      "sys_46"
+    ],
+    [
+      "sys_35",
+      "sys_47"
+    ],
+    [
+      "sys_36",
+      "sys_37"
+    ],
+    [
+      "sys_36",
+      "sys_40"
+    ],
+    [
+      "sys_36",
+      "sys_41"
+    ],
+    [
+      "sys_37",
+      "sys_44"
+    ],
+    [
+      "sys_37",
+      "sys_45"
+    ],
+    [
+      "sys_37",
+      "sys_7"
+    ],
+    [
+      "sys_38",
+      "sys_39"
+    ],
+    [
+      "sys_3",
+      "sys_34"
+    ],
+    [
+      "sys_3",
+      "sys_6"
+    ],
+    [
+      "sys_40",
+      "sys_41"
+    ],
+    [
+      "sys_42",
+      "sys_43"
+    ],
+    [
+      "sys_44",
+      "sys_45"
+    ],
+    [
+      "sys_46",
+      "sys_47"
+    ],
+    [
+      "sys_4",
+      "sys_5"
+    ],
+    [
+      "sys_4",
+      "sys_6"
+    ],
+    [
+      "sys_5",
+      "sys_6"
+    ]
+  ],
+  "systems": [
+    {
+      "id": "sys_0",
+      "name": "Ostmir",
+      "mapPosition": {
+        "x": 354.7293496178463,
+        "y": 179.75558876991272
+      },
+      "security": 1,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": true,
+      "starType": "A",
+      "counts": {
+        "planets": 4,
+        "moons": 4,
+        "belts": 3,
+        "stations": 4,
+        "agents": 6,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_0_p0",
+        "sys_0_p1",
+        "sys_0_p2",
+        "sys_0_p3"
+      ],
+      "moonIds": [
+        "sys_0_p0_m0",
+        "sys_0_p0_m1",
+        "sys_0_p3_m0",
+        "sys_0_p3_m1"
+      ],
+      "beltIds": [
+        "sys_0_b0",
+        "sys_0_b1",
+        "sys_0_b2"
+      ],
+      "stationIds": [
+        "sys_0_st0",
+        "sys_0_st1",
+        "sys_0_st2",
+        "sys_0_st3"
+      ],
+      "agentIds": [
+        "agent_sys_0_st0_distribution",
+        "agent_sys_0_st1_mining",
+        "agent_sys_0_st2_distribution",
+        "agent_sys_0_st2_security",
+        "agent_sys_0_st3_distribution",
+        "agent_sys_0_st3_security"
+      ],
+      "gateTargets": [
+        "sys_4",
+        "sys_2",
+        "sys_35"
+      ]
+    },
+    {
+      "id": "sys_1",
+      "name": "Yorir",
+      "mapPosition": {
+        "x": 119.17696087621152,
+        "y": 299.26308150868863
+      },
+      "security": 0.9,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 2,
+        "moons": 3,
+        "belts": 3,
+        "stations": 2,
+        "agents": 6,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_1_p0",
+        "sys_1_p1"
+      ],
+      "moonIds": [
+        "sys_1_p0_m0",
+        "sys_1_p0_m1",
+        "sys_1_p1_m0"
+      ],
+      "beltIds": [
+        "sys_1_b0",
+        "sys_1_b1",
+        "sys_1_b2"
+      ],
+      "stationIds": [
+        "sys_1_st0",
+        "sys_1_st1"
+      ],
+      "agentIds": [
+        "agent_sys_1_st0_distribution",
+        "agent_sys_1_st0_security",
+        "agent_sys_1_st0_mining",
+        "agent_sys_1_st1_mining",
+        "agent_sys_1_st1_distribution",
+        "agent_sys_1_st1_security"
+      ],
+      "gateTargets": [
+        "sys_3",
+        "sys_6"
+      ]
+    },
+    {
+      "id": "sys_2",
+      "name": "Ostune",
+      "mapPosition": {
+        "x": 352.0293582417071,
+        "y": 263.1917372951284
+      },
+      "security": 0.6,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 2,
+        "moons": 2,
+        "belts": 1,
+        "stations": 2,
+        "agents": 5,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_2_p0",
+        "sys_2_p1"
+      ],
+      "moonIds": [
+        "sys_2_p1_m0",
+        "sys_2_p1_m1"
+      ],
+      "beltIds": [
+        "sys_2_b0"
+      ],
+      "stationIds": [
+        "sys_2_st0",
+        "sys_2_st1"
+      ],
+      "agentIds": [
+        "agent_sys_2_st0_distribution",
+        "agent_sys_2_st0_mining",
+        "agent_sys_2_st1_mining",
+        "agent_sys_2_st1_security",
+        "agent_sys_2_st1_distribution"
+      ],
+      "gateTargets": [
+        "sys_0",
+        "sys_3",
+        "sys_35"
+      ]
+    },
+    {
+      "id": "sys_3",
+      "name": "Torir IV",
+      "mapPosition": {
+        "x": 268.08184193912894,
+        "y": 302.83888274338096
+      },
+      "security": 0.8,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": false,
+      "starType": "B",
+      "counts": {
+        "planets": 2,
+        "moons": 2,
+        "belts": 1,
+        "stations": 1,
+        "agents": 1,
+        "gates": 4
+      },
+      "planetIds": [
+        "sys_3_p0",
+        "sys_3_p1"
+      ],
+      "moonIds": [
+        "sys_3_p1_m0",
+        "sys_3_p1_m1"
+      ],
+      "beltIds": [
+        "sys_3_b0"
+      ],
+      "stationIds": [
+        "sys_3_st0"
+      ],
+      "agentIds": [
+        "agent_sys_3_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_1",
+        "sys_2",
+        "sys_6",
+        "sys_34"
+      ]
+    },
+    {
+      "id": "sys_4",
+      "name": "Belys",
+      "mapPosition": {
+        "x": 295.5810923175886,
+        "y": 126.28818416036665
+      },
+      "security": 0.6,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": false,
+      "starType": "A",
+      "counts": {
+        "planets": 4,
+        "moons": 4,
+        "belts": 1,
+        "stations": 2,
+        "agents": 3,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_4_p0",
+        "sys_4_p1",
+        "sys_4_p2",
+        "sys_4_p3"
+      ],
+      "moonIds": [
+        "sys_4_p0_m0",
+        "sys_4_p0_m1",
+        "sys_4_p2_m0",
+        "sys_4_p2_m1"
+      ],
+      "beltIds": [
+        "sys_4_b0"
+      ],
+      "stationIds": [
+        "sys_4_st0",
+        "sys_4_st1"
+      ],
+      "agentIds": [
+        "agent_sys_4_st0_distribution",
+        "agent_sys_4_st0_mining",
+        "agent_sys_4_st1_distribution"
+      ],
+      "gateTargets": [
+        "sys_0",
+        "sys_6",
+        "sys_5"
+      ]
+    },
+    {
+      "id": "sys_5",
+      "name": "Yorara",
+      "mapPosition": {
+        "x": 155.1170136546716,
+        "y": 100.457125431858
+      },
+      "security": 0.8,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": false,
+      "starType": "G",
+      "counts": {
+        "planets": 5,
+        "moons": 4,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_5_p0",
+        "sys_5_p1",
+        "sys_5_p2",
+        "sys_5_p3",
+        "sys_5_p4"
+      ],
+      "moonIds": [
+        "sys_5_p0_m0",
+        "sys_5_p1_m0",
+        "sys_5_p1_m1",
+        "sys_5_p4_m0"
+      ],
+      "beltIds": [
+        "sys_5_b0",
+        "sys_5_b1"
+      ],
+      "stationIds": [
+        "sys_5_st0"
+      ],
+      "agentIds": [
+        "agent_sys_5_st0_distribution",
+        "agent_sys_5_st0_mining",
+        "agent_sys_5_st0_security"
+      ],
+      "gateTargets": [
+        "sys_6",
+        "sys_4"
+      ]
+    },
+    {
+      "id": "sys_6",
+      "name": "Peroth II",
+      "mapPosition": {
+        "x": 219.9815526837483,
+        "y": 167.8382839774713
+      },
+      "security": 0.6,
+      "faction": "aurelian",
+      "region": "empire",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 2,
+        "moons": 4,
+        "belts": 2,
+        "stations": 2,
+        "agents": 3,
+        "gates": 4
+      },
+      "planetIds": [
+        "sys_6_p0",
+        "sys_6_p1"
+      ],
+      "moonIds": [
+        "sys_6_p0_m0",
+        "sys_6_p0_m1",
+        "sys_6_p1_m0",
+        "sys_6_p1_m1"
+      ],
+      "beltIds": [
+        "sys_6_b0",
+        "sys_6_b1"
+      ],
+      "stationIds": [
+        "sys_6_st0",
+        "sys_6_st1"
+      ],
+      "agentIds": [
+        "agent_sys_6_st0_mining",
+        "agent_sys_6_st0_distribution",
+        "agent_sys_6_st1_mining"
+      ],
+      "gateTargets": [
+        "sys_1",
+        "sys_3",
+        "sys_4",
+        "sys_5"
+      ]
+    },
+    {
+      "id": "sys_7",
+      "name": "Elara Major",
+      "mapPosition": {
+        "x": 753.113834480755,
+        "y": 332.1320366067812
+      },
+      "security": 1,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": true,
+      "starType": "A",
+      "counts": {
+        "planets": 2,
+        "moons": 1,
+        "belts": 2,
+        "stations": 4,
+        "agents": 7,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_7_p0",
+        "sys_7_p1"
+      ],
+      "moonIds": [
+        "sys_7_p0_m0"
+      ],
+      "beltIds": [
+        "sys_7_b0",
+        "sys_7_b1"
+      ],
+      "stationIds": [
+        "sys_7_st0",
+        "sys_7_st1",
+        "sys_7_st2",
+        "sys_7_st3"
+      ],
+      "agentIds": [
+        "agent_sys_7_st0_distribution",
+        "agent_sys_7_st0_security",
+        "agent_sys_7_st0_mining",
+        "agent_sys_7_st1_distribution",
+        "agent_sys_7_st1_mining",
+        "agent_sys_7_st2_mining",
+        "agent_sys_7_st3_mining"
+      ],
+      "gateTargets": [
+        "sys_10",
+        "sys_12",
+        "sys_37"
+      ]
+    },
+    {
+      "id": "sys_8",
+      "name": "Kaur",
+      "mapPosition": {
+        "x": 830.0990056619048,
+        "y": 211.75536608789116
+      },
+      "security": 0.5,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 5,
+        "moons": 5,
+        "belts": 3,
+        "stations": 2,
+        "agents": 2,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_8_p0",
+        "sys_8_p1",
+        "sys_8_p2",
+        "sys_8_p3",
+        "sys_8_p4"
+      ],
+      "moonIds": [
+        "sys_8_p0_m0",
+        "sys_8_p1_m0",
+        "sys_8_p3_m0",
+        "sys_8_p3_m1",
+        "sys_8_p4_m0"
+      ],
+      "beltIds": [
+        "sys_8_b0",
+        "sys_8_b1",
+        "sys_8_b2"
+      ],
+      "stationIds": [
+        "sys_8_st0",
+        "sys_8_st1"
+      ],
+      "agentIds": [
+        "agent_sys_8_st0_security",
+        "agent_sys_8_st1_distribution"
+      ],
+      "gateTargets": [
+        "sys_11",
+        "sys_12"
+      ]
+    },
+    {
+      "id": "sys_9",
+      "name": "Elon Major",
+      "mapPosition": {
+        "x": 717.8817700594664,
+        "y": 100.21212148014456
+      },
+      "security": 0.7,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 3,
+        "moons": 5,
+        "belts": 2,
+        "stations": 1,
+        "agents": 1,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_9_p0",
+        "sys_9_p1",
+        "sys_9_p2"
+      ],
+      "moonIds": [
+        "sys_9_p0_m0",
+        "sys_9_p0_m1",
+        "sys_9_p1_m0",
+        "sys_9_p2_m0",
+        "sys_9_p2_m1"
+      ],
+      "beltIds": [
+        "sys_9_b0",
+        "sys_9_b1"
+      ],
+      "stationIds": [
+        "sys_9_st0"
+      ],
+      "agentIds": [
+        "agent_sys_9_st0_security"
+      ],
+      "gateTargets": [
+        "sys_11",
+        "sys_13"
+      ]
+    },
+    {
+      "id": "sys_10",
+      "name": "Wynur Major",
+      "mapPosition": {
+        "x": 700.4734716517851,
+        "y": 299.454311481677
+      },
+      "security": 0.6,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 3,
+        "moons": 4,
+        "belts": 2,
+        "stations": 1,
+        "agents": 1,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_10_p0",
+        "sys_10_p1",
+        "sys_10_p2"
+      ],
+      "moonIds": [
+        "sys_10_p0_m0",
+        "sys_10_p0_m1",
+        "sys_10_p1_m0",
+        "sys_10_p2_m0"
+      ],
+      "beltIds": [
+        "sys_10_b0",
+        "sys_10_b1"
+      ],
+      "stationIds": [
+        "sys_10_st0"
+      ],
+      "agentIds": [
+        "agent_sys_10_st0_security"
+      ],
+      "gateTargets": [
+        "sys_7",
+        "sys_13",
+        "sys_37"
+      ]
+    },
+    {
+      "id": "sys_11",
+      "name": "Vexys",
+      "mapPosition": {
+        "x": 781.0580233717337,
+        "y": 103.23411637917161
+      },
+      "security": 0.7,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 5,
+        "moons": 4,
+        "belts": 3,
+        "stations": 1,
+        "agents": 1,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_11_p0",
+        "sys_11_p1",
+        "sys_11_p2",
+        "sys_11_p3",
+        "sys_11_p4"
+      ],
+      "moonIds": [
+        "sys_11_p0_m0",
+        "sys_11_p2_m0",
+        "sys_11_p3_m0",
+        "sys_11_p4_m0"
+      ],
+      "beltIds": [
+        "sys_11_b0",
+        "sys_11_b1",
+        "sys_11_b2"
+      ],
+      "stationIds": [
+        "sys_11_st0"
+      ],
+      "agentIds": [
+        "agent_sys_11_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_8",
+        "sys_9"
+      ]
+    },
+    {
+      "id": "sys_12",
+      "name": "Ostax IV",
+      "mapPosition": {
+        "x": 850.9730477677658,
+        "y": 353.0438130814582
+      },
+      "security": 0.9,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 7,
+        "moons": 7,
+        "belts": 2,
+        "stations": 1,
+        "agents": 2,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_12_p0",
+        "sys_12_p1",
+        "sys_12_p2",
+        "sys_12_p3",
+        "sys_12_p4",
+        "sys_12_p5",
+        "sys_12_p6"
+      ],
+      "moonIds": [
+        "sys_12_p0_m0",
+        "sys_12_p0_m1",
+        "sys_12_p1_m0",
+        "sys_12_p3_m0",
+        "sys_12_p3_m1",
+        "sys_12_p6_m0",
+        "sys_12_p6_m1"
+      ],
+      "beltIds": [
+        "sys_12_b0",
+        "sys_12_b1"
+      ],
+      "stationIds": [
+        "sys_12_st0"
+      ],
+      "agentIds": [
+        "agent_sys_12_st0_security",
+        "agent_sys_12_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_7",
+        "sys_8"
+      ]
+    },
+    {
+      "id": "sys_13",
+      "name": "Moros",
+      "mapPosition": {
+        "x": 647.2583174519241,
+        "y": 191.92767703905702
+      },
+      "security": 0.6,
+      "faction": "kaldari",
+      "region": "empire",
+      "capital": false,
+      "starType": "A",
+      "counts": {
+        "planets": 5,
+        "moons": 4,
+        "belts": 3,
+        "stations": 1,
+        "agents": 1,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_13_p0",
+        "sys_13_p1",
+        "sys_13_p2",
+        "sys_13_p3",
+        "sys_13_p4"
+      ],
+      "moonIds": [
+        "sys_13_p0_m0",
+        "sys_13_p2_m0",
+        "sys_13_p3_m0",
+        "sys_13_p4_m0"
+      ],
+      "beltIds": [
+        "sys_13_b0",
+        "sys_13_b1",
+        "sys_13_b2"
+      ],
+      "stationIds": [
+        "sys_13_st0"
+      ],
+      "agentIds": [
+        "agent_sys_13_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_9",
+        "sys_10",
+        "sys_36"
+      ]
+    },
+    {
+      "id": "sys_14",
+      "name": "Rynys II",
+      "mapPosition": {
+        "x": 351.69280514121056,
+        "y": 852.2956430306658
+      },
+      "security": 1,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": true,
+      "starType": "M",
+      "counts": {
+        "planets": 7,
+        "moons": 7,
+        "belts": 2,
+        "stations": 4,
+        "agents": 9,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_14_p0",
+        "sys_14_p1",
+        "sys_14_p2",
+        "sys_14_p3",
+        "sys_14_p4",
+        "sys_14_p5",
+        "sys_14_p6"
+      ],
+      "moonIds": [
+        "sys_14_p0_m0",
+        "sys_14_p0_m1",
+        "sys_14_p1_m0",
+        "sys_14_p3_m0",
+        "sys_14_p3_m1",
+        "sys_14_p6_m0",
+        "sys_14_p6_m1"
+      ],
+      "beltIds": [
+        "sys_14_b0",
+        "sys_14_b1"
+      ],
+      "stationIds": [
+        "sys_14_st0",
+        "sys_14_st1",
+        "sys_14_st2",
+        "sys_14_st3"
+      ],
+      "agentIds": [
+        "agent_sys_14_st0_security",
+        "agent_sys_14_st0_distribution",
+        "agent_sys_14_st0_mining",
+        "agent_sys_14_st1_distribution",
+        "agent_sys_14_st2_distribution",
+        "agent_sys_14_st2_mining",
+        "agent_sys_14_st3_distribution",
+        "agent_sys_14_st3_mining",
+        "agent_sys_14_st3_security"
+      ],
+      "gateTargets": [
+        "sys_17",
+        "sys_20"
+      ]
+    },
+    {
+      "id": "sys_15",
+      "name": "Wynax VI",
+      "mapPosition": {
+        "x": 105.6942994846031,
+        "y": 811.2247406644747
+      },
+      "security": 0.9,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": false,
+      "starType": "A",
+      "counts": {
+        "planets": 7,
+        "moons": 7,
+        "belts": 2,
+        "stations": 1,
+        "agents": 2,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_15_p0",
+        "sys_15_p1",
+        "sys_15_p2",
+        "sys_15_p3",
+        "sys_15_p4",
+        "sys_15_p5",
+        "sys_15_p6"
+      ],
+      "moonIds": [
+        "sys_15_p0_m0",
+        "sys_15_p0_m1",
+        "sys_15_p1_m0",
+        "sys_15_p3_m0",
+        "sys_15_p3_m1",
+        "sys_15_p6_m0",
+        "sys_15_p6_m1"
+      ],
+      "beltIds": [
+        "sys_15_b0",
+        "sys_15_b1"
+      ],
+      "stationIds": [
+        "sys_15_st0"
+      ],
+      "agentIds": [
+        "agent_sys_15_st0_security",
+        "agent_sys_15_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_20",
+        "sys_19"
+      ]
+    },
+    {
+      "id": "sys_16",
+      "name": "Rynune",
+      "mapPosition": {
+        "x": 252.27382877841592,
+        "y": 658.4507837006822
+      },
+      "security": 0.6,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 2,
+        "moons": 1,
+        "belts": 4,
+        "stations": 1,
+        "agents": 1,
+        "gates": 5
+      },
+      "planetIds": [
+        "sys_16_p0",
+        "sys_16_p1"
+      ],
+      "moonIds": [
+        "sys_16_p0_m0"
+      ],
+      "beltIds": [
+        "sys_16_b0",
+        "sys_16_b1",
+        "sys_16_b2",
+        "sys_16_b3"
+      ],
+      "stationIds": [
+        "sys_16_st0"
+      ],
+      "agentIds": [
+        "agent_sys_16_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_18",
+        "sys_17",
+        "sys_19",
+        "sys_20",
+        "sys_32"
+      ]
+    },
+    {
+      "id": "sys_17",
+      "name": "Zelir",
+      "mapPosition": {
+        "x": 299.91825132630765,
+        "y": 740.3243895201012
+      },
+      "security": 0.9,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 5,
+        "moons": 4,
+        "belts": 3,
+        "stations": 1,
+        "agents": 1,
+        "gates": 5
+      },
+      "planetIds": [
+        "sys_17_p0",
+        "sys_17_p1",
+        "sys_17_p2",
+        "sys_17_p3",
+        "sys_17_p4"
+      ],
+      "moonIds": [
+        "sys_17_p0_m0",
+        "sys_17_p2_m0",
+        "sys_17_p3_m0",
+        "sys_17_p4_m0"
+      ],
+      "beltIds": [
+        "sys_17_b0",
+        "sys_17_b1",
+        "sys_17_b2"
+      ],
+      "stationIds": [
+        "sys_17_st0"
+      ],
+      "agentIds": [
+        "agent_sys_17_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_14",
+        "sys_16",
+        "sys_20",
+        "sys_18",
+        "sys_31"
+      ]
+    },
+    {
+      "id": "sys_18",
+      "name": "Nymmir V",
+      "mapPosition": {
+        "x": 321.39717323705554,
+        "y": 668.418938703835
+      },
+      "security": 0.9,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": false,
+      "starType": "O",
+      "counts": {
+        "planets": 7,
+        "moons": 7,
+        "belts": 2,
+        "stations": 1,
+        "agents": 2,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_18_p0",
+        "sys_18_p1",
+        "sys_18_p2",
+        "sys_18_p3",
+        "sys_18_p4",
+        "sys_18_p5",
+        "sys_18_p6"
+      ],
+      "moonIds": [
+        "sys_18_p0_m0",
+        "sys_18_p0_m1",
+        "sys_18_p1_m0",
+        "sys_18_p3_m0",
+        "sys_18_p3_m1",
+        "sys_18_p6_m0",
+        "sys_18_p6_m1"
+      ],
+      "beltIds": [
+        "sys_18_b0",
+        "sys_18_b1"
+      ],
+      "stationIds": [
+        "sys_18_st0"
+      ],
+      "agentIds": [
+        "agent_sys_18_st0_security",
+        "agent_sys_18_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_16",
+        "sys_17",
+        "sys_31"
+      ]
+    },
+    {
+      "id": "sys_19",
+      "name": "Ulara",
+      "mapPosition": {
+        "x": 146.77424592431635,
+        "y": 674.8596770549193
+      },
+      "security": 0.7,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 5,
+        "moons": 4,
+        "belts": 3,
+        "stations": 1,
+        "agents": 1,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_19_p0",
+        "sys_19_p1",
+        "sys_19_p2",
+        "sys_19_p3",
+        "sys_19_p4"
+      ],
+      "moonIds": [
+        "sys_19_p0_m0",
+        "sys_19_p2_m0",
+        "sys_19_p3_m0",
+        "sys_19_p4_m0"
+      ],
+      "beltIds": [
+        "sys_19_b0",
+        "sys_19_b1",
+        "sys_19_b2"
+      ],
+      "stationIds": [
+        "sys_19_st0"
+      ],
+      "agentIds": [
+        "agent_sys_19_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_15",
+        "sys_16",
+        "sys_20"
+      ]
+    },
+    {
+      "id": "sys_20",
+      "name": "Ulos",
+      "mapPosition": {
+        "x": 234.83123492915183,
+        "y": 774.1817669337615
+      },
+      "security": 0.7,
+      "faction": "meridian",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 5,
+        "moons": 1,
+        "belts": 1,
+        "stations": 2,
+        "agents": 6,
+        "gates": 5
+      },
+      "planetIds": [
+        "sys_20_p0",
+        "sys_20_p1",
+        "sys_20_p2",
+        "sys_20_p3",
+        "sys_20_p4"
+      ],
+      "moonIds": [
+        "sys_20_p3_m0"
+      ],
+      "beltIds": [
+        "sys_20_b0"
+      ],
+      "stationIds": [
+        "sys_20_st0",
+        "sys_20_st1"
+      ],
+      "agentIds": [
+        "agent_sys_20_st0_security",
+        "agent_sys_20_st0_mining",
+        "agent_sys_20_st0_distribution",
+        "agent_sys_20_st1_security",
+        "agent_sys_20_st1_mining",
+        "agent_sys_20_st1_distribution"
+      ],
+      "gateTargets": [
+        "sys_14",
+        "sys_15",
+        "sys_17",
+        "sys_19",
+        "sys_16"
+      ]
+    },
+    {
+      "id": "sys_21",
+      "name": "Ulax Prime",
+      "mapPosition": {
+        "x": 687.719462569803,
+        "y": 757.3308596201241
+      },
+      "security": 1,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": true,
+      "starType": "M",
+      "counts": {
+        "planets": 3,
+        "moons": 2,
+        "belts": 1,
+        "stations": 4,
+        "agents": 7,
+        "gates": 7
+      },
+      "planetIds": [
+        "sys_21_p0",
+        "sys_21_p1",
+        "sys_21_p2"
+      ],
+      "moonIds": [
+        "sys_21_p1_m0",
+        "sys_21_p2_m0"
+      ],
+      "beltIds": [
+        "sys_21_b0"
+      ],
+      "stationIds": [
+        "sys_21_st0",
+        "sys_21_st1",
+        "sys_21_st2",
+        "sys_21_st3"
+      ],
+      "agentIds": [
+        "agent_sys_21_st0_security",
+        "agent_sys_21_st0_distribution",
+        "agent_sys_21_st0_mining",
+        "agent_sys_21_st1_security",
+        "agent_sys_21_st2_distribution",
+        "agent_sys_21_st3_security",
+        "agent_sys_21_st3_distribution"
+      ],
+      "gateTargets": [
+        "sys_23",
+        "sys_26",
+        "sys_22",
+        "sys_24",
+        "sys_25",
+        "sys_27",
+        "sys_29"
+      ]
+    },
+    {
+      "id": "sys_22",
+      "name": "Rynion",
+      "mapPosition": {
+        "x": 836.3020202377811,
+        "y": 869.1141401138157
+      },
+      "security": 0.8,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": false,
+      "starType": "B",
+      "counts": {
+        "planets": 6,
+        "moons": 10,
+        "belts": 3,
+        "stations": 2,
+        "agents": 4,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_22_p0",
+        "sys_22_p1",
+        "sys_22_p2",
+        "sys_22_p3",
+        "sys_22_p4",
+        "sys_22_p5"
+      ],
+      "moonIds": [
+        "sys_22_p0_m0",
+        "sys_22_p0_m1",
+        "sys_22_p1_m0",
+        "sys_22_p1_m1",
+        "sys_22_p2_m0",
+        "sys_22_p2_m1",
+        "sys_22_p3_m0",
+        "sys_22_p3_m1",
+        "sys_22_p5_m0",
+        "sys_22_p5_m1"
+      ],
+      "beltIds": [
+        "sys_22_b0",
+        "sys_22_b1",
+        "sys_22_b2"
+      ],
+      "stationIds": [
+        "sys_22_st0",
+        "sys_22_st1"
+      ],
+      "agentIds": [
+        "agent_sys_22_st0_distribution",
+        "agent_sys_22_st0_mining",
+        "agent_sys_22_st1_distribution",
+        "agent_sys_22_st1_security"
+      ],
+      "gateTargets": [
+        "sys_24",
+        "sys_21"
+      ]
+    },
+    {
+      "id": "sys_23",
+      "name": "Cynur",
+      "mapPosition": {
+        "x": 651.3374551571906,
+        "y": 810.1295040268451
+      },
+      "security": 0.6,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": false,
+      "starType": "A",
+      "counts": {
+        "planets": 5,
+        "moons": 8,
+        "belts": 3,
+        "stations": 1,
+        "agents": 3,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_23_p0",
+        "sys_23_p1",
+        "sys_23_p2",
+        "sys_23_p3",
+        "sys_23_p4"
+      ],
+      "moonIds": [
+        "sys_23_p0_m0",
+        "sys_23_p0_m1",
+        "sys_23_p1_m0",
+        "sys_23_p2_m0",
+        "sys_23_p3_m0",
+        "sys_23_p3_m1",
+        "sys_23_p4_m0",
+        "sys_23_p4_m1"
+      ],
+      "beltIds": [
+        "sys_23_b0",
+        "sys_23_b1",
+        "sys_23_b2"
+      ],
+      "stationIds": [
+        "sys_23_st0"
+      ],
+      "agentIds": [
+        "agent_sys_23_st0_security",
+        "agent_sys_23_st0_distribution",
+        "agent_sys_23_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_21",
+        "sys_27"
+      ]
+    },
+    {
+      "id": "sys_24",
+      "name": "Elion",
+      "mapPosition": {
+        "x": 846.2002145498991,
+        "y": 803.4182759001851
+      },
+      "security": 0.7,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": false,
+      "starType": "B",
+      "counts": {
+        "planets": 5,
+        "moons": 8,
+        "belts": 3,
+        "stations": 1,
+        "agents": 3,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_24_p0",
+        "sys_24_p1",
+        "sys_24_p2",
+        "sys_24_p3",
+        "sys_24_p4"
+      ],
+      "moonIds": [
+        "sys_24_p0_m0",
+        "sys_24_p0_m1",
+        "sys_24_p1_m0",
+        "sys_24_p2_m0",
+        "sys_24_p3_m0",
+        "sys_24_p3_m1",
+        "sys_24_p4_m0",
+        "sys_24_p4_m1"
+      ],
+      "beltIds": [
+        "sys_24_b0",
+        "sys_24_b1",
+        "sys_24_b2"
+      ],
+      "stationIds": [
+        "sys_24_st0"
+      ],
+      "agentIds": [
+        "agent_sys_24_st0_security",
+        "agent_sys_24_st0_distribution",
+        "agent_sys_24_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_22",
+        "sys_21"
+      ]
+    },
+    {
+      "id": "sys_25",
+      "name": "Kaea",
+      "mapPosition": {
+        "x": 782.6513377204537,
+        "y": 643.6878479830921
+      },
+      "security": 0.8,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 5,
+        "moons": 1,
+        "belts": 1,
+        "stations": 2,
+        "agents": 6,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_25_p0",
+        "sys_25_p1",
+        "sys_25_p2",
+        "sys_25_p3",
+        "sys_25_p4"
+      ],
+      "moonIds": [
+        "sys_25_p3_m0"
+      ],
+      "beltIds": [
+        "sys_25_b0"
+      ],
+      "stationIds": [
+        "sys_25_st0",
+        "sys_25_st1"
+      ],
+      "agentIds": [
+        "agent_sys_25_st0_security",
+        "agent_sys_25_st0_mining",
+        "agent_sys_25_st0_distribution",
+        "agent_sys_25_st1_security",
+        "agent_sys_25_st1_mining",
+        "agent_sys_25_st1_distribution"
+      ],
+      "gateTargets": [
+        "sys_26",
+        "sys_21",
+        "sys_29"
+      ]
+    },
+    {
+      "id": "sys_26",
+      "name": "Corys Prime",
+      "mapPosition": {
+        "x": 711.3725062040612,
+        "y": 673.6637732200325
+      },
+      "security": 0.5,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 4,
+        "moons": 3,
+        "belts": 1,
+        "stations": 1,
+        "agents": 3,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_26_p0",
+        "sys_26_p1",
+        "sys_26_p2",
+        "sys_26_p3"
+      ],
+      "moonIds": [
+        "sys_26_p0_m0",
+        "sys_26_p2_m0",
+        "sys_26_p2_m1"
+      ],
+      "beltIds": [
+        "sys_26_b0"
+      ],
+      "stationIds": [
+        "sys_26_st0"
+      ],
+      "agentIds": [
+        "agent_sys_26_st0_distribution",
+        "agent_sys_26_st0_mining",
+        "agent_sys_26_st0_security"
+      ],
+      "gateTargets": [
+        "sys_21",
+        "sys_25",
+        "sys_29"
+      ]
+    },
+    {
+      "id": "sys_27",
+      "name": "Nymea Minor",
+      "mapPosition": {
+        "x": 641.2934289732948,
+        "y": 865.7551815593615
+      },
+      "security": 0.9,
+      "faction": "varkhald",
+      "region": "empire",
+      "capital": false,
+      "starType": "B",
+      "counts": {
+        "planets": 4,
+        "moons": 3,
+        "belts": 1,
+        "stations": 1,
+        "agents": 3,
+        "gates": 2
+      },
+      "planetIds": [
+        "sys_27_p0",
+        "sys_27_p1",
+        "sys_27_p2",
+        "sys_27_p3"
+      ],
+      "moonIds": [
+        "sys_27_p0_m0",
+        "sys_27_p2_m0",
+        "sys_27_p2_m1"
+      ],
+      "beltIds": [
+        "sys_27_b0"
+      ],
+      "stationIds": [
+        "sys_27_st0"
+      ],
+      "agentIds": [
+        "agent_sys_27_st0_distribution",
+        "agent_sys_27_st0_mining",
+        "agent_sys_27_st0_security"
+      ],
+      "gateTargets": [
+        "sys_23",
+        "sys_21"
+      ]
+    },
+    {
+      "id": "sys_28",
+      "name": "Belael II",
+      "mapPosition": {
+        "x": 638.230431060502,
+        "y": 492.53629789747094
+      },
+      "security": 0.2,
+      "faction": "kaldari",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 2,
+        "moons": 3,
+        "belts": 1,
+        "stations": 1,
+        "agents": 2,
+        "gates": 5
+      },
+      "planetIds": [
+        "sys_28_p0",
+        "sys_28_p1"
+      ],
+      "moonIds": [
+        "sys_28_p0_m0",
+        "sys_28_p1_m0",
+        "sys_28_p1_m1"
+      ],
+      "beltIds": [
+        "sys_28_b0"
+      ],
+      "stationIds": [
+        "sys_28_st0"
+      ],
+      "agentIds": [
+        "agent_sys_28_st0_distribution",
+        "agent_sys_28_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_37",
+        "sys_29",
+        "sys_44",
+        "sys_45",
+        "sys_47"
+      ]
+    },
+    {
+      "id": "sys_29",
+      "name": "Lyros",
+      "mapPosition": {
+        "x": 628.7033220631793,
+        "y": 616.9658693871207
+      },
+      "security": 0.3,
+      "faction": "aurelian",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "O",
+      "counts": {
+        "planets": 5,
+        "moons": 8,
+        "belts": 3,
+        "stations": 1,
+        "agents": 3,
+        "gates": 5
+      },
+      "planetIds": [
+        "sys_29_p0",
+        "sys_29_p1",
+        "sys_29_p2",
+        "sys_29_p3",
+        "sys_29_p4"
+      ],
+      "moonIds": [
+        "sys_29_p0_m0",
+        "sys_29_p0_m1",
+        "sys_29_p1_m0",
+        "sys_29_p2_m0",
+        "sys_29_p3_m0",
+        "sys_29_p3_m1",
+        "sys_29_p4_m0",
+        "sys_29_p4_m1"
+      ],
+      "beltIds": [
+        "sys_29_b0",
+        "sys_29_b1",
+        "sys_29_b2"
+      ],
+      "stationIds": [
+        "sys_29_st0"
+      ],
+      "agentIds": [
+        "agent_sys_29_st0_security",
+        "agent_sys_29_st0_distribution",
+        "agent_sys_29_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_28",
+        "sys_30",
+        "sys_26",
+        "sys_25",
+        "sys_21"
+      ]
+    },
+    {
+      "id": "sys_30",
+      "name": "Torys",
+      "mapPosition": {
+        "x": 527.7020634257501,
+        "y": 657.1103804715071
+      },
+      "security": 0.4,
+      "faction": "meridian",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 2,
+        "moons": 1,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 4
+      },
+      "planetIds": [
+        "sys_30_p0",
+        "sys_30_p1"
+      ],
+      "moonIds": [
+        "sys_30_p1_m0"
+      ],
+      "beltIds": [
+        "sys_30_b0",
+        "sys_30_b1"
+      ],
+      "stationIds": [
+        "sys_30_st0"
+      ],
+      "agentIds": [
+        "agent_sys_30_st0_mining",
+        "agent_sys_30_st0_security",
+        "agent_sys_30_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_29",
+        "sys_31",
+        "sys_42",
+        "sys_43"
+      ]
+    },
+    {
+      "id": "sys_31",
+      "name": "Helos",
+      "mapPosition": {
+        "x": 431.9709584757745,
+        "y": 667.3913699873897
+      },
+      "security": 0.1,
+      "faction": "kaldari",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "B",
+      "counts": {
+        "planets": 2,
+        "moons": 1,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 6
+      },
+      "planetIds": [
+        "sys_31_p0",
+        "sys_31_p1"
+      ],
+      "moonIds": [
+        "sys_31_p1_m0"
+      ],
+      "beltIds": [
+        "sys_31_b0",
+        "sys_31_b1"
+      ],
+      "stationIds": [
+        "sys_31_st0"
+      ],
+      "agentIds": [
+        "agent_sys_31_st0_mining",
+        "agent_sys_31_st0_security",
+        "agent_sys_31_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_30",
+        "sys_32",
+        "sys_18",
+        "sys_17",
+        "sys_42",
+        "sys_43"
+      ]
+    },
+    {
+      "id": "sys_32",
+      "name": "Vexeth Minor",
+      "mapPosition": {
+        "x": 384.09746385935307,
+        "y": 567.5038175272329
+      },
+      "security": 0.3,
+      "faction": "varkhald",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 6,
+        "moons": 8,
+        "belts": 1,
+        "stations": 1,
+        "agents": 2,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_32_p0",
+        "sys_32_p1",
+        "sys_32_p2",
+        "sys_32_p3",
+        "sys_32_p4",
+        "sys_32_p5"
+      ],
+      "moonIds": [
+        "sys_32_p0_m0",
+        "sys_32_p0_m1",
+        "sys_32_p1_m0",
+        "sys_32_p1_m1",
+        "sys_32_p3_m0",
+        "sys_32_p3_m1",
+        "sys_32_p4_m0",
+        "sys_32_p4_m1"
+      ],
+      "beltIds": [
+        "sys_32_b0"
+      ],
+      "stationIds": [
+        "sys_32_st0"
+      ],
+      "agentIds": [
+        "agent_sys_32_st0_distribution",
+        "agent_sys_32_st0_security"
+      ],
+      "gateTargets": [
+        "sys_31",
+        "sys_33",
+        "sys_16"
+      ]
+    },
+    {
+      "id": "sys_33",
+      "name": "Cyneth",
+      "mapPosition": {
+        "x": 321.0350784428539,
+        "y": 501.40761426028473
+      },
+      "security": 0.4,
+      "faction": "aurelian",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "M",
+      "counts": {
+        "planets": 5,
+        "moons": 5,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 4
+      },
+      "planetIds": [
+        "sys_33_p0",
+        "sys_33_p1",
+        "sys_33_p2",
+        "sys_33_p3",
+        "sys_33_p4"
+      ],
+      "moonIds": [
+        "sys_33_p1_m0",
+        "sys_33_p1_m1",
+        "sys_33_p2_m0",
+        "sys_33_p3_m0",
+        "sys_33_p4_m0"
+      ],
+      "beltIds": [
+        "sys_33_b0",
+        "sys_33_b1"
+      ],
+      "stationIds": [
+        "sys_33_st0"
+      ],
+      "agentIds": [
+        "agent_sys_33_st0_security",
+        "agent_sys_33_st0_mining",
+        "agent_sys_33_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_32",
+        "sys_34",
+        "sys_38",
+        "sys_39"
+      ]
+    },
+    {
+      "id": "sys_34",
+      "name": "Zelion",
+      "mapPosition": {
+        "x": 381.559298550088,
+        "y": 427.5263551506769
+      },
+      "security": 0.1,
+      "faction": "varkhald",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "G",
+      "counts": {
+        "planets": 5,
+        "moons": 5,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 6
+      },
+      "planetIds": [
+        "sys_34_p0",
+        "sys_34_p1",
+        "sys_34_p2",
+        "sys_34_p3",
+        "sys_34_p4"
+      ],
+      "moonIds": [
+        "sys_34_p1_m0",
+        "sys_34_p1_m1",
+        "sys_34_p2_m0",
+        "sys_34_p3_m0",
+        "sys_34_p4_m0"
+      ],
+      "beltIds": [
+        "sys_34_b0",
+        "sys_34_b1"
+      ],
+      "stationIds": [
+        "sys_34_st0"
+      ],
+      "agentIds": [
+        "agent_sys_34_st0_security",
+        "agent_sys_34_st0_mining",
+        "agent_sys_34_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_33",
+        "sys_35",
+        "sys_3",
+        "sys_38",
+        "sys_39",
+        "sys_46"
+      ]
+    },
+    {
+      "id": "sys_35",
+      "name": "Rynos Minor",
+      "mapPosition": {
+        "x": 476.62414913869435,
+        "y": 348.2425091125642
+      },
+      "security": 0.2,
+      "faction": "meridian",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 3,
+        "moons": 0,
+        "belts": 4,
+        "stations": 1,
+        "agents": 3,
+        "gates": 8
+      },
+      "planetIds": [
+        "sys_35_p0",
+        "sys_35_p1",
+        "sys_35_p2"
+      ],
+      "moonIds": [],
+      "beltIds": [
+        "sys_35_b0",
+        "sys_35_b1",
+        "sys_35_b2",
+        "sys_35_b3"
+      ],
+      "stationIds": [
+        "sys_35_st0"
+      ],
+      "agentIds": [
+        "agent_sys_35_st0_mining",
+        "agent_sys_35_st0_security",
+        "agent_sys_35_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_34",
+        "sys_36",
+        "sys_2",
+        "sys_0",
+        "sys_40",
+        "sys_41",
+        "sys_46",
+        "sys_47"
+      ]
+    },
+    {
+      "id": "sys_36",
+      "name": "Lyrur",
+      "mapPosition": {
+        "x": 529.5132265593096,
+        "y": 309.80628564432243
+      },
+      "security": 0.2,
+      "faction": "kaldari",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 2,
+        "moons": 1,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 5
+      },
+      "planetIds": [
+        "sys_36_p0",
+        "sys_36_p1"
+      ],
+      "moonIds": [
+        "sys_36_p1_m0"
+      ],
+      "beltIds": [
+        "sys_36_b0",
+        "sys_36_b1"
+      ],
+      "stationIds": [
+        "sys_36_st0"
+      ],
+      "agentIds": [
+        "agent_sys_36_st0_mining",
+        "agent_sys_36_st0_security",
+        "agent_sys_36_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_35",
+        "sys_37",
+        "sys_13",
+        "sys_40",
+        "sys_41"
+      ]
+    },
+    {
+      "id": "sys_37",
+      "name": "Belis Prime",
+      "mapPosition": {
+        "x": 652.993691131536,
+        "y": 398.6857524250837
+      },
+      "security": 0.4,
+      "faction": "varkhald",
+      "region": "lowsec",
+      "capital": false,
+      "starType": "G",
+      "counts": {
+        "planets": 3,
+        "moons": 0,
+        "belts": 4,
+        "stations": 1,
+        "agents": 3,
+        "gates": 6
+      },
+      "planetIds": [
+        "sys_37_p0",
+        "sys_37_p1",
+        "sys_37_p2"
+      ],
+      "moonIds": [],
+      "beltIds": [
+        "sys_37_b0",
+        "sys_37_b1",
+        "sys_37_b2",
+        "sys_37_b3"
+      ],
+      "stationIds": [
+        "sys_37_st0"
+      ],
+      "agentIds": [
+        "agent_sys_37_st0_mining",
+        "agent_sys_37_st0_security",
+        "agent_sys_37_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_28",
+        "sys_36",
+        "sys_10",
+        "sys_7",
+        "sys_44",
+        "sys_45"
+      ]
+    },
+    {
+      "id": "sys_38",
+      "name": "Ulael",
+      "mapPosition": {
+        "x": 21.23334680683911,
+        "y": 444.96896743774414
+      },
+      "security": 0,
+      "faction": "blood_reavers",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 2,
+        "moons": 1,
+        "belts": 2,
+        "stations": 1,
+        "agents": 1,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_38_p0",
+        "sys_38_p1"
+      ],
+      "moonIds": [
+        "sys_38_p1_m0"
+      ],
+      "beltIds": [
+        "sys_38_b0",
+        "sys_38_b1"
+      ],
+      "stationIds": [
+        "sys_38_st0"
+      ],
+      "agentIds": [
+        "agent_sys_38_st0_security"
+      ],
+      "gateTargets": [
+        "sys_39",
+        "sys_33",
+        "sys_34"
+      ]
+    },
+    {
+      "id": "sys_39",
+      "name": "Zelara",
+      "mapPosition": {
+        "x": 148.84107216261327,
+        "y": 453.15281049348414
+      },
+      "security": 0,
+      "faction": "blood_reavers",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 5,
+        "moons": 5,
+        "belts": 2,
+        "stations": 1,
+        "agents": 3,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_39_p0",
+        "sys_39_p1",
+        "sys_39_p2",
+        "sys_39_p3",
+        "sys_39_p4"
+      ],
+      "moonIds": [
+        "sys_39_p1_m0",
+        "sys_39_p1_m1",
+        "sys_39_p2_m0",
+        "sys_39_p3_m0",
+        "sys_39_p4_m0"
+      ],
+      "beltIds": [
+        "sys_39_b0",
+        "sys_39_b1"
+      ],
+      "stationIds": [
+        "sys_39_st0"
+      ],
+      "agentIds": [
+        "agent_sys_39_st0_security",
+        "agent_sys_39_st0_mining",
+        "agent_sys_39_st0_distribution"
+      ],
+      "gateTargets": [
+        "sys_38",
+        "sys_33",
+        "sys_34"
+      ]
+    },
+    {
+      "id": "sys_40",
+      "name": "Belon Prime",
+      "mapPosition": {
+        "x": 502.76021068915725,
+        "y": 49.256522306241095
+      },
+      "security": 0,
+      "faction": "nathari",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 7,
+        "moons": 8,
+        "belts": 4,
+        "stations": 1,
+        "agents": 1,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_40_p0",
+        "sys_40_p1",
+        "sys_40_p2",
+        "sys_40_p3",
+        "sys_40_p4",
+        "sys_40_p5",
+        "sys_40_p6"
+      ],
+      "moonIds": [
+        "sys_40_p0_m0",
+        "sys_40_p1_m0",
+        "sys_40_p1_m1",
+        "sys_40_p2_m0",
+        "sys_40_p3_m0",
+        "sys_40_p4_m0",
+        "sys_40_p5_m0",
+        "sys_40_p6_m0"
+      ],
+      "beltIds": [
+        "sys_40_b0",
+        "sys_40_b1",
+        "sys_40_b2",
+        "sys_40_b3"
+      ],
+      "stationIds": [
+        "sys_40_st0"
+      ],
+      "agentIds": [
+        "agent_sys_40_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_41",
+        "sys_36",
+        "sys_35"
+      ]
+    },
+    {
+      "id": "sys_41",
+      "name": "Jorara",
+      "mapPosition": {
+        "x": 491.43318368587643,
+        "y": 27.547838487662375
+      },
+      "security": 0,
+      "faction": "nathari",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 7,
+        "moons": 8,
+        "belts": 3,
+        "stations": 1,
+        "agents": 2,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_41_p0",
+        "sys_41_p1",
+        "sys_41_p2",
+        "sys_41_p3",
+        "sys_41_p4",
+        "sys_41_p5",
+        "sys_41_p6"
+      ],
+      "moonIds": [
+        "sys_41_p0_m0",
+        "sys_41_p1_m0",
+        "sys_41_p2_m0",
+        "sys_41_p3_m0",
+        "sys_41_p3_m1",
+        "sys_41_p4_m0",
+        "sys_41_p6_m0",
+        "sys_41_p6_m1"
+      ],
+      "beltIds": [
+        "sys_41_b0",
+        "sys_41_b1",
+        "sys_41_b2"
+      ],
+      "stationIds": [
+        "sys_41_st0"
+      ],
+      "agentIds": [
+        "agent_sys_41_st0_distribution",
+        "agent_sys_41_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_40",
+        "sys_36",
+        "sys_35"
+      ]
+    },
+    {
+      "id": "sys_42",
+      "name": "Jorys",
+      "mapPosition": {
+        "x": 552.9262959770858,
+        "y": 861.5795310260728
+      },
+      "security": 0,
+      "faction": "crimson_hand",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 6,
+        "moons": 8,
+        "belts": 1,
+        "stations": 1,
+        "agents": 3,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_42_p0",
+        "sys_42_p1",
+        "sys_42_p2",
+        "sys_42_p3",
+        "sys_42_p4",
+        "sys_42_p5"
+      ],
+      "moonIds": [
+        "sys_42_p0_m0",
+        "sys_42_p0_m1",
+        "sys_42_p1_m0",
+        "sys_42_p1_m1",
+        "sys_42_p2_m0",
+        "sys_42_p3_m0",
+        "sys_42_p4_m0",
+        "sys_42_p5_m0"
+      ],
+      "beltIds": [
+        "sys_42_b0"
+      ],
+      "stationIds": [
+        "sys_42_st0"
+      ],
+      "agentIds": [
+        "agent_sys_42_st0_mining",
+        "agent_sys_42_st0_distribution",
+        "agent_sys_42_st0_security"
+      ],
+      "gateTargets": [
+        "sys_43",
+        "sys_30",
+        "sys_31"
+      ]
+    },
+    {
+      "id": "sys_43",
+      "name": "Wynea Major",
+      "mapPosition": {
+        "x": 514.3374396767467,
+        "y": 973.4506644681096
+      },
+      "security": 0,
+      "faction": "crimson_hand",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 7,
+        "moons": 8,
+        "belts": 4,
+        "stations": 1,
+        "agents": 1,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_43_p0",
+        "sys_43_p1",
+        "sys_43_p2",
+        "sys_43_p3",
+        "sys_43_p4",
+        "sys_43_p5",
+        "sys_43_p6"
+      ],
+      "moonIds": [
+        "sys_43_p0_m0",
+        "sys_43_p1_m0",
+        "sys_43_p1_m1",
+        "sys_43_p2_m0",
+        "sys_43_p3_m0",
+        "sys_43_p4_m0",
+        "sys_43_p5_m0",
+        "sys_43_p6_m0"
+      ],
+      "beltIds": [
+        "sys_43_b0",
+        "sys_43_b1",
+        "sys_43_b2",
+        "sys_43_b3"
+      ],
+      "stationIds": [
+        "sys_43_st0"
+      ],
+      "agentIds": [
+        "agent_sys_43_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_42",
+        "sys_30",
+        "sys_31"
+      ]
+    },
+    {
+      "id": "sys_44",
+      "name": "Ashos",
+      "mapPosition": {
+        "x": 971.3832760928199,
+        "y": 529.3526896741241
+      },
+      "security": 0,
+      "faction": "ashfang",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "O",
+      "counts": {
+        "planets": 6,
+        "moons": 8,
+        "belts": 1,
+        "stations": 1,
+        "agents": 3,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_44_p0",
+        "sys_44_p1",
+        "sys_44_p2",
+        "sys_44_p3",
+        "sys_44_p4",
+        "sys_44_p5"
+      ],
+      "moonIds": [
+        "sys_44_p0_m0",
+        "sys_44_p0_m1",
+        "sys_44_p1_m0",
+        "sys_44_p1_m1",
+        "sys_44_p2_m0",
+        "sys_44_p3_m0",
+        "sys_44_p4_m0",
+        "sys_44_p5_m0"
+      ],
+      "beltIds": [
+        "sys_44_b0"
+      ],
+      "stationIds": [
+        "sys_44_st0"
+      ],
+      "agentIds": [
+        "agent_sys_44_st0_mining",
+        "agent_sys_44_st0_distribution",
+        "agent_sys_44_st0_security"
+      ],
+      "gateTargets": [
+        "sys_45",
+        "sys_28",
+        "sys_37"
+      ]
+    },
+    {
+      "id": "sys_45",
+      "name": "Yorael",
+      "mapPosition": {
+        "x": 883.5500498255715,
+        "y": 443.1076163658872
+      },
+      "security": 0,
+      "faction": "ashfang",
+      "region": "nullsec",
+      "capital": false,
+      "starType": "K",
+      "counts": {
+        "planets": 7,
+        "moons": 8,
+        "belts": 3,
+        "stations": 1,
+        "agents": 2,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_45_p0",
+        "sys_45_p1",
+        "sys_45_p2",
+        "sys_45_p3",
+        "sys_45_p4",
+        "sys_45_p5",
+        "sys_45_p6"
+      ],
+      "moonIds": [
+        "sys_45_p0_m0",
+        "sys_45_p1_m0",
+        "sys_45_p2_m0",
+        "sys_45_p3_m0",
+        "sys_45_p3_m1",
+        "sys_45_p4_m0",
+        "sys_45_p6_m0",
+        "sys_45_p6_m1"
+      ],
+      "beltIds": [
+        "sys_45_b0",
+        "sys_45_b1",
+        "sys_45_b2"
+      ],
+      "stationIds": [
+        "sys_45_st0"
+      ],
+      "agentIds": [
+        "agent_sys_45_st0_distribution",
+        "agent_sys_45_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_44",
+        "sys_37",
+        "sys_28"
+      ]
+    },
+    {
+      "id": "sys_46",
+      "name": "Fenos",
+      "mapPosition": {
+        "x": 501.9653687020764,
+        "y": 461.33830464910716
+      },
+      "security": 0.5,
+      "faction": "sisters",
+      "region": "sisters",
+      "capital": false,
+      "starType": "F",
+      "counts": {
+        "planets": 6,
+        "moons": 8,
+        "belts": 1,
+        "stations": 1,
+        "agents": 3,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_46_p0",
+        "sys_46_p1",
+        "sys_46_p2",
+        "sys_46_p3",
+        "sys_46_p4",
+        "sys_46_p5"
+      ],
+      "moonIds": [
+        "sys_46_p0_m0",
+        "sys_46_p0_m1",
+        "sys_46_p1_m0",
+        "sys_46_p1_m1",
+        "sys_46_p2_m0",
+        "sys_46_p3_m0",
+        "sys_46_p4_m0",
+        "sys_46_p5_m0"
+      ],
+      "beltIds": [
+        "sys_46_b0"
+      ],
+      "stationIds": [
+        "sys_46_st0"
+      ],
+      "agentIds": [
+        "agent_sys_46_st0_mining",
+        "agent_sys_46_st0_distribution",
+        "agent_sys_46_st0_security"
+      ],
+      "gateTargets": [
+        "sys_47",
+        "sys_35",
+        "sys_34"
+      ]
+    },
+    {
+      "id": "sys_47",
+      "name": "Wyneth",
+      "mapPosition": {
+        "x": 511.96412592660636,
+        "y": 480.67783853504807
+      },
+      "security": 0.5,
+      "faction": "sisters",
+      "region": "sisters",
+      "capital": false,
+      "starType": "G",
+      "counts": {
+        "planets": 7,
+        "moons": 8,
+        "belts": 3,
+        "stations": 1,
+        "agents": 2,
+        "gates": 3
+      },
+      "planetIds": [
+        "sys_47_p0",
+        "sys_47_p1",
+        "sys_47_p2",
+        "sys_47_p3",
+        "sys_47_p4",
+        "sys_47_p5",
+        "sys_47_p6"
+      ],
+      "moonIds": [
+        "sys_47_p0_m0",
+        "sys_47_p1_m0",
+        "sys_47_p2_m0",
+        "sys_47_p3_m0",
+        "sys_47_p3_m1",
+        "sys_47_p4_m0",
+        "sys_47_p6_m0",
+        "sys_47_p6_m1"
+      ],
+      "beltIds": [
+        "sys_47_b0",
+        "sys_47_b1",
+        "sys_47_b2"
+      ],
+      "stationIds": [
+        "sys_47_st0"
+      ],
+      "agentIds": [
+        "agent_sys_47_st0_distribution",
+        "agent_sys_47_st0_mining"
+      ],
+      "gateTargets": [
+        "sys_46",
+        "sys_28",
+        "sys_35"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+:root {
+    --bg: rgba(3, 8, 20, 0.92);
+    --panel: rgba(7, 18, 38, 0.91);
+    --line: rgba(67, 190, 235, 0.38);
+    --cyan: rgb(82, 224, 255);
+    --text: rgb(210, 232, 244);
+    --muted: rgb(116, 151, 177);
+    --danger: rgb(255, 76, 82);
+}
+
+* {
+    color: var(--text);
+    -unity-font-definition: url("/Assets/Starfall/Fonts/Rajdhani/Rajdhani-Medium.ttf");
+    font-size: 15px;
+}
+
+.screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.panel {
+    background-color: var(--panel);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    padding: 12px;
+}
+
+.title {
+    -unity-font-definition: url("/Assets/Starfall/Fonts/Orbitron/Orbitron-VariableFont_wght.ttf");
+    color: var(--cyan);
+    letter-spacing: 4px;
+    font-size: 34px;
+    -unity-text-align: middle-center;
+}
+
+.eyebrow {
+    color: var(--cyan);
+    letter-spacing: 2px;
+    font-size: 12px;
+}
+
+Button {
+    background-color: rgba(11, 38, 65, 0.92);
+    border-left-color: rgba(84, 214, 255, 0.55);
+    border-right-color: rgba(84, 214, 255, 0.55);
+    border-top-color: rgba(84, 214, 255, 0.55);
+    border-bottom-color: rgba(84, 214, 255, 0.55);
+    color: var(--text);
+    min-height: 30px;
+    transition-duration: 0.12s;
+}
+
+Button:hover, Button.active, Button.chosen {
+    background-color: rgba(26, 116, 151, 0.9);
+    color: white;
+}
+
+.muted { color: var(--muted); }
+.danger { color: var(--danger); }
+.hidden { display: none; }
+
+.bar-track {
+    height: 9px;
+    margin-top: 4px;
+    background-color: rgba(1, 5, 12, 0.88);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.bar-fill { height: 9px; }
+.shield { background-color: rgb(55, 154, 255); }
+.armor { background-color: rgb(233, 162, 72); }
+.hull { background-color: rgb(212, 67, 68); }
+
+.service-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 42px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(72, 156, 190, 0.23);
+}
+
+.service-row Label { flex-grow: 1; }
+.service-row Button { width: 92px; }

@@ -1,0 +1,21 @@
+{
+  "name": "Starfall.Persistence.EditModeTests",
+  "rootNamespace": "Starfall.Tests.EditMode.Persistence",
+  "references": [
+    "Starfall.Domain",
+    "Starfall.Persistence",
+    "Unity.Newtonsoft.Json"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "noEngineReferences": false
+}

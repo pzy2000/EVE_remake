@@ -4,7 +4,10 @@
   "description": "An EVE-like 2D space exploration game in the browser",
   "type": "module",
   "scripts": {
-    "test": "node tests/run.mjs && node tests/integration.mjs",
+    "test": "node tests/run.mjs && node tests/integration.mjs && node tests/golden-fixture.mjs",
+    "test:repeat": "node tools/repeat-tests.mjs 100",
+    "fixture:check": "node tools/generate-golden-fixture.mjs --check",
+    "fixture:write": "node tools/generate-golden-fixture.mjs --write",
     "serve": "python3 -m http.server 8000"
   }
 }

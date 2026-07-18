@@ -1,0 +1,11 @@
+{
+  "name": "Starfall.Presentation.Editor",
+  "rootNamespace": "Starfall.Presentation.Editor",
+  "references": [
+    "Starfall.Presentation"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}

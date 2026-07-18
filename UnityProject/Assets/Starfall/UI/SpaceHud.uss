@@ -1,0 +1,28 @@
+.topbar { position: absolute; left: 16px; right: 16px; top: 12px; height: 52px; flex-direction: row; align-items: center; }
+.system-title { font-size: 17px; width: 230px; -unity-text-align: middle-left; }
+.security { color: rgb(89, 238, 133); width: 72px; }
+.mission { flex-grow: 1; }
+.topbar Button { margin-left: 5px; min-width: 82px; }
+.overview { position: absolute; left: 16px; top: 78px; width: 250px; bottom: 185px; }
+.overview-list { flex-grow: 1; margin-top: 7px; }
+.overview-row { -unity-text-align: middle-left; margin-bottom: 3px; }
+.target { position: absolute; right: 16px; top: 78px; width: 315px; }
+.target-name { color: var(--cyan); font-size: 21px; margin-top: 5px; }
+.button-row { flex-direction: row; margin-top: 7px; }
+.button-row Button { flex-grow: 1; margin-right: 4px; }
+.ship-status { position: absolute; left: 16px; bottom: 16px; width: 250px; }
+.module-rack { position: absolute; left: 285px; right: 285px; bottom: 16px; height: 83px; flex-direction: row; justify-content: center; }
+.module-rack Button { width: 74px; margin-right: 4px; white-space: normal; font-size: 11px; }
+.module-rack Button.active { background-color: rgb(144, 73, 27); border-top-color: rgb(255, 181, 72); }
+.combat-log { position: absolute; right: 16px; bottom: 16px; width: 315px; min-height: 104px; color: rgb(155, 198, 218); font-size: 12px; }
+.modal-overlay { display: none; background-color: rgba(0, 3, 12, 0.78); align-items: center; justify-content: center; }
+.modal-card { width: 700px; height: 610px; padding: 18px; }
+.starmap-card { width: 920px; }
+.modal-header { flex-direction: row; align-items: center; }
+.modal-header Button { width: 112px; }
+.modal-title { flex-grow: 1; font-size: 23px; -unity-text-align: middle-left; }
+.modal-list { flex-grow: 1; margin-top: 12px; }
+.modal-list Button { min-height: 36px; margin-bottom: 3px; -unity-text-align: middle-left; }
+.death-overlay { display: none; background-color: rgba(20, 0, 3, 0.78); align-items: center; justify-content: center; }
+.death-card { width: 470px; align-items: center; }
+.death-card Button { width: 220px; margin-top: 16px; }

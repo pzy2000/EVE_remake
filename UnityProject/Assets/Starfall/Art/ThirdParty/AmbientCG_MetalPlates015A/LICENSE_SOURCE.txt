@@ -1,0 +1,14 @@
+Asset: Metal Plates 015 A (MetalPlates015A)
+Creator: ambientCG
+Source: https://ambientcg.com/view?id=MetalPlates015A
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+License information: https://docs.ambientcg.com/license
+CC0 legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Accessed: 2026-07-18
+
+The ambientCG source page states that all ambientCG assets are released under
+CC0 and may be used without attribution, including commercially.
+
+Imported subset: 1K PNG Color, Ambient Occlusion, Metalness, NormalGL, and
+Roughness maps. The DirectX normal, displacement map, preview image, Blend,
+MaterialX, Godot, and USD files from the archive were intentionally omitted.

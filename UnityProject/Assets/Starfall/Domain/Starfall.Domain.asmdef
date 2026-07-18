@@ -1,0 +1,7 @@
+{
+  "name": "Starfall.Domain",
+  "rootNamespace": "Starfall.Domain",
+  "autoReferenced": true,
+  "overrideReferences": false,
+  "noEngineReferences": true
+}

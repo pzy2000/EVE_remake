@@ -1,0 +1,28 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="project://database/Assets/Starfall/UI/StarfallTheme.uss" />
+    <ui:Style src="project://database/Assets/Starfall/UI/MainMenu.uss" />
+    <ui:VisualElement name="main-menu" class="screen main-menu">
+        <ui:VisualElement class="menu-glow" />
+        <ui:VisualElement class="menu-card panel">
+            <ui:Label text="STARFALL" class="title" />
+            <ui:Label text="O D Y S S E Y" class="title subtitle" />
+            <ui:Label text="A COMMAND-DRIVEN SPACE SANDBOX" class="eyebrow" />
+            <ui:TextField name="pilot-name" label="PILOT CALLSIGN" value="Pilot" max-length="24" />
+            <ui:Label text="CHOOSE YOUR EMPIRE" class="eyebrow section-title" />
+            <ui:VisualElement class="empire-grid">
+                <ui:Button name="empire-aurelian" text="AURELIAN&#10;LASER · ARMOR" class="empire-card chosen aurelian" />
+                <ui:Button name="empire-kaldari" text="KALDARI&#10;MISSILE · SHIELD" class="empire-card kaldari" />
+                <ui:Button name="empire-meridian" text="MERIDIAN&#10;BLASTER · BRAWL" class="empire-card meridian" />
+                <ui:Button name="empire-varkhald" text="VARKHALD&#10;PROJECTILE · SPEED" class="empire-card varkhald" />
+            </ui:VisualElement>
+            <ui:Label name="empire-description" text="Golden laser specialists with resilient armor." class="muted description" />
+            <ui:Button name="launch" text="LAUNCH NEW PILOT" class="primary" />
+            <ui:VisualElement class="button-row">
+                <ui:Button name="continue" text="CONTINUE" />
+                <ui:Button name="import" text="IMPORT LEGACY V1" />
+                <ui:Button name="settings" text="SETTINGS" />
+            </ui:VisualElement>
+            <ui:Label text="UNITY 6 · 3D REMASTER · v1.0" class="muted footer" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

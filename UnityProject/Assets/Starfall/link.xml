@@ -1,0 +1,8 @@
+<linker>
+  <!-- SaveEnvelopeV2 serializes these plain C# models through Newtonsoft.Json.
+       Preserve their members in IL2CPP players so round-trip loading matches
+       the Editor and deterministic simulation tests. -->
+  <assembly fullname="Starfall.Domain" preserve="all" />
+  <assembly fullname="Starfall.Simulation" preserve="all" />
+  <assembly fullname="Starfall.Persistence" preserve="all" />
+</linker>

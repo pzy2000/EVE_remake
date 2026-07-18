@@ -1,0 +1,23 @@
+# Unity generated state
+UnityProject/[Ll]ibrary/
+UnityProject/[Tt]emp/
+UnityProject/[Oo]bj/
+UnityProject/[Ll]ogs/
+UnityProject/[Uu]ser[Ss]ettings/
+UnityProject/[Mm]emoryCaptures/
+UnityProject/[Rr]ecordings/
+
+# Local and packaged builds
+UnityProject/[Bb]uild/
+UnityProject/[Bb]uilds/
+UnityProject/*.csproj
+UnityProject/*.sln
+UnityProject/*.suo
+UnityProject/*.user
+UnityProject/*.userprefs
+
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+

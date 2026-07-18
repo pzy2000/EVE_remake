@@ -1,0 +1,33 @@
+.main-menu {
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(2, 6, 17);
+}
+
+.menu-glow {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    top: 12%;
+    bottom: 12%;
+    background-color: rgba(8, 61, 92, 0.32);
+    border-top-left-radius: 120px;
+    border-top-right-radius: 120px;
+    border-bottom-left-radius: 120px;
+    border-bottom-right-radius: 120px;
+}
+
+.menu-card { width: 720px; padding: 28px; }
+.subtitle { font-size: 18px; margin-top: -8px; margin-bottom: 10px; }
+.section-title { margin-top: 16px; margin-bottom: 7px; }
+.empire-grid { flex-direction: row; }
+.empire-card { flex-grow: 1; height: 76px; margin-right: 6px; white-space: normal; }
+.aurelian { border-top-color: rgb(245, 184, 65); }
+.kaldari { border-top-color: rgb(67, 145, 244); }
+.meridian { border-top-color: rgb(67, 224, 185); }
+.varkhald { border-top-color: rgb(225, 103, 58); }
+.description { min-height: 34px; margin-top: 8px; }
+.primary { height: 44px; font-size: 18px; letter-spacing: 2px; }
+.button-row { flex-direction: row; margin-top: 8px; }
+.button-row Button { flex-grow: 1; margin-right: 6px; }
+.footer { margin-top: 12px; -unity-text-align: middle-center; font-size: 11px; }

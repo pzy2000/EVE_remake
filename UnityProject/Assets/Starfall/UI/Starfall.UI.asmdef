@@ -1,0 +1,9 @@
+{
+  "name": "Starfall.UI",
+  "rootNamespace": "Starfall.UI",
+  "references": [
+    "Unity.InputSystem",
+    "Starfall.Presentation"
+  ],
+  "autoReferenced": true
+}

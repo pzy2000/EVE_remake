@@ -1,0 +1,11 @@
+{
+  "name": "Starfall.Persistence",
+  "rootNamespace": "Starfall.Persistence",
+  "references": [
+    "Starfall.Domain",
+    "Unity.Newtonsoft.Json"
+  ],
+  "autoReferenced": true,
+  "overrideReferences": false,
+  "noEngineReferences": false
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Starfall.Content",
+  "rootNamespace": "Starfall.Content",
+  "references": [
+    "Starfall.Domain"
+  ],
+  "autoReferenced": true,
+  "overrideReferences": false,
+  "noEngineReferences": true
+}
