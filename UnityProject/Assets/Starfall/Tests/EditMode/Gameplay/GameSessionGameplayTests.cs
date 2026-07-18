@@ -115,6 +115,7 @@ namespace Starfall.Tests.EditMode.Gameplay
             target.Shield = 1d;
             target.Armor = 1d;
             target.Hull = 1000d;
+            target.AggroRange = 0d;
             var hullBefore = target.Hull;
 
             session.Enqueue(new GameCommand(GameCommandType.Lock, target.Id));
@@ -155,6 +156,65 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(session.State.Player.Cargo[asteroid.OreId], Is.EqualTo(10d));
             Assert.That(session.State.Player.Stats.OreMined, Is.EqualTo(10d));
             Assert.That(batch.Any(value => value.Type == SimulationEventType.Inventory && value.Detail == asteroid.OreId), Is.True);
+        }
+
+        [Test]
+        public void DepletedAsteroid_ClearsSelectionStopsMinerAndEmitsDespawn()
+        {
+            var session = CreateSession();
+            var ship = session.State.Player.ActiveShip();
+            Execute(session, new GameCommand(GameCommandType.Unfit, ship.InstanceId + "|high|1"));
+            Execute(session, new GameCommand(GameCommandType.Fit,
+                ship.InstanceId + "|high|1|" + ModuleIds.MiningLaser));
+
+            Undock(session);
+            var player = session.State.PlayerEntity();
+            var asteroid = session.State.Asteroids.First();
+            asteroid.Position = player.Position;
+            asteroid.Amount = 5d;
+            var miningIndex = player.Modules.FindIndex(value => value.ModuleId == ModuleIds.MiningLaser);
+
+            session.Enqueue(new GameCommand(GameCommandType.Select, asteroid.Id));
+            session.Enqueue(new GameCommand(GameCommandType.ActivateModule, index: miningIndex));
+            var batch = session.AdvanceFrame(GameSession.FixedStepSeconds);
+
+            Assert.That(asteroid.Amount, Is.Zero);
+            Assert.That(session.State.Asteroids.Any(value => ReferenceEquals(value, asteroid)), Is.False);
+            Assert.That(session.State.SelectedId, Is.Empty);
+            Assert.That(player.Modules[miningIndex].Active, Is.False);
+            Assert.That(batch.Any(value => value.Type == SimulationEventType.Selection &&
+                                           string.IsNullOrEmpty(value.TargetId)), Is.True);
+            Assert.That(batch.Any(value => value.Type == SimulationEventType.Despawn &&
+                                           value.SourceId == asteroid.Id), Is.True);
+        }
+
+        [Test]
+        public void DeadTarget_ClearsSelectionLockAndMovementBeforeDespawn()
+        {
+            var session = CreateSession();
+            Undock(session);
+            var player = session.State.PlayerEntity();
+            var target = session.State.Entities.First(value => value.Kind == EntityKind.Npc);
+            Execute(session, new GameCommand(GameCommandType.Select, target.Id));
+            player.LockedTargetId = target.Id;
+            player.MoveTargetId = target.Id;
+            player.Movement = MovementMode.Approach;
+            player.Modules[0].Active = true;
+            target.Dead = true;
+
+            var batch = session.AdvanceFrame(GameSession.FixedStepSeconds);
+
+            Assert.That(session.State.FindEntity(target.Id), Is.Null);
+            Assert.That(session.State.SelectedId, Is.Empty);
+            Assert.That(player.LockedTargetId, Is.Empty);
+            Assert.That(player.MoveTargetId, Is.Empty);
+            Assert.That(player.Movement, Is.EqualTo(MovementMode.Idle));
+            Assert.That(player.Modules.All(value => !value.Active), Is.True,
+                "Losing a locked target must not leave weapons armed for the next lock.");
+            Assert.That(batch.Any(value => value.Type == SimulationEventType.Selection &&
+                                           string.IsNullOrEmpty(value.TargetId)), Is.True);
+            Assert.That(batch.Any(value => value.Type == SimulationEventType.Despawn &&
+                                           value.SourceId == target.Id), Is.True);
         }
 
         [Test]

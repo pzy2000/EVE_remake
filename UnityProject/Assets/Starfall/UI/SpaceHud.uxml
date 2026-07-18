@@ -13,8 +13,26 @@
             <ui:Button name="settings" text="⚙" />
         </ui:VisualElement>
         <ui:VisualElement class="overview panel">
-            <ui:Label text="OVERVIEW" class="eyebrow" />
-            <ui:ScrollView name="overview-list" class="overview-list" />
+            <ui:VisualElement class="overview-heading">
+                <ui:Label text="OVERVIEW" class="eyebrow overview-title" />
+                <ui:Label name="overview-count" text="0 CONTACTS" class="overview-count" />
+            </ui:VisualElement>
+            <ui:VisualElement class="overview-tabs">
+                <ui:Button name="overview-tab-general" text="GENERAL" />
+                <ui:Button name="overview-tab-combat" text="COMBAT" />
+                <ui:Button name="overview-tab-mining" text="MINING" />
+                <ui:Button name="overview-tab-travel" text="TRAVEL" />
+                <ui:Button name="overview-tab-all" text="ALL" class="overview-tab-last" />
+            </ui:VisualElement>
+            <ui:VisualElement class="overview-columns">
+                <ui:Button name="overview-sort-threat" text="!" tooltip="Sort by threat priority" class="overview-column overview-column-state" />
+                <ui:Button name="overview-sort-distance" text="DIST" tooltip="Sort by distance" class="overview-column overview-column-distance" />
+                <ui:Button name="overview-sort-name" text="NAME" tooltip="Sort by name" class="overview-column overview-column-name" />
+                <ui:Button name="overview-sort-type" text="TYPE" tooltip="Sort by object type" class="overview-column overview-column-type" />
+                <ui:Button name="overview-sort-velocity" text="SPEED" tooltip="Sort by velocity" class="overview-column overview-column-velocity" />
+            </ui:VisualElement>
+            <ui:ListView name="overview-list" class="overview-list" />
+            <ui:Label name="overview-empty" text="NO CONTACTS MATCH THIS FILTER" class="overview-empty" />
         </ui:VisualElement>
         <ui:VisualElement class="target panel">
             <ui:Label text="SELECTED OBJECT" class="eyebrow" />

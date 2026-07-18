@@ -43,6 +43,7 @@ namespace Starfall.Presentation
     {
         public string SystemId = string.Empty;
         public string SystemName = "Unknown";
+        public string FactionId = string.Empty;
         public float Security;
         public Color FactionColor = new(0.16f, 0.8f, 1f, 1f);
         public string SelectedId = string.Empty;

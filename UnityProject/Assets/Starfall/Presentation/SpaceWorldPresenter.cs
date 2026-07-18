@@ -18,6 +18,9 @@ namespace Starfall.Presentation
         private SpaceSnapshot snapshot;
         private Transform worldRoot;
         private EveCameraController cameraController;
+        private GameObject skyDome;
+        private Light keyLight;
+        private string presentedSkySystemId = string.Empty;
         private string selectedId = string.Empty;
         private float lastClickTime = -10f;
         private Vector2 lastClickPosition;
@@ -44,6 +47,7 @@ namespace Starfall.Presentation
         {
             if (next == null) return;
             snapshot = next;
+            PresentSystemEnvironment(next);
             dataById.Clear();
             aliveIds.Clear();
             foreach (var data in next.Objects)
@@ -143,10 +147,10 @@ namespace Starfall.Presentation
             var lightObject = new GameObject("Key Light");
             lightObject.transform.SetParent(transform, false);
             lightObject.transform.rotation = Quaternion.Euler(32f, -38f, 0);
-            var light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.15f;
-            light.color = new Color(0.72f, 0.82f, 1f);
+            keyLight = lightObject.AddComponent<Light>();
+            keyLight.type = LightType.Directional;
+            keyLight.intensity = 1.15f;
+            keyLight.color = new Color(0.72f, 0.82f, 1f);
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.025f, 0.055f, 0.12f);
@@ -157,16 +161,28 @@ namespace Starfall.Presentation
             // a scene transition. Space must always restore a clear deep-space view.
             RenderSettings.fog = false;
 
-            CreateStarfield();
             CreatePostProcessing();
         }
 
-        private void CreateStarfield()
+        private void PresentSystemEnvironment(SpaceSnapshot next)
         {
-            // A textured inside-facing dome is reliable across Metal, builds and
-            // Game View captures; the old particle-only shell could disappear.
-            ProceduralSpaceMaterials.CreateSkyDome(cameraController.transform, "space", 12345,
-                new Color(0.025f, 0.31f, 0.52f), new Color(0.34f, 0.07f, 0.42f));
+            if (string.Equals(presentedSkySystemId, next.SystemId, StringComparison.Ordinal)) return;
+
+            if (skyDome)
+            {
+                skyDome.SetActive(false);
+                Destroy(skyDome);
+            }
+
+            var style = ProceduralSpaceMaterials.GetSystemSkyStyle(
+                next.SystemId, next.FactionId, next.FactionColor, next.Security);
+            skyDome = ProceduralSpaceMaterials.CreateSystemSkyDome(cameraController.transform, style);
+            presentedSkySystemId = next.SystemId;
+
+            RenderSettings.ambientSkyColor = style.AmbientSky;
+            RenderSettings.ambientEquatorColor = style.AmbientEquator;
+            RenderSettings.ambientGroundColor = style.Background * 0.38f;
+            if (keyLight) keyLight.color = style.KeyLight;
         }
 
         private void CreatePostProcessing()

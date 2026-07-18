@@ -56,6 +56,7 @@ namespace Starfall.App
 
         public UiSnapshot Snapshot => snapshot;
         public event Action SnapshotChanged;
+        public event Action TelemetryChanged;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureRuntimeRoot()
@@ -126,13 +127,19 @@ namespace Starfall.App
             }
 
             uiTelemetryElapsed += Time.unscaledDeltaTime;
-            if (telemetryDirty && uiTelemetryElapsed >= UiTelemetryRefreshInterval)
+            if (uiDirty)
             {
-                telemetryDirty = false;
-                uiTelemetryElapsed = 0f;
-                if (UiTelemetryChanged()) uiDirty = true;
+                RefreshUiSnapshot(uiListsDirty);
             }
-            if (uiDirty) RefreshUiSnapshot(uiListsDirty);
+            else if (telemetryDirty && uiTelemetryElapsed >= UiTelemetryRefreshInterval)
+            {
+                if (UiTelemetryChanged()) RefreshUiTelemetrySnapshot();
+                else
+                {
+                    telemetryDirty = false;
+                    uiTelemetryElapsed = 0f;
+                }
+            }
         }
 
         public void StartNewGame(string pilotName, string empireId)
@@ -404,6 +411,7 @@ namespace Starfall.App
             {
                 SystemId = system.Id,
                 SystemName = system.Name,
+                FactionId = system.FactionId,
                 Security = (float)system.Security,
                 FactionColor = FactionColor(system.FactionId),
                 SelectedId = state.SelectedId,
@@ -445,7 +453,7 @@ namespace Starfall.App
                     ShipClass = definition.Class.ToString().ToLowerInvariant(),
                     FactionId = entity.FactionId,
                     IsPlayer = entity.Kind == EntityKind.Player,
-                    IsHostile = IsHostile(entity.FactionId),
+                    IsHostile = IsHostile(entity),
                     HeadingDegrees = (float)(-entity.HeadingRadians * Mathf.Rad2Deg + 90f),
                     Shield01 = (float)(entity.Shield / Math.Max(1d, entity.MaxShield)),
                     Armor01 = (float)(entity.Armor / Math.Max(1d, entity.MaxArmor)),
@@ -508,7 +516,57 @@ namespace Starfall.App
             // Distance is presentation-only telemetry and changes while either the
             // player or the selected target moves. Throttle it rather than rebuilding
             // the entire UI every rendered frame.
-            return !string.IsNullOrEmpty(state.SelectedId);
+            return !state.Docked && snapshot.Overview.Count > 0;
+        }
+
+        private void RefreshUiTelemetrySnapshot()
+        {
+            if (session == null) return;
+            var state = session.State;
+            var player = state.Player;
+            var ship = player.ActiveShip();
+            var shipDefinition = ship != null ? catalog.Ships[ship.ShipId] : null;
+            var entity = state.PlayerEntity();
+
+            snapshot.SelectedId = state.SelectedId;
+            snapshot.SelectedName = SelectedName(state.SelectedId);
+            snapshot.SelectedDetail = SelectedDetail(state.SelectedId);
+            snapshot.Docked = state.Docked;
+            snapshot.PlayerDead = state.PlayerDead;
+            snapshot.Speed = entity != null ? (float)entity.Speed : 0f;
+            snapshot.Shield01 = entity != null
+                ? (float)(entity.Shield / Math.Max(1d, entity.MaxShield))
+                : shipDefinition != null ? (float)(ship.Shield / shipDefinition.HitPoints.Shield) : 0f;
+            snapshot.Armor01 = entity != null
+                ? (float)(entity.Armor / Math.Max(1d, entity.MaxArmor))
+                : shipDefinition != null ? (float)(ship.Armor / shipDefinition.HitPoints.Armor) : 0f;
+            snapshot.Hull01 = entity != null
+                ? (float)(entity.Hull / Math.Max(1d, entity.MaxHull))
+                : shipDefinition != null ? (float)(ship.Hull / shipDefinition.HitPoints.Hull) : 0f;
+
+            if (entity != null && snapshot.Modules.Count != entity.Modules.Count)
+            {
+                MarkUiDirty();
+                return;
+            }
+            if (entity != null)
+            {
+                for (var i = 0; i < entity.Modules.Count; i++)
+                {
+                    var runtime = entity.Modules[i];
+                    var module = snapshot.Modules[i];
+                    var definition = catalog.Modules[runtime.ModuleId];
+                    module.Active = runtime.Active;
+                    module.Cooldown01 = definition.CycleTime > 0d
+                        ? (float)(runtime.Cooldown / definition.CycleTime)
+                        : 0f;
+                }
+            }
+
+            OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
+            telemetryDirty = false;
+            uiTelemetryElapsed = 0f;
+            TelemetryChanged?.Invoke();
         }
 
         private void BuildUiSnapshot(bool rebuildLists)
@@ -546,6 +604,7 @@ namespace Starfall.App
             snapshot.Hull01 = entity != null ? (float)(entity.Hull / Math.Max(1d, entity.MaxHull)) : shipDefinition != null ? (float)(ship.Hull / shipDefinition.HitPoints.Hull) : 0f;
             snapshot.MissionSummary = ActiveMissionSummary();
             if (rebuildLists) RebuildLists();
+            else OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
             snapshot.Log.Clear();
             snapshot.Log.AddRange(log);
             snapshot.Modules.Clear();
@@ -572,12 +631,7 @@ namespace Starfall.App
             var state = session.State;
             var player = state.Player;
             var system = state.Universe.Systems[player.CurrentSystemId];
-            snapshot.Overview.Clear();
-            foreach (var station in system.Stations) snapshot.Overview.Add(Item(station.Id, "STATION · " + station.Name, "Dock within 40 m"));
-            foreach (var gate in system.Gates) snapshot.Overview.Add(Item(gate.Id, "GATE · " + gate.Name, "Jump within 35 m"));
-            foreach (var belt in system.Belts) snapshot.Overview.Add(Item(belt.Id, "BELT · " + belt.Name, catalog.Items[belt.OreId].Name));
-            foreach (var entity in state.Entities) if (entity.Kind == EntityKind.Npc) snapshot.Overview.Add(Item(entity.Id, (IsHostile(entity.FactionId) ? "HOSTILE · " : "SHIP · ") + entity.Name, catalog.Ships[entity.ShipId].Class.ToString()));
-            foreach (var asteroid in state.Asteroids.Take(24)) snapshot.Overview.Add(Item(asteroid.Id, "ORE · " + catalog.Items[asteroid.OreId].Name, asteroid.Amount.ToString("0") + " units"));
+            OverviewContactBuilder.Rebuild(snapshot.Overview, session, catalog);
 
             snapshot.Starmap.Clear();
             foreach (var mapSystem in state.Universe.OrderedSystems)
@@ -896,6 +950,13 @@ namespace Starfall.App
             var station = system.Stations.Find(value => value.Id == id); if (station != null) return station.Name;
             var gate = system.Gates.Find(value => value.Id == id); if (gate != null) return gate.Name;
             var belt = system.Belts.Find(value => value.Id == id); if (belt != null) return belt.Name;
+            if (string.Equals(id, system.Id + "_star", StringComparison.Ordinal)) return system.Name + " Star";
+            var planet = system.Planets.Find(value => value.Id == id); if (planet != null) return planet.Name;
+            for (var i = 0; i < system.Planets.Count; i++)
+            {
+                var moon = system.Planets[i].Moons.Find(value => value.Id == id);
+                if (moon != null) return moon.Name;
+            }
             return id;
         }
 
@@ -915,17 +976,23 @@ namespace Starfall.App
             var station = system.Stations.Find(value => value.Id == id); if (station != null) { result = station.Position; return true; }
             var gate = system.Gates.Find(value => value.Id == id); if (gate != null) { result = gate.Position; return true; }
             var belt = system.Belts.Find(value => value.Id == id); if (belt != null) { result = belt.Position; return true; }
+            if (string.Equals(id, system.Id + "_star", StringComparison.Ordinal)) { result = SimVec2.Zero; return true; }
+            var planet = system.Planets.Find(value => value.Id == id); if (planet != null) { result = planet.Position; return true; }
+            for (var i = 0; i < system.Planets.Count; i++)
+            {
+                var moon = system.Planets[i].Moons.Find(value => value.Id == id);
+                if (moon != null) { result = moon.Position; return true; }
+            }
             result = SimVec2.Zero;
             return false;
         }
 
-        private bool IsHostile(string factionId)
+        private bool IsHostile(EntityState entity)
         {
-            if (!catalog.Factions.TryGetValue(factionId, out var faction)) return false;
-            if (faction.Kind == FactionKind.Police) return session.State.Player.CriminalTimer > 0d;
-            if (faction.Kind != FactionKind.Pirate) return false;
-            session.State.Player.Standings.TryGetValue(factionId, out var direct);
-            return direct <= 0d;
+            if (entity == null || session == null) return false;
+            var player = session.State.PlayerEntity();
+            return EntityDispositionPolicy.Evaluate(entity, session.State.Player, catalog,
+                       player != null ? player.Id : "player") == EntityDisposition.Hostile;
         }
 
         private Color FactionColor(string factionId)

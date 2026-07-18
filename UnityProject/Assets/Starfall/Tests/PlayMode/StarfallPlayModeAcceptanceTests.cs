@@ -22,13 +22,32 @@ namespace Starfall.Tests.PlayMode
     public sealed class SceneFlowAcceptanceTests
     {
         private const float SceneTimeoutSeconds = 15f;
+        private const string OverviewPreferencePrefix = "starfall.overview.v1";
+        private static readonly string[] OverviewPreferenceKeys =
+        {
+            OverviewPreferencePrefix + ".active",
+            OverviewPreferencePrefix + ".General.sort-column",
+            OverviewPreferencePrefix + ".General.sort-direction",
+            OverviewPreferencePrefix + ".Combat.sort-column",
+            OverviewPreferencePrefix + ".Combat.sort-direction",
+            OverviewPreferencePrefix + ".Mining.sort-column",
+            OverviewPreferencePrefix + ".Mining.sort-direction",
+            OverviewPreferencePrefix + ".Travel.sort-column",
+            OverviewPreferencePrefix + ".Travel.sort-direction",
+            OverviewPreferencePrefix + ".All.sort-column",
+            OverviewPreferencePrefix + ".All.sort-direction",
+        };
+
         private AppRoot app;
         private string temporarySaveDirectory;
+        private readonly Dictionary<string, int> savedOverviewPreferences = new(StringComparer.Ordinal);
+        private readonly HashSet<string> missingOverviewPreferences = new(StringComparer.Ordinal);
 
         [UnitySetUp]
         public IEnumerator SetUp()
         {
             yield return DestroyExistingAppRoots();
+            CaptureAndClearOverviewPreferences();
 
             temporarySaveDirectory = Path.Combine(
                 Application.temporaryCachePath,
@@ -55,6 +74,7 @@ namespace Starfall.Tests.PlayMode
         public IEnumerator TearDown()
         {
             yield return DestroyExistingAppRoots();
+            RestoreOverviewPreferences();
 
             if (!string.IsNullOrEmpty(temporarySaveDirectory) && Directory.Exists(temporarySaveDirectory))
                 Directory.Delete(temporarySaveDirectory, true);
@@ -290,6 +310,190 @@ namespace Starfall.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator EveStyleOverview_TypedContactsPresetsAndUiStayInSync()
+        {
+            yield return StartNewGameAndAssertStation("aurelian");
+            app.Execute("undock");
+            yield return WaitForScene("Space");
+            yield return WaitForCondition(
+                () => !app.Snapshot.Docked && app.Snapshot.Overview.Count > 0,
+                "Typed Overview contacts did not populate after undocking.");
+
+            var session = GetSession();
+            var state = session.State;
+            var player = state.PlayerEntity();
+            Assert.That(player, Is.Not.Null, "Undocking must create the player ship entity.");
+            Assert.That(app.Snapshot.Overview.Any(contact => contact.Id == player.Id), Is.False,
+                "The player's own ship must never be listed as an Overview contact.");
+
+            var requiredKinds = new[]
+            {
+                OverviewKind.Ship,
+                OverviewKind.Station,
+                OverviewKind.Stargate,
+                OverviewKind.AsteroidBelt,
+                OverviewKind.Asteroid,
+                OverviewKind.Star,
+                OverviewKind.Planet,
+                OverviewKind.Moon,
+            };
+            foreach (var kind in requiredKinds)
+            {
+                Assert.That(app.Snapshot.Overview.Any(contact => contact.Kind == kind), Is.True,
+                    $"The seed-12345 starting system must expose a typed {kind} contact.");
+            }
+
+            foreach (var contact in app.Snapshot.Overview)
+            {
+                Assert.That(contact, Is.Not.Null);
+                Assert.That(contact.Id, Is.Not.Empty);
+                Assert.That(contact.Name, Is.Not.Empty, $"Overview contact '{contact.Id}' has no name.");
+                Assert.That(contact.Category, Is.EqualTo(OverviewRules.CategoryFor(contact.Kind)),
+                    $"Overview contact '{contact.Id}' has an inconsistent category.");
+                Assert.That(contact.DistanceMeters, Is.GreaterThanOrEqualTo(0d),
+                    $"Overview contact '{contact.Id}' has unresolved distance telemetry.");
+            }
+
+            foreach (OverviewPresetId preset in Enum.GetValues(typeof(OverviewPresetId)))
+            {
+                foreach (var contact in app.Snapshot.Overview)
+                {
+                    Assert.That(OverviewRules.IsVisible(preset, contact),
+                        Is.EqualTo(ExpectedOverviewVisibility(preset, contact)),
+                        $"{preset} visibility disagrees with the acceptance matrix for " +
+                        $"'{contact.Id}' ({contact.Kind}, {contact.Disposition}, {contact.States}).");
+                }
+            }
+
+            var target = state.Entities.FirstOrDefault(entity => entity.Kind == EntityKind.Npc && !entity.Dead);
+            Assert.That(target, Is.Not.Null, "The generated system must contain a live NPC ship.");
+            target.Position = player.Position + new SimVec2(10d, 0d);
+
+            app.Execute("select", target.Id);
+            yield return WaitForCondition(
+                () => HasOverviewState(target.Id, OverviewStateFlags.Selected),
+                "Selecting an Overview ship did not set its Selected presentation flag.");
+
+            app.Execute("lock", target.Id);
+            yield return WaitForCondition(
+                () => HasOverviewState(target.Id, OverviewStateFlags.LockedByPlayer),
+                "Locking an Overview ship did not set its LockedByPlayer presentation flag.");
+
+            var controller = Object.FindFirstObjectByType<SpaceHudController>();
+            Assert.That(controller, Is.Not.Null, "Space must contain the Overview UI controller.");
+            var root = controller.GetComponent<UIDocument>().rootVisualElement;
+            var overviewList = root.Q<ListView>("overview-list");
+            Assert.That(overviewList, Is.Not.Null,
+                "The Overview must use the stable 'overview-list' virtualized ListView.");
+            Assert.That(overviewList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+            yield return WaitForCondition(
+                () => overviewList.itemsSource != null,
+                "Overview ListView never received its typed itemsSource.");
+            Assert.That(overviewList.itemsSource.Cast<object>().All(item => item is UiOverviewContact), Is.True,
+                "Overview ListView itemsSource must contain only typed UiOverviewContact rows.");
+
+            Assert.That(root.Q<Button>("approach").enabledSelf, Is.True);
+            Assert.That(root.Q<Button>("orbit").enabledSelf, Is.True);
+            Assert.That(root.Q<Button>("warp").enabledSelf, Is.True);
+            Assert.That(root.Q<Button>("lock").enabledSelf, Is.True);
+            Assert.That(root.Q<Button>("dock").enabledSelf, Is.False,
+                "A selected ship must not expose dock or jump as a valid Overview action.");
+
+            var dockButton = root.Q<Button>("dock");
+            var stationContact = app.Snapshot.Overview.First(contact =>
+                contact.Kind == OverviewKind.Station && contact.DistanceMeters > 40d);
+            app.Execute("select", stationContact.Id);
+            yield return WaitForCondition(
+                () => app.Snapshot.SelectedId == stationContact.Id && !dockButton.enabledSelf,
+                "A station outside docking range incorrectly exposed Dock as executable.");
+            Assert.That(dockButton.text, Is.EqualTo("DOCK/JUMP [D]"));
+            Assert.That(root.Q<Button>("orbit").enabledSelf, Is.False);
+            Assert.That(root.Q<Button>("lock").enabledSelf, Is.False);
+
+            var system = state.Universe.Systems[state.Player.CurrentSystemId];
+            player.Position = system.Stations.First(value => value.Id == stationContact.Id).Position;
+            yield return WaitForCondition(
+                () => dockButton.enabledSelf,
+                "Moving within 40 m did not enable Dock for the selected station.");
+
+            var gateContact = app.Snapshot.Overview.First(contact =>
+                contact.Kind == OverviewKind.Stargate && contact.DistanceMeters > 35d);
+            app.Execute("select", gateContact.Id);
+            yield return WaitForCondition(
+                () => app.Snapshot.SelectedId == gateContact.Id && !dockButton.enabledSelf,
+                "A stargate outside jump range incorrectly exposed Jump as executable.");
+            player.Position = system.Gates.First(value => value.Id == gateContact.Id).Position;
+            yield return WaitForCondition(
+                () => dockButton.enabledSelf,
+                "Moving within 35 m did not enable Jump for the selected stargate.");
+
+            yield return AssertOverviewPresetUi(root, overviewList, OverviewPresetId.Mining, "mining");
+            yield return AssertOverviewPresetUi(root, overviewList, OverviewPresetId.Travel, "travel");
+            yield return AssertOverviewPresetUi(root, overviewList, OverviewPresetId.All, "all");
+
+            var nameSort = root.Q<Button>("overview-sort-name");
+            Assert.That(nameSort, Is.Not.Null, "The NAME column must expose a stable sort button.");
+            SendClick(nameSort);
+            yield return WaitForCondition(
+                () => nameSort.ClassListContains("sorted") && nameSort.text.Contains("↑") &&
+                      IsOverviewSorted(overviewList, OverviewSortColumn.Name,
+                          OverviewSortDirection.Ascending),
+                "Clicking NAME did not produce a marked, ascending stable sort.");
+            var ascendingIds = OverviewItems(overviewList).Select(contact => contact.Id).ToArray();
+
+            SendClick(nameSort);
+            yield return WaitForCondition(
+                () => nameSort.ClassListContains("sorted") && nameSort.text.Contains("↓") &&
+                      IsOverviewSorted(overviewList, OverviewSortColumn.Name,
+                          OverviewSortDirection.Descending),
+                "Clicking NAME twice did not produce a marked, descending stable sort.");
+            var descendingIds = OverviewItems(overviewList).Select(contact => contact.Id).ToArray();
+            Assert.That(ascendingIds.Length, Is.GreaterThan(1));
+            Assert.That(ascendingIds.SequenceEqual(descendingIds), Is.False,
+                "Reversing a populated NAME sort must visibly change the row order.");
+
+            var starmapList = root.Q<ScrollView>("starmap-list");
+            Assert.That(starmapList, Is.Not.Null);
+            Assert.That(starmapList.contentContainer.childCount, Is.GreaterThan(0));
+            var firstStarmapRow = starmapList.contentContainer[0];
+            yield return new WaitForSecondsRealtime(0.25f);
+            CollectionAssert.AreEqual(descendingIds,
+                OverviewItems(overviewList).Select(contact => contact.Id).ToArray(),
+                "10 Hz telemetry refresh must not destabilize a name-sorted Overview.");
+            Assert.That(starmapList.contentContainer[0], Is.SameAs(firstStarmapRow),
+                "10 Hz Overview telemetry must not rebuild unchanged hidden starmap buttons.");
+
+            var depletedAsteroid = state.Asteroids.First(asteroid => asteroid.Amount > 0d);
+            var deadNpcId = target.Id;
+            var depletedAsteroidId = depletedAsteroid.Id;
+            app.Execute("select", deadNpcId);
+            yield return WaitForCondition(
+                () => app.Snapshot.SelectedId == deadNpcId,
+                "Could not reselect the NPC before testing stale-target cleanup.");
+            player.LockedTargetId = deadNpcId;
+            target.Dead = true;
+            yield return WaitForCondition(
+                () => state.FindEntity(deadNpcId) == null && string.IsNullOrEmpty(app.Snapshot.SelectedId),
+                "Despawning the selected NPC left a stale Overview selection.");
+            Assert.That(player.LockedTargetId, Is.Empty);
+            Assert.That(root.Q<Label>("target-name").text, Is.EqualTo("No target"));
+            Assert.That(root.Q<Button>("approach").enabledSelf, Is.False);
+            Assert.That(root.Q<Button>("warp").enabledSelf, Is.False);
+            Assert.That(dockButton.enabledSelf, Is.False);
+
+            depletedAsteroid.Amount = 0d;
+            RefreshUiSnapshotWithStructuralLists();
+            yield return WaitForCondition(
+                () => app.Snapshot.Overview.All(contact => contact.Id != deadNpcId) &&
+                      app.Snapshot.Overview.All(contact => contact.Id != depletedAsteroidId),
+                "A structural Overview refresh retained a dead NPC or depleted asteroid.");
+
+            yield return AssertOverviewPresetUi(root, overviewList, OverviewPresetId.All, "all");
+            Assert.That(OverviewItems(overviewList).Any(contact => contact.Id == deadNpcId), Is.False);
+            Assert.That(OverviewItems(overviewList).Any(contact => contact.Id == depletedAsteroidId), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator NearbyStation_DockCommand_ReturnsSpaceToStation()
         {
             yield return StartNewGameAndAssertStation("aurelian");
@@ -375,6 +579,149 @@ namespace Starfall.Tests.PlayMode
             var session = sessionField.GetValue(app) as GameSession;
             Assert.That(session, Is.Not.Null, "AppRoot has no active GameSession.");
             return session;
+        }
+
+        private bool HasOverviewState(string contactId, OverviewStateFlags state)
+        {
+            var contact = app.Snapshot.Overview.FirstOrDefault(item => item.Id == contactId);
+            return contact != null && (contact.States & state) != 0;
+        }
+
+        private IEnumerator AssertOverviewPresetUi(
+            VisualElement root,
+            ListView list,
+            OverviewPresetId preset,
+            string buttonSuffix)
+        {
+            var button = root.Q<Button>("overview-tab-" + buttonSuffix);
+            Assert.That(button, Is.Not.Null, $"{preset} must expose a stable tab button.");
+            SendClick(button);
+
+            var expectedIds = new HashSet<string>(
+                app.Snapshot.Overview
+                    .Where(contact => ExpectedOverviewVisibility(preset, contact))
+                    .Select(contact => contact.Id),
+                StringComparer.Ordinal);
+            yield return WaitForCondition(
+                () => button.ClassListContains("chosen") &&
+                      OverviewItems(list).Count == expectedIds.Count &&
+                      OverviewItems(list).All(contact => expectedIds.Contains(contact.Id)),
+                $"{preset} tab did not apply its expected filter to the live ListView.");
+
+            var actual = OverviewItems(list);
+            Assert.That(actual.All(contact => OverviewRules.IsVisible(preset, contact)), Is.True,
+                $"{preset} ListView contains a contact rejected by OverviewRules.");
+            CollectionAssert.AreEquivalent(expectedIds, actual.Select(contact => contact.Id).ToArray(),
+                $"{preset} ListView does not match the typed snapshot filter.");
+        }
+
+        private void RefreshUiSnapshotWithStructuralLists()
+        {
+            var refresh = typeof(AppRoot).GetMethod(
+                "RefreshUiSnapshot",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(bool) },
+                null);
+            Assert.That(refresh, Is.Not.Null,
+                "The acceptance fixture could not request a structural UI refresh.");
+            refresh.Invoke(app, new object[] { true });
+        }
+
+        private static bool ExpectedOverviewVisibility(
+            OverviewPresetId preset,
+            UiOverviewContact contact)
+        {
+            if (contact == null) return false;
+            switch (preset)
+            {
+                case OverviewPresetId.General:
+                    return contact.Kind == OverviewKind.Ship ||
+                           contact.Kind == OverviewKind.Station ||
+                           contact.Kind == OverviewKind.Stargate ||
+                           contact.Kind == OverviewKind.AsteroidBelt;
+                case OverviewPresetId.Combat:
+                    return contact.Kind == OverviewKind.Ship && IsThreatOrExplicitTarget(contact);
+                case OverviewPresetId.Mining:
+                    return contact.Kind == OverviewKind.AsteroidBelt ||
+                           contact.Kind == OverviewKind.Asteroid ||
+                           contact.Kind == OverviewKind.Ship && IsThreatOrExplicitTarget(contact);
+                case OverviewPresetId.Travel:
+                    return contact.Kind == OverviewKind.Station ||
+                           contact.Kind == OverviewKind.Stargate ||
+                           contact.Kind == OverviewKind.AsteroidBelt ||
+                           contact.Kind == OverviewKind.Star ||
+                           contact.Kind == OverviewKind.Planet ||
+                           contact.Kind == OverviewKind.Moon ||
+                           contact.Kind == OverviewKind.Ship && IsThreatOrExplicitTarget(contact);
+                case OverviewPresetId.All:
+                    return contact.Kind >= OverviewKind.Ship && contact.Kind <= OverviewKind.Star;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsThreatOrExplicitTarget(UiOverviewContact contact)
+        {
+            const OverviewStateFlags explicitTargetStates =
+                OverviewStateFlags.TargetingPlayer |
+                OverviewStateFlags.LockedByPlayer |
+                OverviewStateFlags.MissionObjective;
+            return contact.Disposition == OverviewDisposition.Hostile ||
+                   (contact.States & explicitTargetStates) != 0;
+        }
+
+        private static List<UiOverviewContact> OverviewItems(ListView list)
+        {
+            return list?.itemsSource == null
+                ? new List<UiOverviewContact>()
+                : list.itemsSource.Cast<object>().OfType<UiOverviewContact>().ToList();
+        }
+
+        private static bool IsOverviewSorted(
+            ListView list,
+            OverviewSortColumn column,
+            OverviewSortDirection direction)
+        {
+            var items = OverviewItems(list);
+            var comparer = OverviewContactComparer.Get(column, direction);
+            for (var i = 1; i < items.Count; i++)
+            {
+                if (comparer.Compare(items[i - 1], items[i]) > 0) return false;
+            }
+            return true;
+        }
+
+        private static void SendClick(Button button)
+        {
+            using (var click = ClickEvent.GetPooled())
+            {
+                click.target = button;
+                button.SendEvent(click);
+            }
+        }
+
+        private void CaptureAndClearOverviewPreferences()
+        {
+            savedOverviewPreferences.Clear();
+            missingOverviewPreferences.Clear();
+            foreach (var key in OverviewPreferenceKeys)
+            {
+                if (PlayerPrefs.HasKey(key)) savedOverviewPreferences[key] = PlayerPrefs.GetInt(key);
+                else missingOverviewPreferences.Add(key);
+                PlayerPrefs.DeleteKey(key);
+            }
+            PlayerPrefs.Save();
+        }
+
+        private void RestoreOverviewPreferences()
+        {
+            foreach (var key in OverviewPreferenceKeys)
+            {
+                if (savedOverviewPreferences.TryGetValue(key, out var value)) PlayerPrefs.SetInt(key, value);
+                else if (missingOverviewPreferences.Contains(key)) PlayerPrefs.DeleteKey(key);
+            }
+            PlayerPrefs.Save();
         }
 
         private static void AssertUiDocument<TController>(string sceneName)

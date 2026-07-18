@@ -5,29 +5,204 @@ using UnityEngine.Rendering;
 
 namespace Starfall.Presentation
 {
+    public readonly struct SystemSkyStyle
+    {
+        public SystemSkyStyle(string systemId, string factionId, int seed, Color background,
+            Color nebulaA, Color nebulaB, Color starA, Color starB, Color keyLight,
+            Color ambientSky, Color ambientEquator, float nebulaStrength, float ribbonWidth,
+            float patternFrequency, int starCount, float rotationDegrees, int pattern)
+        {
+            SystemId = systemId;
+            FactionId = factionId;
+            Seed = seed;
+            Background = background;
+            NebulaA = nebulaA;
+            NebulaB = nebulaB;
+            StarA = starA;
+            StarB = starB;
+            KeyLight = keyLight;
+            AmbientSky = ambientSky;
+            AmbientEquator = ambientEquator;
+            NebulaStrength = nebulaStrength;
+            RibbonWidth = ribbonWidth;
+            PatternFrequency = patternFrequency;
+            StarCount = starCount;
+            RotationDegrees = rotationDegrees;
+            Pattern = pattern;
+        }
+
+        public string SystemId { get; }
+        public string FactionId { get; }
+        public int Seed { get; }
+        public Color Background { get; }
+        public Color NebulaA { get; }
+        public Color NebulaB { get; }
+        public Color StarA { get; }
+        public Color StarB { get; }
+        public Color KeyLight { get; }
+        public Color AmbientSky { get; }
+        public Color AmbientEquator { get; }
+        public float NebulaStrength { get; }
+        public float RibbonWidth { get; }
+        public float PatternFrequency { get; }
+        public int StarCount { get; }
+        public float RotationDegrees { get; }
+        public int Pattern { get; }
+    }
+
     public static class ProceduralSpaceMaterials
     {
+        private const int MaxCachedSkies = 8;
         private static readonly Dictionary<string, Material> Materials = new(StringComparer.Ordinal);
         private static readonly Dictionary<string, Texture2D> Textures = new(StringComparer.Ordinal);
+        private static readonly Queue<string> SkyCacheKeys = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()
         {
             Materials.Clear();
             Textures.Clear();
+            SkyCacheKeys.Clear();
         }
 
         public static GameObject CreateSkyDome(Transform parent, string key, int seed, Color nebulaA, Color nebulaB)
         {
-            var dome = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            dome.name = "Nebula Sky Dome";
-            dome.transform.SetParent(parent, false);
-            dome.transform.localPosition = Vector3.zero;
-            dome.transform.localRotation = Quaternion.Euler(0f, seed % 360, 0f);
-            dome.transform.localScale = Vector3.one * 1600f;
-            dome.GetComponent<Renderer>().sharedMaterial = GetSkyMaterial(key, seed, nebulaA, nebulaB);
-            if (dome.TryGetComponent<Collider>(out var collider)) UnityEngine.Object.Destroy(collider);
-            return dome;
+            var style = CreateGenericStyle(key, seed, nebulaA, nebulaB);
+            return CreateSkyDome(parent, key, style);
+        }
+
+        public static GameObject CreateSystemSkyDome(Transform parent, SystemSkyStyle style)
+        {
+            return CreateSkyDome(parent, $"system-{style.SystemId}-{style.FactionId}", style);
+        }
+
+        public static SystemSkyStyle GetSystemSkyStyle(string systemId, string factionId,
+            Color factionColor, float security)
+        {
+            var safeSystemId = string.IsNullOrWhiteSpace(systemId) ? "unknown" : systemId;
+            var safeFactionId = string.IsNullOrWhiteSpace(factionId) ? "unclaimed" : factionId;
+            var seed = StableSeed(safeSystemId);
+            var variation = ((uint)seed >> 8 & 255u) / 255f;
+            var security01 = Mathf.InverseLerp(-0.1f, 1f, security);
+
+            Color background;
+            Color nebulaA;
+            Color nebulaB;
+            Color starA;
+            Color starB;
+            float strength;
+            float width;
+            float frequency;
+            int stars;
+            int pattern;
+
+            switch (safeFactionId)
+            {
+                case "aurelian":
+                    background = new Color(0.014f, 0.006f, 0.018f);
+                    nebulaA = new Color(0.92f, 0.48f, 0.055f);
+                    nebulaB = new Color(0.42f, 0.055f, 0.10f);
+                    starA = new Color(1f, 0.87f, 0.48f);
+                    starB = new Color(1f, 0.96f, 0.82f);
+                    strength = 1.05f; width = 0.15f; frequency = 3.2f; stars = 1580; pattern = 0;
+                    break;
+                case "kaldari":
+                    background = new Color(0.002f, 0.009f, 0.027f);
+                    nebulaA = new Color(0.055f, 0.32f, 0.90f);
+                    nebulaB = new Color(0.04f, 0.72f, 0.90f);
+                    starA = new Color(0.55f, 0.78f, 1f);
+                    starB = new Color(0.86f, 0.95f, 1f);
+                    strength = 0.92f; width = 0.12f; frequency = 5.2f; stars = 1950; pattern = 1;
+                    break;
+                case "meridian":
+                    background = new Color(0.002f, 0.018f, 0.023f);
+                    nebulaA = new Color(0.035f, 0.76f, 0.62f);
+                    nebulaB = new Color(0.28f, 0.08f, 0.56f);
+                    starA = new Color(0.55f, 1f, 0.84f);
+                    starB = new Color(0.78f, 0.82f, 1f);
+                    strength = 1.08f; width = 0.20f; frequency = 4.1f; stars = 1700; pattern = 2;
+                    break;
+                case "varkhald":
+                    background = new Color(0.022f, 0.006f, 0.003f);
+                    nebulaA = new Color(0.78f, 0.19f, 0.045f);
+                    nebulaB = new Color(0.34f, 0.20f, 0.035f);
+                    starA = new Color(1f, 0.56f, 0.30f);
+                    starB = new Color(1f, 0.84f, 0.62f);
+                    strength = 1.12f; width = 0.25f; frequency = 6f; stars = 1420; pattern = 3;
+                    break;
+                case "blood_reavers":
+                    background = new Color(0.018f, 0.001f, 0.006f);
+                    nebulaA = new Color(0.68f, 0.015f, 0.06f);
+                    nebulaB = new Color(0.18f, 0.012f, 0.025f);
+                    starA = new Color(1f, 0.35f, 0.30f);
+                    starB = new Color(0.78f, 0.70f, 0.66f);
+                    strength = 1.18f; width = 0.18f; frequency = 7.2f; stars = 1120; pattern = 3;
+                    break;
+                case "nathari":
+                    background = new Color(0.008f, 0.002f, 0.022f);
+                    nebulaA = new Color(0.40f, 0.06f, 0.74f);
+                    nebulaB = new Color(0.02f, 0.58f, 0.72f);
+                    starA = new Color(0.72f, 0.48f, 1f);
+                    starB = new Color(0.46f, 0.94f, 1f);
+                    strength = 1.1f; width = 0.13f; frequency = 8f; stars = 1380; pattern = 1;
+                    break;
+                case "crimson_hand":
+                    background = new Color(0.020f, 0.002f, 0.014f);
+                    nebulaA = new Color(0.82f, 0.025f, 0.24f);
+                    nebulaB = new Color(0.36f, 0.025f, 0.46f);
+                    starA = new Color(1f, 0.42f, 0.60f);
+                    starB = new Color(0.86f, 0.70f, 1f);
+                    strength = 1.14f; width = 0.17f; frequency = 6.8f; stars = 1260; pattern = 2;
+                    break;
+                case "ashfang":
+                    background = new Color(0.015f, 0.012f, 0.002f);
+                    nebulaA = new Color(0.50f, 0.42f, 0.045f);
+                    nebulaB = new Color(0.43f, 0.11f, 0.025f);
+                    starA = new Color(0.88f, 0.86f, 0.40f);
+                    starB = new Color(1f, 0.56f, 0.28f);
+                    strength = 1.04f; width = 0.28f; frequency = 5.7f; stars = 1180; pattern = 3;
+                    break;
+                case "sisters":
+                    background = new Color(0.008f, 0.014f, 0.025f);
+                    nebulaA = new Color(0.68f, 0.80f, 0.92f);
+                    nebulaB = new Color(0.27f, 0.50f, 0.62f);
+                    starA = new Color(1f, 0.98f, 0.90f);
+                    starB = new Color(0.72f, 0.88f, 1f);
+                    strength = 0.72f; width = 0.24f; frequency = 2.6f; stars = 2050; pattern = 0;
+                    break;
+                case "directorate":
+                    background = new Color(0.004f, 0.009f, 0.020f);
+                    nebulaA = new Color(0.70f, 0.78f, 0.86f);
+                    nebulaB = new Color(0.88f, 0.56f, 0.04f);
+                    starA = new Color(0.90f, 0.96f, 1f);
+                    starB = new Color(1f, 0.78f, 0.28f);
+                    strength = 0.82f; width = 0.10f; frequency = 4.8f; stars = 1900; pattern = 1;
+                    break;
+                default:
+                    background = Color.Lerp(new Color(0.002f, 0.006f, 0.018f), factionColor * 0.055f, 0.55f);
+                    nebulaA = Color.Lerp(factionColor, Color.white, 0.08f);
+                    nebulaB = Color.Lerp(factionColor, new Color(0.24f, 0.06f, 0.42f), 0.45f);
+                    starA = Color.Lerp(factionColor, Color.white, 0.52f);
+                    starB = Color.white;
+                    strength = 0.94f; width = 0.19f; frequency = 4.4f; stars = 1600; pattern = 2;
+                    break;
+            }
+
+            var colorShift = Mathf.Lerp(0.90f, 1.10f, variation);
+            nebulaA *= colorShift;
+            nebulaB *= Mathf.Lerp(1.08f, 0.91f, variation);
+            strength *= Mathf.Lerp(1.12f, 0.86f, security01) * Mathf.Lerp(0.92f, 1.08f, variation);
+            width *= Mathf.Lerp(0.86f, 1.14f, 1f - variation);
+            frequency *= Mathf.Lerp(0.91f, 1.12f, variation);
+            stars += Mathf.RoundToInt(Mathf.Lerp(-160f, 180f, variation));
+            background *= Mathf.Lerp(0.66f, 1.04f, security01);
+
+            return new SystemSkyStyle(safeSystemId, safeFactionId, seed, background,
+                nebulaA, nebulaB, starA, starB,
+                Color.Lerp(new Color(0.62f, 0.72f, 0.88f), starA, 0.30f),
+                Color.Lerp(background * 2.8f, nebulaA * 0.12f, 0.45f),
+                Color.Lerp(background * 1.7f, nebulaB * 0.08f, 0.35f),
+                strength, width, frequency, stars, PositiveModulo(seed, 360), pattern);
         }
 
         public static Material GetPlanetMaterial(string id, Color baseColor, bool moon)
@@ -75,22 +250,37 @@ namespace Starfall.Presentation
             return material;
         }
 
-        private static Material GetSkyMaterial(string key, int seed, Color nebulaA, Color nebulaB)
+        private static GameObject CreateSkyDome(Transform parent, string key, SystemSkyStyle style)
         {
-            var cacheKey = $"sky-{key}-{seed}";
+            var dome = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            dome.name = $"Nebula Sky Dome · {style.FactionId} · {style.SystemId}";
+            dome.transform.SetParent(parent, false);
+            dome.transform.localPosition = Vector3.zero;
+            dome.transform.localRotation = Quaternion.Euler(0f, style.RotationDegrees, 0f);
+            dome.transform.localScale = Vector3.one * 1600f;
+            dome.GetComponent<Renderer>().sharedMaterial = GetSkyMaterial(key, style);
+            if (dome.TryGetComponent<Collider>(out var collider)) UnityEngine.Object.Destroy(collider);
+            return dome;
+        }
+
+        private static Material GetSkyMaterial(string key, SystemSkyStyle style)
+        {
+            var cacheKey = $"sky-{key}-{style.Seed}";
             if (Materials.TryGetValue(cacheKey, out var cached) && cached) return cached;
 
             var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture");
             var material = new Material(shader) { name = $"M_{cacheKey}", renderQueue = 1000 };
-            SetBaseTexture(material, CreateSkyTexture(cacheKey, seed, nebulaA, nebulaB));
+            SetBaseTexture(material, CreateSkyTexture(cacheKey, style));
             SetBaseColor(material, Color.white);
             SetFloatIfPresent(material, "_Cull", (float)CullMode.Front);
             SetFloatIfPresent(material, "_ZWrite", 0f);
             Materials[cacheKey] = material;
+            SkyCacheKeys.Enqueue(cacheKey);
+            TrimSkyCache();
             return material;
         }
 
-        private static Texture2D CreateSkyTexture(string key, int seed, Color nebulaA, Color nebulaB)
+        private static Texture2D CreateSkyTexture(string key, SystemSkyStyle style)
         {
             if (Textures.TryGetValue(key, out var cached) && cached) return cached;
             const int width = 1536;
@@ -102,8 +292,7 @@ namespace Starfall.Presentation
                 filterMode = FilterMode.Bilinear
             };
             var pixels = new Color[width * height];
-            var phase = (seed & 1023) * 0.006135923f;
-            var background = new Color(0.0025f, 0.006f, 0.018f, 1f);
+            var phase = (style.Seed & 1023) * 0.006135923f;
 
             for (var y = 0; y < height; y++)
             {
@@ -111,35 +300,47 @@ namespace Starfall.Presentation
                 for (var x = 0; x < width; x++)
                 {
                     var u = x / (float)(width - 1);
-                    var ribbonCenter = 0.48f + Mathf.Sin(u * Mathf.PI * 4f + phase) * 0.16f;
-                    var ribbon = Mathf.Exp(-Mathf.Pow((v - ribbonCenter) / 0.19f, 2f));
-                    var waveA = Mathf.Sin(u * Mathf.PI * 10f + Mathf.Sin(v * 15f + phase) * 2.8f + phase);
-                    var waveB = Mathf.Sin(v * 43f - u * Mathf.PI * 6f + phase * 1.7f);
-                    var waveC = Mathf.Sin(u * Mathf.PI * 22f + v * 73f + phase * 3.1f);
+                    var patternOffset = style.Pattern * 0.73f;
+                    // Every horizontal term must use an integer number of full 2π
+                    // cycles so the equirectangular texture closes cleanly on a sphere.
+                    var uAngle = u * Mathf.PI * 2f;
+                    var cycleCount = Mathf.Max(2, Mathf.RoundToInt(style.PatternFrequency));
+                    var centerWave = style.Pattern switch
+                    {
+                        0 => Mathf.Sin(uAngle * cycleCount + phase) * 0.11f,
+                        1 => Mathf.Sin(uAngle * cycleCount + phase) * 0.06f +
+                             Mathf.Sin(uAngle * (cycleCount + 4) - phase) * 0.035f,
+                        2 => Mathf.Sin(uAngle * cycleCount + phase) * 0.18f,
+                        _ => Mathf.Sin(uAngle * cycleCount + phase) * 0.13f +
+                             Mathf.Sin(uAngle * (cycleCount + 6) + phase * 0.4f) * 0.055f,
+                    };
+                    var ribbonCenter = 0.48f + centerWave;
+                    var ribbon = Mathf.Exp(-Mathf.Pow((v - ribbonCenter) / style.RibbonWidth, 2f));
+                    var waveA = Mathf.Sin(uAngle * (cycleCount + 2) +
+                                         Mathf.Sin(v * (13f + style.Pattern * 3f) + phase) * 2.8f + phase);
+                    var waveB = Mathf.Sin(v * (36f + style.Pattern * 7f) -
+                                         uAngle * (3 + style.Pattern) + phase * 1.7f);
+                    var waveC = Mathf.Sin(uAngle * (cycleCount + 7 + style.Pattern) +
+                                         v * (61f + style.Pattern * 9f) + phase * 3.1f + patternOffset);
                     var turbulence = Mathf.Clamp01(0.5f + waveA * 0.24f + waveB * 0.17f + waveC * 0.09f);
-                    var nebula = Mathf.Clamp01(ribbon * (0.18f + turbulence * 0.92f) - 0.11f);
-                    var color = background;
-                    color += nebulaA * (nebula * 0.27f);
-                    color += nebulaB * (nebula * nebula * 0.21f);
+                    var nebula = Mathf.Clamp01((ribbon * (0.18f + turbulence * 0.92f) - 0.11f) * style.NebulaStrength);
+                    var color = style.Background;
+                    color += style.NebulaA * (nebula * 0.27f);
+                    color += style.NebulaB * (nebula * nebula * 0.21f);
                     color += new Color(0.005f, 0.012f, 0.025f) * Mathf.Clamp01((1f - v) * 0.2f);
                     color.a = 1f;
                     pixels[y * width + x] = color;
                 }
             }
 
-            var random = new System.Random(seed);
-            for (var i = 0; i < 1700; i++)
+            var random = new System.Random(style.Seed);
+            for (var i = 0; i < style.StarCount; i++)
             {
                 var x = random.Next(width);
                 var y = random.Next(height);
                 var brightness = Mathf.Lerp(0.24f, 0.82f, (float)random.NextDouble());
-                var tintRoll = random.Next(3);
-                var tint = tintRoll switch
-                {
-                    0 => new Color(0.62f, 0.78f, 1f),
-                    1 => new Color(1f, 0.86f, 0.62f),
-                    _ => Color.white
-                };
+                var tintRoll = random.Next(4);
+                var tint = tintRoll == 0 ? style.StarA : tintRoll == 1 ? style.StarB : Color.white;
                 pixels[y * width + x] = tint * brightness;
             }
 
@@ -237,6 +438,34 @@ namespace Starfall.Presentation
             texture.Apply(true, true);
             Textures[key] = texture;
             return texture;
+        }
+
+        private static SystemSkyStyle CreateGenericStyle(string key, int seed, Color nebulaA, Color nebulaB)
+        {
+            return new SystemSkyStyle(key, "neutral", seed,
+                new Color(0.0025f, 0.006f, 0.018f), nebulaA, nebulaB,
+                new Color(0.62f, 0.78f, 1f), new Color(1f, 0.86f, 0.62f),
+                new Color(0.72f, 0.82f, 1f), new Color(0.025f, 0.055f, 0.12f),
+                new Color(0.015f, 0.025f, 0.055f), 1f, 0.19f, 4f, 1700,
+                PositiveModulo(seed, 360), 2);
+        }
+
+        private static void TrimSkyCache()
+        {
+            while (SkyCacheKeys.Count > MaxCachedSkies)
+            {
+                var key = SkyCacheKeys.Dequeue();
+                if (Materials.Remove(key, out var material) && material)
+                    UnityEngine.Object.Destroy(material);
+                if (Textures.Remove(key, out var texture) && texture)
+                    UnityEngine.Object.Destroy(texture);
+            }
+        }
+
+        private static int PositiveModulo(int value, int divisor)
+        {
+            var result = value % divisor;
+            return result < 0 ? result + divisor : result;
         }
 
         private static int StableSeed(string value)

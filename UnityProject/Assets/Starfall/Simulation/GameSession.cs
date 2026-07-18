@@ -13,6 +13,7 @@ namespace Starfall.Simulation
     {
         public const double FixedStepSeconds = 0.05d;
         private const double TwoPi = Math.PI * 2d;
+        private const double CelestialStandOffPadding = 40d;
         private readonly Queue<GameCommand> commands = new Queue<GameCommand>();
         private readonly List<SimulationEvent> frameEvents = new List<SimulationEvent>();
         private readonly IContentCatalog catalog;
@@ -221,10 +222,31 @@ namespace Starfall.Simulation
             var player = State.PlayerEntity();
             if (player == null) return;
             var targetId = string.IsNullOrEmpty(id) ? State.SelectedId : id;
-            if (!TryResolvePosition(targetId, out var position) && !explicitPosition.HasValue) return;
+            var isCelestialTarget = TryResolveCelestial(targetId, out var celestialCenter,
+                out var celestialRadius);
+            var position = SimVec2.Zero;
+            if (isCelestialTarget)
+            {
+                if (mode == MovementMode.Approach)
+                {
+                    if (!TryResolveCommandPosition(targetId, player.Position, out position,
+                            out isCelestialTarget)) return;
+                }
+                else
+                {
+                    position = celestialCenter;
+                    distance += Math.Max(0d, celestialRadius);
+                }
+            }
+            else if (explicitPosition.HasValue) position = explicitPosition.Value;
+            else if (!TryResolvePosition(targetId, out position)) return;
             player.Movement = mode;
-            player.MoveTargetId = targetId ?? string.Empty;
-            player.MoveTargetPosition = explicitPosition ?? position;
+            // Celestials are static. Keeping the ID here would make UpdateMovement
+            // resolve their centre again and overwrite the safe stand-off point.
+            player.MoveTargetId = isCelestialTarget && mode == MovementMode.Approach
+                ? string.Empty
+                : targetId ?? string.Empty;
+            player.MoveTargetPosition = position;
             player.DesiredDistance = distance;
         }
 
@@ -233,8 +255,14 @@ namespace Starfall.Simulation
             var player = State.PlayerEntity();
             if (player == null) return;
             var targetId = string.IsNullOrEmpty(id) ? State.SelectedId : id;
-            if (!TryResolvePosition(targetId, out var position) && !explicitPosition.HasValue) return;
-            player.WarpTarget = explicitPosition ?? position;
+            var position = SimVec2.Zero;
+            if (TryResolveCelestial(targetId, out _, out _))
+            {
+                if (!TryResolveCommandPosition(targetId, player.Position, out position, out _)) return;
+            }
+            else if (explicitPosition.HasValue) position = explicitPosition.Value;
+            else if (!TryResolveCommandPosition(targetId, player.Position, out position, out _)) return;
+            player.WarpTarget = position;
             player.WarpPhaseTime = 0d;
             player.Movement = MovementMode.WarpAlign;
             Emit(SimulationEventType.Warp, player.Id, targetId, "Warp drive active.", detail: "start");
@@ -460,11 +488,18 @@ namespace Starfall.Simulation
                 return;
             }
             runtime.Cooldown = Math.Max(0.1d, module.CycleTime);
-            asteroid.Amount -= quantity;
+            asteroid.Amount = Math.Max(0d, asteroid.Amount - quantity);
             AddQuantity(State.Player.Cargo, asteroid.OreId, quantity);
             State.Player.Stats.OreMined += quantity;
             Emit(SimulationEventType.Weapon, player.Id, asteroid.Id, module.Name, quantity, "mining:" + asteroid.OreId);
             Emit(SimulationEventType.Inventory, asteroid.Id, player.Id, $"+{quantity:0} {catalog.Items[asteroid.OreId].Name}", quantity, asteroid.OreId);
+            if (asteroid.Amount <= 0d)
+            {
+                runtime.Active = false;
+                ClearTargetReferences(asteroid.Id);
+                State.asteroids.Remove(asteroid);
+                Emit(SimulationEventType.Despawn, asteroid.Id, message: "Asteroid depleted.");
+            }
         }
 
         private void UpdateCooldownsAndRegen(EntityState entity, double dt)
@@ -616,9 +651,8 @@ namespace Starfall.Simulation
         private bool ShouldAggro(EntityState npc, EntityState player)
         {
             if (SimVec2.Distance(npc.Position, player.Position) > npc.AggroRange) return false;
-            if (!string.IsNullOrEmpty(npc.MissionId) || npc.AiBehavior == "police") return true;
-            if (npc.AiBehavior != "pirate") return false;
-            return EffectiveStanding(npc.FactionId) <= 0d;
+            return EntityDispositionPolicy.Evaluate(npc, State.Player, catalog, player.Id) ==
+                   EntityDisposition.Hostile;
         }
 
         private void PopulateSystem()
@@ -1192,17 +1226,6 @@ namespace Starfall.Simulation
             Log("CRIMINAL ACT! The Directorate has been alerted.");
         }
 
-        private double EffectiveStanding(string factionId)
-        {
-            State.Player.Standings.TryGetValue(factionId, out var standing);
-            foreach (var pair in State.Player.Standings)
-            {
-                if (pair.Key == factionId || pair.Value == 0d) continue;
-                standing += pair.Value * catalog.FactionRelation(pair.Key, factionId) * 0.04d;
-            }
-            return Clamp(standing, -10d, 10d);
-        }
-
         private void ModifyStanding(string factionId, double amount)
         {
             State.Player.Standings.TryGetValue(factionId, out var current);
@@ -1307,14 +1330,65 @@ namespace Starfall.Simulation
             if (gate != null) { position = gate.Position; return true; }
             var belt = system.Belts.Find(value => value.Id == id);
             if (belt != null) { position = belt.Position; return true; }
+            if (TryResolveCelestial(id, out position, out _)) return true;
+            position = SimVec2.Zero;
+            return false;
+        }
+
+        private bool TryResolveCommandPosition(string id, SimVec2 actorPosition, out SimVec2 position,
+            out bool isCelestialTarget)
+        {
+            if (!TryResolvePosition(id, out position))
+            {
+                isCelestialTarget = false;
+                return false;
+            }
+
+            if (!TryResolveCelestial(id, out var center, out var radius))
+            {
+                isCelestialTarget = false;
+                return true;
+            }
+
+            isCelestialTarget = true;
+            var fromCenter = actorPosition - center;
+            var magnitude = fromCenter.Magnitude;
+            var direction = magnitude > 1e-9d
+                ? fromCenter * (1d / magnitude)
+                : new SimVec2(1d, 0d);
+            position = center + direction * (Math.Max(0d, radius) + CelestialStandOffPadding);
+            return true;
+        }
+
+        private bool TryResolveCelestial(string id, out SimVec2 position, out double radius)
+        {
+            var system = CurrentSystem();
+            if (string.Equals(id, system.Id + "_star", StringComparison.Ordinal))
+            {
+                position = SimVec2.Zero;
+                radius = system.Star.Radius;
+                return true;
+            }
+
             var planet = system.Planets.Find(value => value.Id == id);
-            if (planet != null) { position = planet.Position; return true; }
+            if (planet != null)
+            {
+                position = planet.Position;
+                radius = planet.Radius;
+                return true;
+            }
+
             for (var i = 0; i < system.Planets.Count; i++)
             {
                 var moon = system.Planets[i].Moons.Find(value => value.Id == id);
-                if (moon != null) { position = moon.Position; return true; }
+                if (moon == null) continue;
+                position = moon.Position;
+                radius = moon.Radius;
+                return true;
             }
+
             position = SimVec2.Zero;
+            radius = 0d;
             return false;
         }
 
@@ -1355,9 +1429,44 @@ namespace Starfall.Simulation
             {
                 var entity = State.entities[i];
                 if (!entity.Dead || entity.Kind == EntityKind.Player) continue;
+                ClearTargetReferences(entity.Id);
                 State.entities.RemoveAt(i);
                 Emit(SimulationEventType.Despawn, entity.Id);
             }
+        }
+
+        private void ClearTargetReferences(string removedId)
+        {
+            if (string.IsNullOrEmpty(removedId)) return;
+            if (string.Equals(State.SelectedId, removedId, StringComparison.Ordinal))
+            {
+                State.SelectedId = string.Empty;
+                Emit(SimulationEventType.Selection, targetId: string.Empty);
+            }
+
+            for (var i = 0; i < State.entities.Count; i++)
+            {
+                var entity = State.entities[i];
+                if (string.Equals(entity.LockedTargetId, removedId, StringComparison.Ordinal))
+                {
+                    entity.LockedTargetId = string.Empty;
+                    if (entity.Kind == EntityKind.Player) DeactivateAllModules(entity);
+                }
+                if (string.Equals(entity.MoveTargetId, removedId, StringComparison.Ordinal))
+                {
+                    entity.MoveTargetId = string.Empty;
+                    entity.Movement = MovementMode.Idle;
+                }
+            }
+        }
+
+        private void DeactivateAllModules(EntityState entity)
+        {
+            var recomputeSpeed = entity.AfterburnerOn;
+            entity.AfterburnerOn = false;
+            for (var i = 0; i < entity.Modules.Count; i++) entity.Modules[i].Active = false;
+            if (recomputeSpeed) RecomputeDerived(entity);
+            Log("Target lost. Active modules deactivated.");
         }
 
         private double MaxWeaponRange(EntityState entity)

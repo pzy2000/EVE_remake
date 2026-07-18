@@ -46,7 +46,7 @@ namespace Starfall.UI
         public bool PlayerDead;
         public bool MapVisible;
         public bool JournalVisible;
-        public readonly List<UiListItem> Overview = new();
+        public readonly List<UiOverviewContact> Overview = new();
         public readonly List<UiListItem> Starmap = new();
         public readonly List<UiListItem> Agents = new();
         public readonly List<UiListItem> Market = new();
@@ -61,6 +61,7 @@ namespace Starfall.UI
     {
         UiSnapshot Snapshot { get; }
         event Action SnapshotChanged;
+        event Action TelemetryChanged;
         void StartNewGame(string pilotName, string empireId);
         void ContinueGame();
         void ImportLegacy();
