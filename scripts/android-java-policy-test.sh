@@ -19,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if ! rg --fixed-strings --quiet "implementation 'androidx.core:core:1.17.0'" "$library_gradle"; then
+if ! grep -Fq "implementation 'androidx.core:core:1.17.0'" "$library_gradle"; then
   echo "StarfallMobile.androidlib must explicitly provide AndroidX Core for Window's Consumer API." >&2
   exit 1
 fi
