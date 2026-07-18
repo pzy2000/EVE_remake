@@ -348,7 +348,6 @@ jobs:
       - android-back-compat
     if: >-
       github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
       needs.reference-tests.result == 'success' &&
       needs.unity-android.result == 'success' &&
       needs.android-emulator.result == 'success' &&
@@ -361,6 +360,7 @@ jobs:
     outputs:
       artifact_name: ${{ steps.release_metadata.outputs.artifact_name }}
       version_code: ${{ steps.version.outputs.version_code }}
+      version_name: ${{ steps.version.outputs.version_name }}
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
       UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -555,12 +555,159 @@ jobs:
           overwrite: true
           retention-days: 30
 
+  github-release:
+    name: GitHub Pre-release (signed Android APK)
+    needs: android-release
+    if: >-
+      github.event_name == 'push' &&
+      needs.android-release.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download this attempt's signed Android outputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.android-release.outputs.artifact_name }}
+          path: downloaded-release
+
+      - name: Verify and publish versioned GitHub pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STARFALL_VERSION_CODE: ${{ needs.android-release.outputs.version_code }}
+          STARFALL_VERSION_NAME: ${{ needs.android-release.outputs.version_name }}
+        run: |
+          mapfile -t apks < <(find downloaded-release -type f -name '*.apk' -print)
+          mapfile -t aabs < <(find downloaded-release -type f -name '*.aab' -print)
+          mapfile -t symbols < <(find downloaded-release -type f -name '*-il2cpp-symbols.zip' -print)
+          mapfile -t symbol_manifests < <(find downloaded-release -type f -name '*-il2cpp-symbols.manifest.txt' -print)
+          mapfile -t reports < <(find downloaded-release -type f -name BuildReport.json -print)
+          mapfile -t checksums < <(find downloaded-release -type f -name SHA256SUMS -print)
+          [[ ${#apks[@]} -eq 1 ]] || {
+            echo "Expected exactly one signed APK, found ${#apks[@]}" >&2
+            exit 1
+          }
+          [[ ${#aabs[@]} -eq 1 ]] || {
+            echo "Expected exactly one signed AAB, found ${#aabs[@]}" >&2
+            exit 1
+          }
+          [[ ${#symbols[@]} -eq 1 ]] || {
+            echo "Expected exactly one IL2CPP symbols archive, found ${#symbols[@]}" >&2
+            exit 1
+          }
+          [[ ${#symbol_manifests[@]} -eq 1 ]] || {
+            echo "Expected exactly one IL2CPP symbols manifest, found ${#symbol_manifests[@]}" >&2
+            exit 1
+          }
+          [[ ${#reports[@]} -eq 1 ]] || {
+            echo "Expected exactly one BuildReport.json, found ${#reports[@]}" >&2
+            exit 1
+          }
+          [[ ${#checksums[@]} -eq 1 ]] || {
+            echo "Expected exactly one SHA256SUMS, found ${#checksums[@]}" >&2
+            exit 1
+          }
+
+          report_version_code="$(python3 -c \
+            'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["versionCode"])' \
+            "${reports[0]}")"
+          report_version_name="$(python3 -c \
+            'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["versionName"])' \
+            "${reports[0]}")"
+          [[ "$report_version_code" == "$STARFALL_VERSION_CODE" ]] || {
+            echo "BuildReport versionCode does not match the release job output" >&2
+            exit 1
+          }
+          [[ "$report_version_name" == "$STARFALL_VERSION_NAME" ]] || {
+            echo "BuildReport versionName does not match the release job output" >&2
+            exit 1
+          }
+          (
+            cd "$(dirname "${checksums[0]}")"
+            shasum -a 256 --check "$(basename "${checksums[0]}")"
+          )
+
+          tag="android-v${STARFALL_VERSION_NAME}"
+          validation_archive="$RUNNER_TEMP/${tag}-validation.zip"
+          validation_directory="downloaded-release/validation"
+          test -d "$validation_directory"
+          (
+            cd "$validation_directory"
+            zip -qry "$validation_archive" .
+          )
+          notes="$RUNNER_TEMP/${tag}-notes.md"
+          cat >"$notes" <<EOF
+          Automated signed Android build for commit \`$GITHUB_SHA\`.
+
+          - Version: \`$STARFALL_VERSION_NAME\` (\`$STARFALL_VERSION_CODE\`)
+          - Package: \`com.pzy.starfallodyssey\`
+          - Runtime: Unity 6000.1.10f1, IL2CPP, ARM64
+          - Android: minimum API 26, target API 36
+          - Gates: Unity EditMode/PlayMode, API 36 acceptance, API 32 Back compatibility, package/signature/bundle validation
+
+          The APK is the directly installable signed build. The AAB is retained for future Google Play Internal Testing.
+          EOF
+
+          assets=(
+            "${apks[0]}#Signed ARM64 APK"
+            "${aabs[0]}#Signed Android App Bundle"
+            "${symbols[0]}#IL2CPP symbols"
+            "${symbol_manifests[0]}#IL2CPP symbols manifest"
+            "${reports[0]}#Unity BuildReport"
+            "${checksums[0]}#SHA-256 checksums"
+            "$validation_archive#Android validation evidence"
+          )
+          if release_json="$(gh release view "$tag" \
+            --json assets,isDraft,isPrerelease,targetCommitish)"; then
+            release_target="$(jq -r '.targetCommitish' <<<"$release_json")"
+            [[ "$release_target" == "$GITHUB_SHA" ]] || {
+              echo "Existing release tag $tag targets $release_target, expected $GITHUB_SHA" >&2
+              exit 1
+            }
+            if [[ "$(jq -r '.isDraft' <<<"$release_json")" == "true" ]]; then
+              gh release upload "$tag" "${assets[@]}" --clobber
+              gh release edit "$tag" \
+                --target "$GITHUB_SHA" \
+                --title "STARFALL ODYSSEY Android $STARFALL_VERSION_NAME" \
+                --notes-file "$notes" \
+                --prerelease \
+                --draft=false
+            else
+              [[ "$(jq -r '.isPrerelease' <<<"$release_json")" == "true" ]] || {
+                echo "Existing release $tag is not a pre-release" >&2
+                exit 1
+              }
+              mapfile -t remote_assets < <(jq -r '.assets[].name' <<<"$release_json")
+              for asset in "${assets[@]}"; do
+                expected_name="$(basename "${asset%%#*}")"
+                printf '%s\n' "${remote_assets[@]}" | grep -Fxq "$expected_name" || {
+                  echo "Existing release $tag is missing $expected_name" >&2
+                  exit 1
+                }
+              done
+            fi
+          else
+            gh release create "$tag" "${assets[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "STARFALL ODYSSEY Android $STARFALL_VERSION_NAME" \
+              --notes-file "$notes" \
+              --prerelease \
+              --latest=false
+          fi
+
+          gh release view "$tag" \
+            --json url,tagName,isPrerelease,targetCommitish \
+            --jq '{url,tagName,isPrerelease,targetCommitish}'
+
   play-internal:
     name: Google Play Internal Testing
     needs: android-release
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
+      vars.ENABLE_PLAY_INTERNAL == 'true' &&
       needs.android-release.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30

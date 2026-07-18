@@ -35,3 +35,42 @@ walk = lambda do |node|
 end
 
 walk.call(document)
+
+source = File.read(path, encoding: "UTF-8")
+if File.basename(path) == "android.yml"
+  job = lambda do |name|
+    match = source.match(/^  #{Regexp.escape(name)}:\n(?<body>.*?)(?=^  [a-z0-9-]+:\n|\z)/m)
+    abort("#{path}: missing #{name} job") unless match
+
+    match[:body]
+  end
+
+  android_release = job.call("android-release")
+  abort("#{path}: android-release must run for every successful push") unless
+    android_release.include?("github.event_name == 'push'")
+  abort("#{path}: android-release must not be restricted to main") if
+    android_release.include?("github.ref == 'refs/heads/main'")
+  abort("#{path}: android-release must expose version_name") unless
+    android_release.include?("version_name: ${{ steps.version.outputs.version_name }}")
+
+  github_release = job.call("github-release")
+  required_release_fragments = [
+    "needs: android-release",
+    "contents: write",
+    "gh release create",
+    "--prerelease",
+    "${{ needs.android-release.outputs.artifact_name }}",
+    "${{ needs.android-release.outputs.version_code }}",
+    "${{ needs.android-release.outputs.version_name }}",
+    "*.apk",
+    "SHA256SUMS"
+  ]
+  required_release_fragments.each do |fragment|
+    abort("#{path}: github-release is missing #{fragment.inspect}") unless
+      github_release.include?(fragment)
+  end
+
+  play_release = job.call("play-internal")
+  abort("#{path}: Play publication must remain explicitly disabled until approval") unless
+    play_release.include?("vars.ENABLE_PLAY_INTERNAL == 'true'")
+end

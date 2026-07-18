@@ -12,6 +12,7 @@ The Android pipeline is implemented by `.github/workflows/android.yml`. It does 
 - Version code: `github.run_number * 100 + github.run_attempt`.
 - Version name: `1.0.0-internal.<run_number>.<run_attempt>`.
 - Release outputs: signed APK, signed AAB, IL2CPP symbols, JSON BuildReport, validation evidence, and `SHA256SUMS`.
+- Every successful trusted branch push creates a uniquely versioned GitHub pre-release tagged `android-v<versionName>` and attaches the signed APK plus its companion evidence. Broken or unverified pushes never publish an APK.
 
 The release validator checks package/version/API metadata, non-debuggable state, ARM64-only libraries, matching APK/AAB certificates, adaptive launcher resources, `bundletool validate`, and 16 KiB ZIP/ELF alignment. It also builds a signed bundletool universal APK and repeats the ARM64-only and 16 KiB checks on that Play-style artifact. Release IL2CPP output is rejected if the smoke-only command callback is present.
 
@@ -19,24 +20,23 @@ Unity discovery is also an exact hard gate: EditMode must report 144 cases (109 
 
 ## GitHub configuration
 
-Add these repository secrets:
+Add these repository secrets for Unity testing and signed GitHub Releases:
 
 - `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`
 - `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
 
-Create a protected GitHub Environment named `google-play-internal`. The Play service account should have only the permissions needed to publish the application to Internal Testing. Signing material is decoded beneath `RUNNER_TEMP`, never passed in GameCI custom parameters, and removed by an EXIT trap.
+Google Play publication is intentionally independent from GitHub Releases. When Play Console approval is complete, add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, create a protected GitHub Environment named `google-play-internal`, and set the repository variable `ENABLE_PLAY_INTERNAL=true`. Until that variable is enabled, the Play job is skipped without blocking signed APK publication. The Play service account should have only the permissions needed to publish the application to Internal Testing. Signing material is decoded beneath `RUNNER_TEMP`, never passed in GameCI custom parameters, and removed by an EXIT trap.
 
 Before the first automatic upload, create `com.pzy.starfallodyssey` in Play Console, enable Play App Signing, link the service account, and finish the Play Console setup needed to permit a `completed` Internal Testing release. Fastlane does not upload or modify store metadata, screenshots, images, or changelogs.
 
 Fork pull requests run only the Node reference suite and static CI checks. Unity licensing, signing, and Play credentials are never exposed to fork jobs. The workflow intentionally has no `pull_request_target` trigger.
 
-Every push and pull request runs the reference suite. Trusted pushes and same-repository pull requests enter Unity only after a named-secret preflight; missing configuration fails explicitly without printing secret values. Signed release and Play jobs remain restricted to successful `main` pushes.
+Every push and pull request runs the reference suite. Trusted pushes and same-repository pull requests enter Unity only after a named-secret preflight; missing configuration fails explicitly without printing secret values. Every successful trusted push builds and validates the signed ARM64 outputs and publishes a GitHub pre-release. Play Internal Testing remains restricted to successful `main` pushes and the explicit `ENABLE_PLAY_INTERNAL=true` opt-in.
 
 ## Emulator architecture
 
-The primary smoke gate is fixed to API 36 `x86_64` on `ubuntu-24.04`; it is explicitly a test-only build carrying `STARFALL_ANDROID_CI`. A separate short API 32 `x86_64` job reuses that APK and proves the API 26-32 compatibility path with a real `KEYCODE_BACK`: MainMenu must show and then close its confirmation while the same app process stays alive and its logs remain free of fatal/ANR signals. Both API 36 acceptance and API 32 Back compatibility are required before a `main` release. Release APK/AAB outputs are always ARM64 IL2CPP. Unity does not support Android Emulator as a production hardware target, so these gates do not claim real-device GPU, thermal, throttling, or frame-rate coverage.
+The primary smoke gate is fixed to API 36 `x86_64` on `ubuntu-24.04`; it is explicitly a test-only build carrying `STARFALL_ANDROID_CI`. A separate short API 32 `x86_64` job reuses that APK and proves the API 26-32 compatibility path with a real `KEYCODE_BACK`: MainMenu must show and then close its confirmation while the same app process stays alive and its logs remain free of fatal/ANR signals. Both API 36 acceptance and API 32 Back compatibility are required before any signed GitHub Release. Release APK/AAB outputs are always ARM64 IL2CPP. Unity does not support Android Emulator as a production hardware target, so these gates do not claim real-device GPU, thermal, throttling, or frame-rate coverage.
 
 The emulator gate applies exact `wm size` and density overrides for:
 
@@ -84,4 +84,4 @@ gh run watch <run-id> --exit-status
 gh run download <run-id> --dir artifacts/remote-android
 ```
 
-Completion requires the corresponding package and versionCode in Google Play Internal Testing. Emulator results cover CI functionality, layout, lifecycle, logs, and package structure; they are not evidence of real ARM64 GPU performance, thermals, throttling, or physical-device frame rate.
+GitHub Release completion requires the corresponding `android-v<versionName>` pre-release to contain the signed APK, AAB, IL2CPP symbols, BuildReport, checksums, and validation archive. Google Play delivery remains a separate completion gate once `ENABLE_PLAY_INTERNAL=true`. Emulator results cover CI functionality, layout, lifecycle, logs, and package structure; they are not evidence of real ARM64 GPU performance, thermals, throttling, or physical-device frame rate.
