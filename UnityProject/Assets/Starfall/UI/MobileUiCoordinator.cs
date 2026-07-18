@@ -173,10 +173,6 @@ namespace Starfall.UI
             rack.contentContainer.style.flexDirection = FlexDirection.Row;
             rack.contentContainer.style.flexWrap = compact ? Wrap.NoWrap : Wrap.Wrap;
             rack.contentContainer.style.alignItems = Align.FlexStart;
-            // Leave a deterministic scroll terminus after the final wrapped row. Without this,
-            // Linux UI Toolkit can round the last button fractionally below the viewport even
-            // after ScrollTo, making the bottom edge untouchable on a vertical-hinge layout.
-            rack.contentContainer.style.paddingBottom = compact ? 0f : 8f;
         }
 
 #if UNITY_EDITOR || STARFALL_ANDROID_CI
@@ -457,7 +453,7 @@ namespace Starfall.UI
                         Mathf.Min(220f, primary.width - 16f), 118f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(primary.xMin + Mathf.Min(236f, primary.width * 0.52f), primary.yMax - 126f,
-                        Mathf.Max(0f, primary.width - Mathf.Min(244f, primary.width * 0.54f)), 118f));
+                        Mathf.Max(0f, primary.width - Mathf.Min(244f, primary.width * 0.54f)), 120f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("target-panel"),
                     new Rect(secondary.xMin + 8f, secondary.yMin + top,
                         Mathf.Max(0f, secondary.width - 16f), Mathf.Min(180f, secondary.height - top - 8f)));
@@ -479,7 +475,7 @@ namespace Starfall.UI
                     new Rect(secondary.xMin + 8f, secondary.yMax - 126f, 220f, 118f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(secondary.xMin + 238f, secondary.yMax - 126f,
-                        Mathf.Max(0f, secondary.width - 586f), 118f));
+                        Mathf.Max(0f, secondary.width - 586f), 120f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("combat-log-scroll"),
                     new Rect(secondary.xMax - 338f, secondary.yMax - 128f, 330f, 120f));
             }
