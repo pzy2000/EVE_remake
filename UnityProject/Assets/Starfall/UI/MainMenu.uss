@@ -1,23 +1,39 @@
 .main-menu {
     align-items: center;
     justify-content: center;
-    background-color: rgb(2, 6, 17);
+    background-color: rgba(1, 4, 13, 0.16);
 }
 
 .menu-glow {
     position: absolute;
-    left: 10%;
-    right: 10%;
-    top: 12%;
-    bottom: 12%;
-    background-color: rgba(8, 61, 92, 0.32);
-    border-top-left-radius: 120px;
-    border-top-right-radius: 120px;
-    border-bottom-left-radius: 120px;
-    border-bottom-right-radius: 120px;
+    left: 4%;
+    right: 4%;
+    top: 6%;
+    bottom: 6%;
+    background-color: rgba(3, 17, 35, 0.20);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-left-color: rgba(82, 224, 255, 0.28);
+    border-right-color: rgba(82, 224, 255, 0.28);
+    border-top-left-radius: 34px;
+    border-top-right-radius: 34px;
+    border-bottom-left-radius: 34px;
+    border-bottom-right-radius: 34px;
 }
 
-.menu-card { width: 720px; padding: 28px; }
+.menu-card {
+    width: 720px;
+    padding: 28px;
+    background-color: rgba(3, 12, 29, 0.91);
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-color: rgba(82, 224, 255, 0.62);
+    border-bottom-color: rgba(82, 224, 255, 0.34);
+    border-left-color: rgba(82, 224, 255, 0.34);
+    border-right-color: rgba(82, 224, 255, 0.34);
+}
 .subtitle { font-size: 18px; margin-top: -8px; margin-bottom: 10px; }
 .section-title { margin-top: 16px; margin-bottom: 7px; }
 .empire-grid { flex-direction: row; }

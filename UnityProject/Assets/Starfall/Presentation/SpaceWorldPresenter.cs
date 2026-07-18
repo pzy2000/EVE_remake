@@ -152,6 +152,10 @@ namespace Starfall.Presentation
             RenderSettings.ambientSkyColor = new Color(0.025f, 0.055f, 0.12f);
             RenderSettings.ambientEquatorColor = new Color(0.015f, 0.025f, 0.055f);
             RenderSettings.ambientGroundColor = new Color(0.004f, 0.006f, 0.014f);
+            RenderSettings.ambientIntensity = 0.9f;
+            // Station uses depth fog, but RenderSettings is global and can survive
+            // a scene transition. Space must always restore a clear deep-space view.
+            RenderSettings.fog = false;
 
             CreateStarfield();
             CreatePostProcessing();
@@ -159,29 +163,10 @@ namespace Starfall.Presentation
 
         private void CreateStarfield()
         {
-            var stars = new GameObject("Starfield");
-            // Keep the local-space star shell centred on the orbital camera so
-            // distant system coordinates never leave the background behind.
-            stars.transform.SetParent(cameraController.transform, false);
-            var ps = stars.AddComponent<ParticleSystem>();
-            var main = ps.main;
-            main.loop = true;
-            main.playOnAwake = true;
-            main.startLifetime = 99999f;
-            main.startSpeed = 0;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.45f, 1.8f);
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.45f, 0.68f, 1f), Color.white);
-            main.maxParticles = 900;
-            var emission = ps.emission;
-            emission.rateOverTime = 0;
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 900f;
-            shape.radiusThickness = 1f;
-            var renderer = ps.GetComponent<ParticleSystemRenderer>();
-            renderer.renderMode = ParticleSystemRenderMode.Billboard;
-            renderer.sharedMaterial = ProceduralShipFactory.GetMaterial("stars", Color.white, 0f, 0f, true);
-            ps.Emit(900);
+            // A textured inside-facing dome is reliable across Metal, builds and
+            // Game View captures; the old particle-only shell could disappear.
+            ProceduralSpaceMaterials.CreateSkyDome(cameraController.transform, "space", 12345,
+                new Color(0.025f, 0.31f, 0.52f), new Color(0.34f, 0.07f, 0.42f));
         }
 
         private void CreatePostProcessing()
@@ -194,9 +179,9 @@ namespace Starfall.Presentation
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             var bloom = profile.Add<Bloom>();
             bloom.active = true;
-            bloom.intensity.Override(0.9f);
-            bloom.threshold.Override(0.8f);
-            bloom.scatter.Override(0.72f);
+            bloom.intensity.Override(0.62f);
+            bloom.threshold.Override(0.92f);
+            bloom.scatter.Override(0.66f);
             var vignette = profile.Add<Vignette>();
             vignette.active = true;
             vignette.intensity.Override(0.22f);
@@ -204,6 +189,9 @@ namespace Starfall.Presentation
             var tone = profile.Add<Tonemapping>();
             tone.active = true;
             tone.mode.Override(TonemappingMode.ACES);
+            var color = profile.Add<ColorAdjustments>();
+            color.contrast.Override(7f);
+            color.saturation.Override(-3f);
             volume.profile = profile;
         }
 
@@ -236,15 +224,14 @@ namespace Starfall.Presentation
                 case WorldViewKind.Moon:
                     view = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                     view.transform.localScale = Vector3.one * data.Radius * 2f;
-                    view.GetComponent<Renderer>().sharedMaterial = ProceduralShipFactory.GetMaterial(
-                        $"body-{data.Id}", data.Color, 0.3f, data.Kind == WorldViewKind.Planet ? 0.18f : 0.05f);
+                    view.GetComponent<Renderer>().sharedMaterial = ProceduralSpaceMaterials.GetPlanetMaterial(
+                        data.Id, data.Color, data.Kind == WorldViewKind.Moon);
                     break;
                 case WorldViewKind.Asteroid:
                     view = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                     view.transform.localScale = new Vector3(data.Radius * 1.7f, data.Radius, data.Radius * 1.25f);
                     view.transform.rotation = Quaternion.Euler(data.Radius * 9f, data.Radius * 17f, data.Radius * 4f);
-                    view.GetComponent<Renderer>().sharedMaterial = ProceduralShipFactory.GetMaterial(
-                        "asteroid", new Color(0.22f, 0.18f, 0.15f), 0.18f, 0.08f);
+                    view.GetComponent<Renderer>().sharedMaterial = ProceduralSpaceMaterials.GetAsteroidMaterial();
                     break;
                 default:
                     view = GameObject.CreatePrimitive(PrimitiveType.Sphere);
