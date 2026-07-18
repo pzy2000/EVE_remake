@@ -21,5 +21,9 @@ android {
 }
 
 dependencies {
+    // Window's Java callback API exposes androidx.core.util.Consumer in its
+    // public signatures. Keep Core explicit so Unity's embedded Gradle build
+    // has it on this androidlib module's javac classpath.
+    implementation 'androidx.core:core:1.17.0'
     implementation 'androidx.window:window-java:1.5.1'
 }

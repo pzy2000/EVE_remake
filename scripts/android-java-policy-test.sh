@@ -10,6 +10,7 @@ project_settings="$repository_root/UnityProject/ProjectSettings/ProjectSettings.
 bridge="$java_root/main/java/com/pzy/starfall/mobile/StarfallMobileBridge.java"
 picker="$java_root/main/java/com/pzy/starfall/mobile/LegacyDocumentPickerActivity.java"
 library_manifest="$java_root/main/AndroidManifest.xml"
+library_gradle="$repository_root/UnityProject/Assets/Plugins/Android/StarfallMobile.androidlib/build.gradle"
 classes_directory="$(mktemp -d "${RUNNER_TEMP:-/tmp}/starfall-java-policy.XXXXXX")"
 stub_source="$repository_root/scripts/java-policy-stubs"
 
@@ -17,6 +18,11 @@ cleanup() {
   rm -rf -- "$classes_directory"
 }
 trap cleanup EXIT INT TERM
+
+if ! rg --fixed-strings --quiet "implementation 'androidx.core:core:1.17.0'" "$library_gradle"; then
+  echo "StarfallMobile.androidlib must explicitly provide AndroidX Core for Window's Consumer API." >&2
+  exit 1
+fi
 
 javac --release 8 -Xlint:all -Werror \
   -d "$classes_directory" \
