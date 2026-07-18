@@ -22,6 +22,9 @@ vendor/bundle/
 __pycache__/
 *.py[cod]
 
+# Local Android upload-key recovery material (never commit)
+/starfall-upload.jks
+
 # macOS / IDE
 .DS_Store
 .idea/
