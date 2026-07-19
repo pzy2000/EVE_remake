@@ -440,12 +440,10 @@ jobs:
     needs:
       - reference-tests
       - unity-android
-      - android-emulator
     if: >-
       github.event_name == 'push' &&
       needs.reference-tests.result == 'success' &&
-      needs.unity-android.result == 'success' &&
-      needs.android-emulator.result == 'success'
+      needs.unity-android.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     concurrency:
@@ -739,7 +737,8 @@ jobs:
           - Package: \`com.pzy.starfallodyssey\`
           - Runtime: Unity 6000.1.10f1, IL2CPP, ARM64
           - Android: minimum API 26, target API 36
-          - Gates: Unity EditMode/PlayMode, API 36 acceptance, API 32 Back compatibility, package/signature/bundle validation
+          - Prerelease gates: reference tests, Android player preflight, Unity EditMode/PlayMode, package/signature/bundle validation
+          - Emulator gates: API 36 acceptance and API 32 Back compatibility are pending in this workflow
 
           The APK is the directly installable signed build. The AAB is retained for future Google Play Internal Testing.
           EOF
@@ -795,14 +794,69 @@ jobs:
             --json url,tagName,isPrerelease,targetCommitish \
             --jq '{url,tagName,isPrerelease,targetCommitish}'
 
+  github-release-promote:
+    name: Promote GitHub Release after emulator acceptance
+    needs:
+      - android-release
+      - android-emulator
+      - github-release
+    if: >-
+      github.event_name == 'push' &&
+      needs.android-release.result == 'success' &&
+      needs.android-emulator.result == 'success' &&
+      needs.github-release.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Promote the same signed build to a full GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STARFALL_VERSION_NAME: ${{ needs.android-release.outputs.version_name }}
+          STARFALL_VERSION_CODE: ${{ needs.android-release.outputs.version_code }}
+        run: |
+          tag="android-v${STARFALL_VERSION_NAME}"
+          release_json="$(gh release view "$tag" --json isDraft,isPrerelease,targetCommitish)"
+          [[ "$(jq -r '.targetCommitish' <<<"$release_json")" == "$GITHUB_SHA" ]]
+          [[ "$(jq -r '.isDraft' <<<"$release_json")" == "false" ]]
+          [[ "$(jq -r '.isPrerelease' <<<"$release_json")" == "true" ]]
+
+          notes="$RUNNER_TEMP/${tag}-accepted-notes.md"
+          cat >"$notes" <<EOF
+          Automated signed Android build for commit \`$GITHUB_SHA\`.
+
+          - Version: \`$STARFALL_VERSION_NAME\` (\`$STARFALL_VERSION_CODE\`)
+          - Package: \`com.pzy.starfallodyssey\`
+          - Runtime: Unity 6000.1.10f1, IL2CPP, ARM64
+          - Android: minimum API 26, target API 36
+          - Gates passed: reference tests, Android player preflight, Unity EditMode/PlayMode, package/signature/bundle validation, API 36 acceptance, API 32 Back compatibility
+
+          The APK is the directly installable signed build. The AAB is retained for future Google Play Internal Testing.
+          EOF
+
+          gh release edit "$tag" \
+            --target "$GITHUB_SHA" \
+            --title "STARFALL ODYSSEY Android $STARFALL_VERSION_NAME" \
+            --notes-file "$notes" \
+            --prerelease=false \
+            --latest
+          gh release view "$tag" \
+            --json url,tagName,isPrerelease,targetCommitish \
+            --jq '{url,tagName,isPrerelease,targetCommitish}'
+
   play-internal:
     name: Google Play Internal Testing
-    needs: android-release
+    needs:
+      - android-release
+      - android-emulator
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       vars.ENABLE_PLAY_INTERNAL == 'true' &&
-      needs.android-release.result == 'success'
+      needs.android-release.result == 'success' &&
+      needs.android-emulator.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: google-play-internal
