@@ -36,6 +36,8 @@ namespace Starfall.Editor
             "Assets/Plugins/Android/gradleTemplate.properties";
         private const string MobilePipelineAssetPath =
             "Assets/Settings/Mobile_RPAsset.asset";
+        private const string UniversalPipelineGlobalSettingsPath =
+            "Assets/Settings/UniversalRenderPipelineGlobalSettings.asset";
 
         private static readonly Color AndroidBrandBackground =
             new Color32(6, 15, 35, 255);
@@ -628,14 +630,19 @@ namespace Starfall.Editor
         private sealed class SmokePipelineSettingsSnapshot
         {
             private readonly UniversalRenderPipelineAsset asset;
+            private readonly UnityEngine.Object globalSettings;
             private readonly LightRenderingMode additionalLightsRenderingMode;
             private readonly bool supportsMainLightShadows;
             private readonly int prefilteringModeMainLightShadows;
             private readonly int prefilteringModeAdditionalLight;
+            private readonly bool renderCompatibilityMode;
 
-            private SmokePipelineSettingsSnapshot(UniversalRenderPipelineAsset asset)
+            private SmokePipelineSettingsSnapshot(
+                UniversalRenderPipelineAsset asset,
+                UnityEngine.Object globalSettings)
             {
                 this.asset = asset;
+                this.globalSettings = globalSettings;
                 additionalLightsRenderingMode = asset.additionalLightsRenderingMode;
                 supportsMainLightShadows = asset.supportsMainLightShadows;
                 var serializedAsset = new SerializedObject(asset);
@@ -645,6 +652,7 @@ namespace Starfall.Editor
                 prefilteringModeAdditionalLight = ReadRequiredInt(
                     serializedAsset,
                     "m_PrefilteringModeAdditionalLight");
+                renderCompatibilityMode = ReadRenderCompatibilityMode(globalSettings);
             }
 
             public static SmokePipelineSettingsSnapshot Capture()
@@ -656,11 +664,26 @@ namespace Starfall.Editor
                     throw new InvalidOperationException(
                         $"Mobile URP asset is missing: {MobilePipelineAssetPath}");
                 }
-                return new SmokePipelineSettingsSnapshot(asset);
+
+                var globalSettings = AssetDatabase.LoadMainAssetAtPath(
+                    UniversalPipelineGlobalSettingsPath);
+                if (globalSettings == null)
+                {
+                    throw new InvalidOperationException(
+                        $"URP global settings are missing: {UniversalPipelineGlobalSettingsPath}");
+                }
+
+                return new SmokePipelineSettingsSnapshot(asset, globalSettings);
             }
 
             public void Apply(bool isSmoke)
             {
+                // Unity 6 Render Graph can omit a fully attached UI Toolkit overlay
+                // from the final Android GLES frame. Android builds use URP's
+                // compatibility path for both Vulkan and the supported GLES3
+                // fallback, then restore the project-wide setting after BuildPlayer.
+                WriteRenderCompatibilityMode(true);
+
                 if (!isSmoke) return;
 
                 // The headless emulator exposes the GLES3 minimum uniform budget.
@@ -671,6 +694,7 @@ namespace Starfall.Editor
 
             public void Restore()
             {
+                WriteRenderCompatibilityMode(renderCompatibilityMode);
                 WriteSerializedSettings(
                     additionalLightsRenderingMode,
                     supportsMainLightShadows,
@@ -717,6 +741,44 @@ namespace Starfall.Editor
                     additionalPrefilterProperty.intValue = additionalLightPrefiltering.Value;
                 }
                 serializedAsset.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private static bool ReadRenderCompatibilityMode(
+                UnityEngine.Object settings)
+            {
+                var serializedSettings = new SerializedObject(settings);
+                return FindRequiredProperty(
+                    serializedSettings,
+                    "m_EnableRenderCompatibilityMode").boolValue;
+            }
+
+            private void WriteRenderCompatibilityMode(bool enabled)
+            {
+                var serializedSettings = new SerializedObject(globalSettings);
+                var compatibilityProperty = FindRequiredProperty(
+                    serializedSettings,
+                    "m_EnableRenderCompatibilityMode");
+                compatibilityProperty.boolValue = enabled;
+                serializedSettings.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private static SerializedProperty FindRequiredProperty(
+                SerializedObject serializedObject,
+                string propertyName)
+            {
+                var iterator = serializedObject.GetIterator();
+                var enterChildren = true;
+                while (iterator.Next(enterChildren))
+                {
+                    enterChildren = false;
+                    if (string.Equals(iterator.name, propertyName, StringComparison.Ordinal))
+                    {
+                        return iterator.Copy();
+                    }
+                }
+
+                throw new InvalidOperationException(
+                    $"The installed URP package does not expose '{propertyName}'.");
             }
 
             private static int ReadRequiredInt(
