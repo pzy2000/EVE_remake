@@ -104,12 +104,16 @@ if grep -Eq 'ram-size: (4096|6144)M' "$workflow_entry"; then
   echo 'The emulator must not restore a memory reservation that destabilizes the hosted runner.' >&2
   exit 1
 fi
-[[ "$(grep -Fc -- '-gpu swiftshader -feature -Vulkan ' "$workflow_entry")" == "2" ]] || {
-  echo 'Both emulator jobs must use SwiftShader with emulator Vulkan disabled.' >&2
+[[ "$(grep -Fc 'emulator-build: 15004761' "$workflow_entry")" == "2" ]] || {
+  echo 'Both emulator jobs must pin Android Emulator 36.4.10 build 15004761.' >&2
   exit 1
 }
-if grep -Fq -- '-gpu swiftshader_indirect' "$workflow_entry"; then
-  echo 'The deprecated swiftshader_indirect backend must not return.' >&2
+[[ "$(grep -Fc -- '-gpu software -feature -Vulkan ' "$workflow_entry")" == "2" ]] || {
+  echo 'Both emulator jobs must use the supported adaptive software backend with Vulkan disabled.' >&2
+  exit 1
+}
+if grep -Eq -- '-gpu (swiftshader|swiftshader_indirect)' "$workflow_entry"; then
+  echo 'The ColorBuffer-crashing or deprecated SwiftShader modes must not return.' >&2
   exit 1
 fi
 grep -Fq 'PlayerSettings.SplashScreen.show = !isSmoke;' "$android_build_entry" || {
