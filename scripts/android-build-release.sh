@@ -23,6 +23,7 @@ for variable in \
   ANDROID_SDK_ROOT \
   ANDROID_NDK_HOME \
   JAVA_HOME \
+  GRADLE_EXECUTABLE \
   STARFALL_VERSION_CODE \
   STARFALL_VERSION_NAME; do
   require_environment "$variable"
@@ -32,8 +33,15 @@ export_root="$(cd "$export_root" && pwd -P)"
 mkdir -p "$output_directory"
 output_directory="$(cd "$output_directory" && pwd -P)"
 
-if [[ ! -f "$export_root/gradlew" ]] || [[ ! -d "$export_root/launcher" ]]; then
+if [[ ! -f "$export_root/settings.gradle" ]] || \
+   [[ ! -f "$export_root/build.gradle" ]] || \
+   [[ ! -d "$export_root/launcher" ]] || \
+   [[ ! -d "$export_root/unityLibrary" ]]; then
   echo "Not a Unity-exported Android Gradle project: $export_root" >&2
+  exit 2
+fi
+if [[ ! -x "$GRADLE_EXECUTABLE" ]]; then
+  echo "Pinned Gradle executable is unavailable: $GRADLE_EXECUTABLE" >&2
   exit 2
 fi
 if [[ ! -d "$unity_project_root/Assets" ]] || [[ ! -d "$unity_project_root/ProjectSettings" ]]; then
@@ -94,10 +102,9 @@ python3 "$script_directory/rewrite-unity-android-paths.py" \
   "$export_root" "$ANDROID_SDK_ROOT" "$ANDROID_NDK_HOME" "$JAVA_HOME" \
   "$ndk_version" "$unity_project_root"
 
-chmod +x "$export_root/gradlew"
 (
   cd "$export_root"
-  ./gradlew \
+  "$GRADLE_EXECUTABLE" \
     --no-daemon \
     --console=plain \
     --stacktrace \

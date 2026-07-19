@@ -585,6 +585,21 @@ jobs:
             | shasum -a 256 --check
           echo "BUNDLETOOL_JAR=$bundletool" >>"$GITHUB_ENV"
 
+      - name: Install pinned Gradle 8.9
+        shell: bash
+        run: |
+          gradle_zip="$RUNNER_TEMP/gradle-8.9-bin.zip"
+          gradle_home="$RUNNER_TEMP/gradle-8.9"
+          curl --fail --location --silent --show-error \
+            --proto '=https' --tlsv1.2 \
+            https://services.gradle.org/distributions/gradle-8.9-bin.zip \
+            --output "$gradle_zip"
+          echo 'd725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab  '"$gradle_zip" \
+            | shasum -a 256 --check
+          unzip -q "$gradle_zip" -d "$RUNNER_TEMP"
+          echo "GRADLE_EXECUTABLE=$gradle_home/bin/gradle" >>"$GITHUB_ENV"
+          "$gradle_home/bin/gradle" --version
+
       - name: Build signed APK and AAB outside Android Studio
         shell: bash
         env:
@@ -595,8 +610,9 @@ jobs:
           STARFALL_VERSION_CODE: ${{ steps.version.outputs.version_code }}
           STARFALL_VERSION_NAME: ${{ steps.version.outputs.version_name }}
         run: |
-          gradle_root="$(dirname "$(find UnityProject/Builds -type f -name gradlew -print -quit)")"
-          test -n "$gradle_root"
+          mapfile -t settings_files < <(find UnityProject/Builds -type f -name settings.gradle -print)
+          test "${#settings_files[@]}" -eq 1
+          gradle_root="$(dirname "${settings_files[0]}")"
           bash scripts/android-build-release.sh "$gradle_root" artifacts/android-release
 
       - name: Locate release outputs
