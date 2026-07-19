@@ -1,11 +1,13 @@
 #if STARFALL_ANDROID_CI
 using System;
+using System.Collections;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Starfall.Presentation;
 using Starfall.Simulation;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 namespace Starfall.App
@@ -18,7 +20,34 @@ namespace Starfall.App
     {
         private const string AndroidCiCommandEvidence = "starfall-ci-command.json";
         private const string AndroidCiLowMemoryEvidence = "starfall-ci-low-memory.json";
+        private const string AndroidCiRenderReadyEvidence = "starfall-ci-render-ready.json";
         private int androidCiLowMemoryGeneration;
+
+        /// <summary>
+        /// The scene and UI tree can be live while Unity's splash is still covering the
+        /// Android surface. Publish a separate cold-start marker only after the splash
+        /// has finished and two complete frames have reached the display pipeline.
+        /// </summary>
+        private IEnumerator WriteAndroidCiRenderReadyEvidence()
+        {
+            while (!SplashScreen.isFinished || SceneManager.GetActiveScene().name == "Bootstrap")
+                yield return null;
+
+            yield return new WaitForEndOfFrame();
+            yield return new WaitForEndOfFrame();
+
+            var evidence = new JObject
+            {
+                ["scene"] = SceneManager.GetActiveScene().name,
+                ["frameCount"] = Time.frameCount,
+                ["splashFinished"] = SplashScreen.isFinished,
+                ["timestampUtc"] = DateTime.UtcNow.ToString("O"),
+            };
+            File.WriteAllText(
+                Path.Combine(Application.persistentDataPath, AndroidCiRenderReadyEvidence),
+                evidence.ToString(Formatting.Indented));
+            Debug.Log("STARFALL_ANDROID_CI_RENDER_READY=" + evidence.ToString(Formatting.None));
+        }
 
         public void OnAndroidCiCommand(string payload)
         {

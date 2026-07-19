@@ -40,6 +40,43 @@ starfall_android_app_file_path() {
     "$(starfall_android_app_files_directory "$package_name")" "$relative_path"
 }
 
+starfall_wait_for_unity_render_ready() {
+  local package_name="${1:?package name is required}"
+  local destination="${2:?render-ready evidence destination is required}"
+  local expected_scene="${3:-MainMenu}"
+  local attempts="${4:-240}"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path \
+    "$package_name" starfall-ci-render-ready.json)"
+  mkdir -p "$(dirname "$destination")"
+
+  for _ in $(seq 1 "$attempts"); do
+    if adb exec-out cat "$remote_path" >"$destination" 2>/dev/null && \
+      python3 - "$destination" "$expected_scene" <<'PY'
+import json
+import sys
+
+try:
+    payload = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+ready = (
+    payload.get("scene") == sys.argv[2]
+    and payload.get("splashFinished") is True
+    and int(payload.get("frameCount") or 0) > 0
+)
+raise SystemExit(0 if ready else 1)
+PY
+    then
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  echo "Timed out waiting for Unity's post-splash $expected_scene frame." >&2
+  return 1
+}
+
 starfall_capture_emulator_failure() {
   local package_name="${1:?package name is required}"
   local evidence_directory="${2:?evidence directory is required}"

@@ -121,6 +121,9 @@ namespace Starfall.App
         {
             OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
             if (SceneManager.GetActiveScene().name == "Bootstrap") RequestScene("MainMenu");
+#if STARFALL_ANDROID_CI
+            StartCoroutine(WriteAndroidCiRenderReadyEvidence());
+#endif
         }
 
         private void OnDestroy()

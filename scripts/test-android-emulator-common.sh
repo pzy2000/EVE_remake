@@ -56,6 +56,8 @@ fi
 graphics_settings="$script_directory/../UnityProject/ProjectSettings/GraphicsSettings.asset"
 android_build_entry="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidBuild.cs"
 back_compat_entry="$script_directory/android-back-compat-ci.sh"
+emulator_entry="$script_directory/android-emulator-ci.sh"
+android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 workflow_entry="$script_directory/../.github/workflows/android.yml"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
@@ -102,6 +104,18 @@ if grep -Fq 'ram-size: 6144M' "$workflow_entry"; then
   echo 'The API 36 emulator must not reserve 6144M on a hosted runner.' >&2
   exit 1
 fi
+grep -Fq 'while (!SplashScreen.isFinished' "$android_ci_automation" || {
+  echo 'Android CI readiness must wait until the Unity splash is finished.' >&2
+  exit 1
+}
+grep -Fq 'starfall_wait_for_unity_render_ready' "$back_compat_entry" || {
+  echo 'The API 32 Back gate must wait for a rendered MainMenu frame.' >&2
+  exit 1
+}
+[[ "$(grep -Fc 'starfall_wait_for_unity_render_ready' "$emulator_entry")" == "3" ]] || {
+  echo 'Every API 36 cold-start path must wait for a rendered post-splash frame.' >&2
+  exit 1
+}
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
@@ -117,6 +131,7 @@ transport_wait_calls=0
 immersive_value="confirmed"
 immersive_window_attempts=0
 immersive_back_calls=0
+render_ready_calls=0
 adb() {
   case "${1:-}" in
     install)
@@ -145,6 +160,19 @@ adb() {
       else
         echo 'device'
       fi
+      ;;
+    exec-out)
+      if [[ "$*" == "exec-out cat $expected_files_directory/starfall-ci-render-ready.json" ]]; then
+        render_ready_calls=$((render_ready_calls + 1))
+        if (( render_ready_calls == 1 )); then
+          printf '%s\n' '{"scene":"MainMenu","frameCount":0,"splashFinished":false}'
+        else
+          printf '%s\n' '{"scene":"MainMenu","frameCount":42,"splashFinished":true}'
+        fi
+        return 0
+      fi
+      echo "Unexpected adb exec-out command in test: $*" >&2
+      return 2
       ;;
     reconnect|kill-server|start-server)
       return 0
@@ -188,6 +216,12 @@ grep -Fqx 'attempt=1 state=offline' "$transport_evidence"
 grep -Fqx 'attempt=2 state=device' "$transport_evidence"
 transport_mode="ready"
 transport_wait_calls=0
+
+render_ready_evidence="$temporary_directory/render-ready.json"
+starfall_wait_for_unity_render_ready \
+  com.pzy.starfallodyssey "$render_ready_evidence" MainMenu 3
+[[ "$render_ready_calls" == "2" ]]
+grep -Fq '"splashFinished":true' "$render_ready_evidence"
 
 first_results="$temporary_directory/recoverable"
 starfall_install_apk_with_system_retries "$apk" "$first_results"

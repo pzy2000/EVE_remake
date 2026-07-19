@@ -881,6 +881,8 @@ PY
   wait_for_process >/dev/null
   starfall_clear_immersive_mode_confirmation \
     "$legacy_directory/immersive-mode-confirmation"
+  starfall_wait_for_unity_render_ready \
+    "$package_name" "$legacy_directory/render-ready.json" MainMenu
   source_json='{"schemaVersion":1,"source":"github-actions","origin":"top-left","safeAreaOrigin":"top-left","widthPx":2748,"heightPx":1172,"densityDpi":420,"safeArea":{"x":0,"y":0,"width":2748,"height":1172},"foldingFeatures":[]}'
   adb shell am broadcast -a "$debug_layout_action" --es json "$source_json" \
     >"$legacy_directory/window-broadcast.txt"
@@ -984,6 +986,8 @@ run_scenario() {
   wait_for_process >/dev/null
   starfall_clear_immersive_mode_confirmation \
     "$scenario_directory/immersive-mode-confirmation"
+  starfall_wait_for_unity_render_ready \
+    "$package_name" "$scenario_directory/render-ready.json" MainMenu
 
   local expected_graphics_device
   case "$graphics_argument" in
@@ -1398,8 +1402,12 @@ adb logcat -d --pid="$trim_pid" >"$results_directory/trim-memory.app.logcat.txt"
 dispatch_ci_command status "$results_directory/trim-memory.post-status.command.json"
 assert_no_app_failures "low-memory-trim"
 adb shell am force-stop "$package_name"
+adb shell rm -f \
+  "$persistent_data_directory/starfall-ci-render-ready.json"
 adb shell am start -W -n "$activity" >"$results_directory/force-stop-restart.txt"
 wait_for_process >/dev/null
+starfall_wait_for_unity_render_ready \
+  "$package_name" "$results_directory/force-stop-render-ready.json" MainMenu
 pull_app_file "starfall-ci-layout-MainMenu.json" "$results_directory/Continue.MainMenu.layout.json"
 tap_control "$results_directory/Continue.MainMenu.layout.json" continue
 

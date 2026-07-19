@@ -166,6 +166,8 @@ if [[ ! "$pid_before" =~ ^[0-9]+$ ]]; then
 fi
 starfall_clear_immersive_mode_confirmation \
   "$results_directory/immersive-mode-confirmation"
+starfall_wait_for_unity_render_ready \
+  "$package_name" "$results_directory/render-ready.json" MainMenu
 
 base_layout="$results_directory/MainMenu.layout.json"
 wait_for_main_menu_layout "$base_layout"
