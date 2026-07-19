@@ -525,7 +525,16 @@ def validate_visible_rect(rect, item_kind, name):
         raise SystemExit(f"{path}: visible {item_kind} {name} intersects the folding feature")
 
 controls = data.get("controls") or []
-visible_controls = [item for item in controls if item.get("visible", True)]
+# Preserve Unity's internal ScrollView/Scroller elements in the evidence JSON,
+# but do not treat implementation-detail controls such as `unity-slider` as
+# application touch targets. The named parent ScrollView and app-level Slider
+# remain covered by the surface and required-control gates below.
+visible_controls = [
+    item
+    for item in controls
+    if item.get("visible", True)
+    and not str(item.get("name") or "").startswith("unity-")
+]
 if not visible_controls:
     raise SystemExit(f"{path}: no visible interactive controls were captured")
 for control in visible_controls:

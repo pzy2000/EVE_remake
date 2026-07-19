@@ -200,6 +200,11 @@ grep -A16 '^tap_coordinate()' "$emulator_entry" | grep -Fq 'sleep 0.25' || {
   echo 'Sequential ADB UI taps must settle on distinct Unity player frames.' >&2
   exit 1
 }
+grep -Fq 'and not str(item.get("name") or "").startswith("unity-")' \
+  "$emulator_entry" || {
+  echo 'Unity internal controls must not masquerade as application touch targets.' >&2
+  exit 1
+}
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
