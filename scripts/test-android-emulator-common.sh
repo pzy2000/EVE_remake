@@ -116,6 +116,15 @@ grep -Fq 'PlayerSettings.SplashScreen.show = !isSmoke;' "$android_build_entry" |
   echo 'The smoke player must disable the Unity splash without changing release builds.' >&2
   exit 1
 }
+android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
+if grep -Fq 'yield return new WaitForEndOfFrame' "$android_ci_automation"; then
+  echo 'Android CI readiness must not depend on a visible display surface.' >&2
+  exit 1
+fi
+grep -Fq 'Time.frameCount < firstMainMenuFrame + 2' "$android_ci_automation" || {
+  echo 'Android CI readiness must wait for two player-loop frames after MainMenu.' >&2
+  exit 1
+}
 grep -Fq 'starfall_wait_for_unity_render_ready' "$back_compat_entry" || {
   echo 'The API 32 Back gate must wait for a rendered MainMenu frame.' >&2
   exit 1

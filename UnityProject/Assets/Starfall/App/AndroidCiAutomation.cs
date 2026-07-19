@@ -24,15 +24,18 @@ namespace Starfall.App
 
         /// <summary>
         /// The smoke flavor disables Unity's splash. Publish a separate cold-start
-        /// marker after MainMenu and two complete frames reach the display pipeline.
+        /// marker after MainMenu and two player-loop frames have completed.
+        /// WaitForEndOfFrame can remain suspended when an Android emulator has no
+        /// visible display surface, so CI readiness must not depend on that yield.
         /// </summary>
         private IEnumerator WriteAndroidCiRenderReadyEvidence()
         {
             while (SceneManager.GetActiveScene().name == "Bootstrap")
                 yield return null;
 
-            yield return new WaitForEndOfFrame();
-            yield return new WaitForEndOfFrame();
+            var firstMainMenuFrame = Time.frameCount;
+            while (Time.frameCount < firstMainMenuFrame + 2)
+                yield return null;
 
             var evidence = new JObject
             {
