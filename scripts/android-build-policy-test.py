@@ -15,6 +15,9 @@ workflow = (repository_root / ".github/workflows/android.yml").read_text(encodin
 release_script = (repository_root / "scripts/android-build-release.sh").read_text(
     encoding="utf-8"
 )
+validation_script = (
+    repository_root / "scripts/validate-android-release.sh"
+).read_text(encoding="utf-8")
 
 required_fragments = (
     'var expectedExportType = flavor == SmokeFlavor ? "androidPackage" : "androidStudioProject";',
@@ -67,6 +70,13 @@ if "ndk.dir=" in release_script:
     raise SystemExit(1)
 if "printf 'sdk.dir=%s\\n' \"$ANDROID_SDK_ROOT\"" not in release_script:
     print("Release local.properties must retain sdk.dir.", file=sys.stderr)
+    raise SystemExit(1)
+
+if r"\( -type f -o -type l \) -name llvm-readelf" not in validation_script:
+    print(
+        "Release validation must resolve the NDK llvm-readelf symlink.",
+        file=sys.stderr,
+    )
     raise SystemExit(1)
 
 android_back_guard = """#if !UNITY_ANDROID || UNITY_EDITOR

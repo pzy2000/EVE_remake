@@ -34,7 +34,7 @@ aapt2="$build_tools/aapt2"
 apksigner="$build_tools/apksigner"
 zipalign="$build_tools/zipalign"
 readelf="$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" \
-  -type f -name llvm-readelf -print -quit)"
+  \( -type f -o -type l \) -name llvm-readelf -print -quit)"
 
 for tool in "$aapt2" "$apksigner" "$zipalign" "$readelf"; do
   if [[ ! -x "$tool" ]]; then
