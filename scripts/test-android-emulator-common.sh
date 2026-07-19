@@ -36,6 +36,14 @@ if grep -En \
   exit 1
 fi
 
+graphics_settings="$script_directory/../UnityProject/ProjectSettings/GraphicsSettings.asset"
+grep -Fq \
+  '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
+  "$graphics_settings" || {
+  echo 'URP Unlit must remain in Always Included Shaders for runtime materials.' >&2
+  exit 1
+}
+
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
   service_wait_files+=("$(basename "$evidence_file")")

@@ -252,7 +252,9 @@ namespace Starfall.Presentation
             var key = $"planet-{id}-{ColorUtility.ToHtmlStringRGB(baseColor)}-{moon}";
             if (Materials.TryGetValue(key, out var cached) && cached) return cached;
 
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            var shader = Shader.Find("Universal Render Pipeline/Lit") ??
+                         Shader.Find("Standard") ??
+                         Shader.Find("Sprites/Default");
             var material = new Material(shader) { name = $"M_{key}" };
             var texture = CreatePlanetTexture(key, StableSeed(id), baseColor, moon);
             SetBaseTexture(material, texture);
@@ -268,7 +270,9 @@ namespace Starfall.Presentation
             const string key = "asteroid-rock-v2";
             if (Materials.TryGetValue(key, out var cached) && cached) return cached;
 
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            var shader = Shader.Find("Universal Render Pipeline/Lit") ??
+                         Shader.Find("Standard") ??
+                         Shader.Find("Sprites/Default");
             var material = new Material(shader) { name = "M_AsteroidRockV2" };
             SetBaseTexture(material, CreateRockTexture(key));
             SetBaseColor(material, Color.white);
@@ -283,7 +287,9 @@ namespace Starfall.Presentation
             var cacheKey = $"glow-{key}-{ColorUtility.ToHtmlStringRGB(color)}";
             if (Materials.TryGetValue(cacheKey, out var cached) && cached) return cached;
 
-            var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
+            var shader = Shader.Find("Universal Render Pipeline/Unlit") ??
+                         Shader.Find("Unlit/Color") ??
+                         Shader.Find("Sprites/Default");
             var material = new Material(shader) { name = $"M_{cacheKey}" };
             var finalColor = color * intensity;
             SetBaseColor(material, finalColor);
@@ -310,7 +316,9 @@ namespace Starfall.Presentation
             var cacheKey = $"sky-{key}-{style.Seed}";
             if (Materials.TryGetValue(cacheKey, out var cached) && cached) return cached;
 
-            var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture");
+            var shader = Shader.Find("Universal Render Pipeline/Unlit") ??
+                         Shader.Find("Unlit/Texture") ??
+                         Shader.Find("Sprites/Default");
             var material = new Material(shader) { name = $"M_{cacheKey}", renderQueue = 1000 };
             SetBaseTexture(material, CreateSkyTexture(cacheKey, style));
             SetBaseColor(material, Color.white);
