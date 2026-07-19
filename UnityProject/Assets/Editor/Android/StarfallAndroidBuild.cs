@@ -138,6 +138,12 @@ namespace Starfall.Editor
                 $"bytes={report.summary.totalSize}, duration={report.summary.totalTime}.");
         }
 
+        public static void ValidatePipelineSettingsForCi()
+        {
+            SmokePipelineSettingsSnapshot.Capture();
+            Debug.Log("[Starfall Android] Android URP build settings validated.");
+        }
+
         private static void ValidateGeneratedAssetsForCi()
         {
             const string typeName =
@@ -767,10 +773,8 @@ namespace Starfall.Editor
                 string propertyName)
             {
                 var iterator = serializedObject.GetIterator();
-                var enterChildren = true;
-                while (iterator.Next(enterChildren))
+                while (iterator.Next(true))
                 {
-                    enterChildren = false;
                     if (string.Equals(iterator.name, propertyName, StringComparison.Ordinal))
                     {
                         return iterator.Copy();

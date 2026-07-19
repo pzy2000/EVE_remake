@@ -45,6 +45,7 @@ namespace Starfall.Editor
                         $"running {Application.unityVersion}.");
                 }
 
+                StarfallAndroidBuild.ValidatePipelineSettingsForCi();
                 var settings = new ScriptCompilationSettings
                 {
                     target = BuildTarget.Android,
