@@ -53,6 +53,11 @@ grep -Fq 'timeout 30s adb wait-for-device' \
   echo 'ADB wait-for-device must remain bounded by a timeout.' >&2
   exit 1
 }
+if grep -En '^[[:space:]]*adb wait-for-device([[:space:]]|$)' \
+  "$script_directory"/android-{back-compat-ci,emulator-ci,emulator-common}.sh; then
+  echo 'Every ADB wait-for-device call must use the bounded transport helper.' >&2
+  exit 1
+fi
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"

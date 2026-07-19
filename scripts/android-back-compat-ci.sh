@@ -96,7 +96,8 @@ raise SystemExit(0 if present is expected else 1)
 PY
 }
 
-adb wait-for-device
+starfall_wait_for_adb_transport \
+  "$results_directory/adb-transport-before-api-check.txt"
 starfall_wait_for_android_services "$results_directory/android-services-before-api-check.txt"
 starfall_confirm_immersive_mode "$results_directory/immersive-mode-setting.txt"
 sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"

@@ -234,7 +234,8 @@ trap on_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-adb wait-for-device
+starfall_wait_for_adb_transport \
+  "$results_directory/adb-transport-before-dialog-check.txt"
 starfall_wait_for_android_services \
   "$results_directory/android-services-before-dialog-check.txt"
 dismiss_known_system_startup_dialogs "before-install"

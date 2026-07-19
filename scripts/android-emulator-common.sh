@@ -204,8 +204,8 @@ starfall_install_apk_with_system_retries() {
       'Broken pipe|device (offline|unauthorized)|no devices/emulators found|cannot connect to daemon|closed$|Failure calling service package' \
       "$attempt_file" && ! grep -Fq 'INSTALL_FAILED_' "$attempt_file"; then
       if (( attempt < 3 )); then
-        adb reconnect >/dev/null 2>&1 || true
-        adb wait-for-device
+        starfall_wait_for_adb_transport \
+          "$evidence_directory/adb-transport-after-install-failure-attempt-$attempt.txt"
         sleep 2
         continue
       fi
