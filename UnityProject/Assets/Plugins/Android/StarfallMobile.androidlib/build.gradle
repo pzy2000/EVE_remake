@@ -23,7 +23,8 @@ android {
 dependencies {
     // Window's Java callback API exposes androidx.core.util.Consumer in its
     // public signatures. Keep Core explicit so Unity's embedded Gradle build
-    // has it on this androidlib module's javac classpath.
-    implementation 'androidx.core:core:1.17.0'
+    // has it on this androidlib module's javac classpath. Core 1.16.0 supports
+    // Unity 6000.1.10f1's AGP 8.7.2; Core 1.17+ requires AGP 8.9.1.
+    implementation 'androidx.core:core:1.16.0'
     implementation 'androidx.window:window-java:1.5.1'
 }
