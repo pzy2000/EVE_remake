@@ -85,6 +85,9 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "if (!initialized || activity != sourceActivity)");
         assertContains(source, "sendUnity(CALLBACK_BACK, \"\")");
         assertContains(source, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH=");
+        assertContains(source, "OnBackInvokedDispatcher.PRIORITY_OVERLAY");
+        assertFalse(source.contains("OnBackInvokedDispatcher.PRIORITY_DEFAULT"),
+                "predictive Back must not lose to Unity GameActivity's callback priority");
         assertContains(source, "drainReadyLegacyImportsLocked(currentActivity)");
         assertContains(source, "public static void acknowledgeLegacyDocument");
         assertContains(source, "consumeRestoredLegacyImportAcknowledgement");

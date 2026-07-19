@@ -930,7 +930,10 @@ public final class StarfallMobileBridge {
                         }
                     };
             sourceActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                    // Unity GameActivity registers its own higher-than-default callback.
+                    // Keep Starfall's overlay/navigation router ahead of it so every
+                    // committed Back reaches the currently visible game overlay.
+                    android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY,
                     nativeCallback);
             return nativeCallback;
         }
