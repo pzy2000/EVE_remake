@@ -106,12 +106,12 @@ if [[ "$activity" != "$expected_activity" ]]; then
   exit 1
 fi
 
-# pixel_2 is portrait-native; rotate the overridden physical axes into the
-# exact logical landscape framebuffer used by the primary acceptance profile.
+# Pixel Launcher may ignore user_rotation while it owns the foreground. Apply
+# the final logical landscape axes directly before starting the Unity activity.
 adb shell settings put system accelerometer_rotation 0
-adb shell wm size "${height}x${width}"
+adb shell settings put system user_rotation 0
+adb shell wm size "${width}x${height}"
 adb shell wm density "$density_dpi"
-adb shell settings put system user_rotation 1
 for _ in $(seq 1 40); do
   if adb exec-out screencap -p >"$results_directory/display-probe.png" 2>/dev/null && \
     assert_png_dimensions "$results_directory/display-probe.png" 2>/dev/null; then

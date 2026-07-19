@@ -305,12 +305,13 @@ configure_landscape_display() {
   local evidence_prefix="$4"
   local probe_png="$results_directory/.display-probe.png"
 
-  # pixel_2 is portrait-native. Override the physical axes first, then rotate
-  # clockwise so the final logical framebuffer is exactly width x height.
+  # Pixel Launcher can lock itself to rotation 0 even after user_rotation is
+  # changed. Set the final logical landscape axes directly so the acceptance
+  # framebuffer is deterministic before the Unity activity starts.
   adb shell settings put system accelerometer_rotation 0
-  adb shell wm size "${height}x${width}"
+  adb shell settings put system user_rotation 0
+  adb shell wm size "${width}x${height}"
   adb shell wm density "$density_dpi"
-  adb shell settings put system user_rotation 1
 
   for _ in $(seq 1 40); do
     if adb exec-out screencap -p >"$probe_png" 2>/dev/null && \
