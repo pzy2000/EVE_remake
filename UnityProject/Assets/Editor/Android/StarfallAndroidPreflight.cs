@@ -3,7 +3,6 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEditor.Build.Player;
@@ -54,7 +53,7 @@ namespace Starfall.Editor
                     extraScriptingDefines = new[] { CiDefine },
                 };
                 var result = PlayerBuildInterface.CompilePlayerScripts(settings, assemblyDirectory);
-                assemblyCount = result.assemblies?.Length ?? 0;
+                assemblyCount = result.assemblies?.Count ?? 0;
                 if (assemblyCount == 0)
                     throw new InvalidOperationException("Android preflight produced no player assemblies.");
                 Debug.Log($"[Starfall Android] Preflight compiled {assemblyCount} player assemblies " +
