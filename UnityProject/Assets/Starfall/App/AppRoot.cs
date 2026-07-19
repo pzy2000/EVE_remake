@@ -399,7 +399,12 @@ namespace Starfall.App
         {
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
+#if !UNITY_ANDROID || UNITY_EDITOR
+            // Android system Back is owned by StarfallMobileBridge on every supported
+            // API. GameActivity can also expose the committed key through Input System;
+            // handling escape here would close and immediately reopen the top overlay.
             if (keyboard.escapeKey.wasPressedThisFrame) HandleMobileBack("keyboard");
+#endif
             if (session == null) return;
             if (keyboard.wKey.wasPressedThisFrame) Queue(GameCommandType.Warp);
             if (keyboard.lKey.wasPressedThisFrame) Queue(GameCommandType.Lock);

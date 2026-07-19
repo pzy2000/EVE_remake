@@ -8,6 +8,9 @@ import sys
 repository_root = Path(__file__).resolve().parent.parent
 build_source = repository_root / "UnityProject/Assets/Editor/Android/StarfallAndroidBuild.cs"
 source = build_source.read_text(encoding="utf-8")
+app_root = (repository_root / "UnityProject/Assets/Starfall/App/AppRoot.cs").read_text(
+    encoding="utf-8"
+)
 workflow = (repository_root / ".github/workflows/android.yml").read_text(encoding="utf-8")
 release_script = (repository_root / "scripts/android-build-release.sh").read_text(
     encoding="utf-8"
@@ -55,5 +58,18 @@ for fragment in ("GRADLE_EXECUTABLE", '"$export_root/settings.gradle"'):
     if fragment not in release_script:
         print(f"Missing external Gradle validation: {fragment}", file=sys.stderr)
         raise SystemExit(1)
+
+android_back_guard = """#if !UNITY_ANDROID || UNITY_EDITOR
+            // Android system Back is owned by StarfallMobileBridge on every supported
+            // API. GameActivity can also expose the committed key through Input System;
+            // handling escape here would close and immediately reopen the top overlay.
+            if (keyboard.escapeKey.wasPressedThisFrame) HandleMobileBack(\"keyboard\");
+#endif"""
+if android_back_guard not in app_root:
+    print(
+        "Android player keyboard Back must remain exclusively owned by the native bridge.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 print("Android smoke/package and release/Gradle export policy passed.")
