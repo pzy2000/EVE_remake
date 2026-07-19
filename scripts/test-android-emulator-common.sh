@@ -196,6 +196,10 @@ grep -Fq 'starfall_wait_for_unity_render_ready' "$back_compat_entry" || {
   echo 'Every API 36 cold-start path must wait for a rendered post-splash frame.' >&2
   exit 1
 }
+grep -A16 '^tap_coordinate()' "$emulator_entry" | grep -Fq 'sleep 0.25' || {
+  echo 'Sequential ADB UI taps must settle on distinct Unity player frames.' >&2
+  exit 1
+}
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"

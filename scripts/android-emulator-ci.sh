@@ -38,6 +38,10 @@ tap_coordinate() {
     return 1
   fi
   adb shell input tap "$tap_x" "$tap_y"
+  # `input tap` returns before Unity necessarily consumes the pointer-up event.
+  # Keep sequential UI controls on distinct player frames; otherwise a burst of
+  # Station tab/save/settings taps can collapse into the first click only.
+  sleep 0.25
 }
 
 dismiss_known_system_startup_dialogs() {
