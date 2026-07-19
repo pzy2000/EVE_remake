@@ -31,6 +31,9 @@ namespace Starfall.UI
         private readonly MobileScreenKind screenKind;
         private readonly IWindowMetricsProvider metricsProvider;
         private readonly IVisualElementScheduledItem pollItem;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private readonly AndroidUiRenderTextureCompositor androidCompositor;
+#endif
 #if STARFALL_ANDROID_CI
         private readonly VisualElement ciRenderProbe;
 #endif
@@ -57,6 +60,9 @@ namespace Starfall.UI
 
             documentRoot = document.rootVisualElement;
             contentRoot = FindContentRoot(documentRoot, screenKind);
+#if UNITY_ANDROID && !UNITY_EDITOR
+            androidCompositor = AndroidUiRenderTextureCompositor.Attach(document);
+#endif
 #if STARFALL_ANDROID_CI
             ciRenderProbe = CreateCiRenderProbe(documentRoot);
 #endif
@@ -89,6 +95,9 @@ namespace Starfall.UI
             documentRoot?.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
 #if STARFALL_ANDROID_CI
             ciRenderProbe?.RemoveFromHierarchy();
+#endif
+#if UNITY_ANDROID && !UNITY_EDITOR
+            androidCompositor?.Dispose();
 #endif
             ResetHingeOverrides();
             if (contentRoot != null)
