@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=scripts/android-emulator-common.sh
+source "$script_directory/android-emulator-common.sh"
+
 apk="${1:?usage: android-back-compat-ci.sh APK [RESULTS_DIRECTORY]}"
 results_directory="${2:-artifacts/android-back-compat}"
 package_name="com.pzy.starfallodyssey"
@@ -75,6 +79,7 @@ PY
 }
 
 adb wait-for-device
+starfall_wait_for_android_services "$results_directory/android-services-before-api-check.txt"
 sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
 abi="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 [[ "$sdk" == "32" ]] || {
@@ -93,7 +98,7 @@ if [[ "${packaged_abis[*]}" != "$expected_architecture" ]]; then
   exit 1
 fi
 
-adb install -r -t "$apk" >"$results_directory/install.txt"
+starfall_install_apk_with_system_retries "$apk" "$results_directory"
 activity="$(adb shell cmd package resolve-activity --brief "$package_name" \
   | tr -d '\r' | tail -n 1)"
 if [[ "$activity" != "$expected_activity" ]]; then

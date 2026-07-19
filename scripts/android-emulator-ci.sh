@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=scripts/android-emulator-common.sh
+source "$script_directory/android-emulator-common.sh"
+
 apk="${1:?usage: android-emulator-ci.sh APK [RESULTS_DIRECTORY]}"
 results_directory="${2:-artifacts/android-emulator}"
 package_name="com.pzy.starfallodyssey"
@@ -44,7 +48,7 @@ dismiss_known_system_startup_dialogs() {
   local consecutive_clear=0
   mkdir -p "$evidence_directory"
 
-  for attempt in $(seq 1 6); do
+  for attempt in $(seq 1 12); do
     local stem
     stem="$evidence_directory/$(printf '%02d' "$attempt")"
     adb shell dumpsys window windows >"$stem.window.txt"
@@ -192,7 +196,7 @@ PY
           # for this restricted System UI/Launcher fallback.
           adb shell input keyevent KEYCODE_BACK
         fi
-        sleep 2
+        sleep 3
         ;;
       *)
         echo "Unexpected startup-dialog decision: $status" >&2
@@ -212,6 +216,8 @@ reset_emulator() {
 trap reset_emulator EXIT INT TERM
 
 adb wait-for-device
+starfall_wait_for_android_services \
+  "$results_directory/android-services-before-dialog-check.txt"
 dismiss_known_system_startup_dialogs "before-install"
 actual_abi="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 case "$expected_architecture:$actual_abi" in
@@ -229,7 +235,7 @@ if [[ "${packaged_abis[*]}" != "$expected_architecture" ]]; then
   exit 1
 fi
 
-adb install -r -t "$apk"
+starfall_install_apk_with_system_retries "$apk" "$results_directory"
 
 activity="$(adb shell cmd package resolve-activity --brief "$package_name" \
   | tr -d '\r' | tail -n 1)"

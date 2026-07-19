@@ -70,14 +70,17 @@ jobs:
           bash -n scripts/android-back-compat-ci.sh
           bash -n scripts/android-build-release.sh
           bash -n scripts/android-check-disk.sh
+          bash -n scripts/android-emulator-common.sh
           bash -n scripts/android-emulator-ci.sh
           bash -n scripts/android-java-policy-test.sh
           bash -n scripts/android-stability-ci.sh
+          bash -n scripts/test-android-emulator-common.sh
           bash -n scripts/android-verify-unity-results.sh
           bash -n scripts/validate-android-release.sh
           python3 -m py_compile \
             scripts/rewrite-unity-android-paths.py \
             scripts/test-rewrite-unity-android-paths.py
+          bash scripts/test-android-emulator-common.sh
           python3 scripts/test-rewrite-unity-android-paths.py
           if command -v shellcheck >/dev/null 2>&1; then
             shellcheck scripts/android-*.sh scripts/validate-android-release.sh
@@ -263,6 +266,17 @@ jobs:
           test -n "$apk"
           echo "apk=$apk" >>"$GITHUB_OUTPUT"
 
+      - name: Enable KVM acceleration
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+
       - name: Run API 36 geometry, lifecycle, and log gates
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
@@ -313,6 +327,17 @@ jobs:
           apk="$(find downloaded-smoke -type f -name '*.apk' -print -quit)"
           test -n "$apk"
           echo "apk=$apk" >>"$GITHUB_OUTPUT"
+
+      - name: Enable KVM acceleration
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
 
       - name: Verify API 26-32 Back compatibility on API 32
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
