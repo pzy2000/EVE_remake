@@ -120,6 +120,18 @@ grep -Fq 'PlayerSettings.SplashScreen.show = !isSmoke;' "$android_build_entry" |
   echo 'The smoke player must disable the Unity splash without changing release builds.' >&2
   exit 1
 }
+grep -Fq 'smokePipeline.Apply(flavor == SmokeFlavor);' "$android_build_entry" || {
+  echo 'The smoke build must apply its GLES3-minimum URP settings only to ci-smoke.' >&2
+  exit 1
+}
+grep -Fq 'asset.additionalLightsRenderingMode = LightRenderingMode.Disabled;' "$android_build_entry" || {
+  echo 'The smoke URP variant must stay within the emulator GLES3 uniform budget.' >&2
+  exit 1
+}
+grep -Fq 'smokePipeline.Restore();' "$android_build_entry" || {
+  echo 'The release Mobile URP settings must be restored after every build attempt.' >&2
+  exit 1
+}
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 if grep -Eq 'yield return new WaitForEndOfFrame|while .*Time\.frameCount' "$android_ci_automation"; then
   echo 'Android CI scene readiness must not depend on a visible display surface or frame clock.' >&2

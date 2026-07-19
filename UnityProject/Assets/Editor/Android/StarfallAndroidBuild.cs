@@ -10,6 +10,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Starfall.Editor
 {
@@ -33,6 +34,8 @@ namespace Starfall.Editor
             "Assets/Starfall/Art/Generated/Thumbnails/acolyte.png";
         private const string GradlePropertiesTemplatePath =
             "Assets/Plugins/Android/gradleTemplate.properties";
+        private const string MobilePipelineAssetPath =
+            "Assets/Settings/Mobile_RPAsset.asset";
 
         private static readonly Color AndroidBrandBackground =
             new Color32(6, 15, 35, 255);
@@ -90,10 +93,12 @@ namespace Starfall.Editor
             var snapshot = SettingsSnapshot.Capture();
             var debugSymbols = DebugSymbolsSnapshot.Capture();
             var icons = AndroidIconSnapshot.Capture();
+            var smokePipeline = SmokePipelineSettingsSnapshot.Capture();
             BuildReport report = null;
             try
             {
                 ApplyCommonSettings(versionName, versionCode, targetSdk);
+                smokePipeline.Apply(flavor == SmokeFlavor);
                 var options = ConfigureFlavor(
                     flavor,
                     architecture,
@@ -117,6 +122,7 @@ namespace Starfall.Editor
             {
                 debugSymbols.Restore();
                 icons.Restore();
+                smokePipeline.Restore();
                 snapshot.Restore();
                 AssetDatabase.SaveAssets();
             }
@@ -612,6 +618,49 @@ namespace Starfall.Editor
 
                 public PlatformIconKind Kind { get; }
                 public Texture2D[][] Textures { get; }
+            }
+        }
+
+        private sealed class SmokePipelineSettingsSnapshot
+        {
+            private readonly UniversalRenderPipelineAsset asset;
+            private readonly LightRenderingMode additionalLightsRenderingMode;
+            private readonly bool supportsMainLightShadows;
+
+            private SmokePipelineSettingsSnapshot(UniversalRenderPipelineAsset asset)
+            {
+                this.asset = asset;
+                additionalLightsRenderingMode = asset.additionalLightsRenderingMode;
+                supportsMainLightShadows = asset.supportsMainLightShadows;
+            }
+
+            public static SmokePipelineSettingsSnapshot Capture()
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(
+                    MobilePipelineAssetPath);
+                if (asset == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Mobile URP asset is missing: {MobilePipelineAssetPath}");
+                }
+                return new SmokePipelineSettingsSnapshot(asset);
+            }
+
+            public void Apply(bool isSmoke)
+            {
+                if (!isSmoke) return;
+
+                // The headless emulator exposes the GLES3 minimum uniform budget.
+                // Keep the release Mobile URP asset untouched while compiling a
+                // smoke-only Lit variant that stays within that hardware floor.
+                asset.additionalLightsRenderingMode = LightRenderingMode.Disabled;
+                asset.supportsMainLightShadows = false;
+            }
+
+            public void Restore()
+            {
+                asset.additionalLightsRenderingMode = additionalLightsRenderingMode;
+                asset.supportsMainLightShadows = supportsMainLightShadows;
             }
         }
 
