@@ -93,9 +93,10 @@ if ! keytool -list \
   exit 1
 fi
 
-printf 'sdk.dir=%s\nndk.dir=%s\n' \
-  "$ANDROID_SDK_ROOT" \
-  "$ANDROID_NDK_HOME" >"$export_root/local.properties"
+# Unity 6 exports android.ndkPath into the Gradle project. AGP rejects a
+# simultaneous legacy ndk.dir entry with CXX1100, so local.properties owns only
+# the SDK location while rewrite-unity-android-paths.py normalizes ndkPath.
+printf 'sdk.dir=%s\n' "$ANDROID_SDK_ROOT" >"$export_root/local.properties"
 
 ndk_version="${ANDROID_NDK_HOME##*/}"
 python3 "$script_directory/rewrite-unity-android-paths.py" \

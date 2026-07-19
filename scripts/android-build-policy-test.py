@@ -59,6 +59,16 @@ for fragment in ("GRADLE_EXECUTABLE", '"$export_root/settings.gradle"'):
         print(f"Missing external Gradle validation: {fragment}", file=sys.stderr)
         raise SystemExit(1)
 
+if "ndk.dir=" in release_script:
+    print(
+        "Release local.properties must not duplicate Unity's android.ndkPath.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+if "printf 'sdk.dir=%s\\n' \"$ANDROID_SDK_ROOT\"" not in release_script:
+    print("Release local.properties must retain sdk.dir.", file=sys.stderr)
+    raise SystemExit(1)
+
 android_back_guard = """#if !UNITY_ANDROID || UNITY_EDITOR
             // Android system Back is owned by StarfallMobileBridge on every supported
             // API. GameActivity can also expose the committed key through Input System;
