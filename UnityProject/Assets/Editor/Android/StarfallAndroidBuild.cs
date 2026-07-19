@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -36,6 +37,8 @@ namespace Starfall.Editor
             "Assets/Plugins/Android/gradleTemplate.properties";
         private const string MobilePipelineAssetPath =
             "Assets/Settings/Mobile_RPAsset.asset";
+        private const string UniversalPipelineGlobalSettingsPath =
+            "Assets/Settings/UniversalRenderPipelineGlobalSettings.asset";
 
         private static readonly Color AndroidBrandBackground =
             new Color32(6, 15, 35, 255);
@@ -123,12 +126,19 @@ namespace Starfall.Editor
             }
             finally
             {
-                debugSymbols.Restore();
-                icons.Restore();
-                smokeMaterials.Restore();
-                smokePipeline.Restore();
-                snapshot.Restore();
-                AssetDatabase.SaveAssets();
+                try
+                {
+                    debugSymbols.Restore();
+                    icons.Restore();
+                    smokeMaterials.Restore();
+                    smokePipeline.Restore();
+                    snapshot.Restore();
+                    AssetDatabase.SaveAssets();
+                }
+                finally
+                {
+                    smokePipeline.RestoreGlobalSettingsAsset();
+                }
             }
 
             Debug.Log(
@@ -633,20 +643,25 @@ namespace Starfall.Editor
 
         private sealed class SmokePipelineSettingsSnapshot
         {
+            private const string CompatibilityModeField =
+                "m_EnableRenderCompatibilityMode";
+
             private readonly UniversalRenderPipelineAsset asset;
-            private readonly RenderGraphSettings renderGraphSettings;
+            private readonly string globalSettingsFullPath;
+            private readonly byte[] globalSettingsBytes;
             private readonly LightRenderingMode additionalLightsRenderingMode;
             private readonly bool supportsMainLightShadows;
             private readonly int prefilteringModeMainLightShadows;
             private readonly int prefilteringModeAdditionalLight;
-            private readonly bool renderCompatibilityMode;
 
             private SmokePipelineSettingsSnapshot(
                 UniversalRenderPipelineAsset asset,
-                RenderGraphSettings renderGraphSettings)
+                string globalSettingsFullPath,
+                byte[] globalSettingsBytes)
             {
                 this.asset = asset;
-                this.renderGraphSettings = renderGraphSettings;
+                this.globalSettingsFullPath = globalSettingsFullPath;
+                this.globalSettingsBytes = globalSettingsBytes;
                 additionalLightsRenderingMode = asset.additionalLightsRenderingMode;
                 supportsMainLightShadows = asset.supportsMainLightShadows;
                 var serializedAsset = new SerializedObject(asset);
@@ -656,7 +671,7 @@ namespace Starfall.Editor
                 prefilteringModeAdditionalLight = ReadRequiredInt(
                     serializedAsset,
                     "m_PrefilteringModeAdditionalLight");
-                renderCompatibilityMode = renderGraphSettings.enableRenderCompatibilityMode;
+                ReadCompatibilityMode(globalSettingsBytes);
             }
 
             public static SmokePipelineSettingsSnapshot Capture()
@@ -669,15 +684,20 @@ namespace Starfall.Editor
                         $"Mobile URP asset is missing: {MobilePipelineAssetPath}");
                 }
 
-                var renderGraphSettings =
-                    GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>();
-                if (renderGraphSettings == null)
+                var globalSettingsFullPath = Path.GetFullPath(Path.Combine(
+                    Application.dataPath,
+                    "..",
+                    UniversalPipelineGlobalSettingsPath));
+                if (!File.Exists(globalSettingsFullPath))
                 {
                     throw new InvalidOperationException(
-                        "URP RenderGraphSettings are missing from Graphics Settings.");
+                        $"URP global settings are missing: {UniversalPipelineGlobalSettingsPath}");
                 }
 
-                return new SmokePipelineSettingsSnapshot(asset, renderGraphSettings);
+                return new SmokePipelineSettingsSnapshot(
+                    asset,
+                    globalSettingsFullPath,
+                    File.ReadAllBytes(globalSettingsFullPath));
             }
 
             public void Apply(bool isSmoke)
@@ -686,7 +706,7 @@ namespace Starfall.Editor
                 // from the final Android GLES frame. Android builds use URP's
                 // compatibility path for both Vulkan and the supported GLES3
                 // fallback, then restore the project-wide setting after BuildPlayer.
-                renderGraphSettings.enableRenderCompatibilityMode = true;
+                WriteCompatibilityMode(true);
 
                 if (!isSmoke) return;
 
@@ -698,12 +718,23 @@ namespace Starfall.Editor
 
             public void Restore()
             {
-                renderGraphSettings.enableRenderCompatibilityMode = renderCompatibilityMode;
                 WriteSerializedSettings(
                     additionalLightsRenderingMode,
                     supportsMainLightShadows,
                     prefilteringModeMainLightShadows,
                     prefilteringModeAdditionalLight);
+            }
+
+            public void RestoreGlobalSettingsAsset()
+            {
+                // The Unity 6.1 typed/serialized setter can rewrite the managed-
+                // reference settings list. Restore the exact pre-build bytes only
+                // after every other snapshot has been saved, then refresh Unity's
+                // in-memory representation from that authoritative file.
+                File.WriteAllBytes(globalSettingsFullPath, globalSettingsBytes);
+                AssetDatabase.ImportAsset(
+                    UniversalPipelineGlobalSettingsPath,
+                    ImportAssetOptions.ForceUpdate);
             }
 
             private void WriteSerializedSettings(
@@ -745,6 +776,46 @@ namespace Starfall.Editor
                     additionalPrefilterProperty.intValue = additionalLightPrefiltering.Value;
                 }
                 serializedAsset.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private void WriteCompatibilityMode(bool enabled)
+            {
+                var contents = File.ReadAllText(globalSettingsFullPath, Encoding.UTF8);
+                var current = ReadCompatibilityMode(Encoding.UTF8.GetBytes(contents));
+                if (current == enabled) return;
+
+                var currentToken = $"{CompatibilityModeField}: {(current ? 1 : 0)}";
+                var replacementToken = $"{CompatibilityModeField}: {(enabled ? 1 : 0)}";
+                var updated = contents.Replace(
+                    currentToken,
+                    replacementToken,
+                    StringComparison.Ordinal);
+                File.WriteAllText(
+                    globalSettingsFullPath,
+                    updated,
+                    new UTF8Encoding(false));
+                AssetDatabase.ImportAsset(
+                    UniversalPipelineGlobalSettingsPath,
+                    ImportAssetOptions.ForceUpdate);
+            }
+
+            private static bool ReadCompatibilityMode(byte[] contents)
+            {
+                var text = Encoding.UTF8.GetString(contents);
+                var disabledToken = $"{CompatibilityModeField}: 0";
+                var enabledToken = $"{CompatibilityModeField}: 1";
+                var disabledIndex = text.IndexOf(disabledToken, StringComparison.Ordinal);
+                var enabledIndex = text.IndexOf(enabledToken, StringComparison.Ordinal);
+                var hasUniqueDisabled = disabledIndex >= 0 &&
+                    disabledIndex == text.LastIndexOf(disabledToken, StringComparison.Ordinal);
+                var hasUniqueEnabled = enabledIndex >= 0 &&
+                    enabledIndex == text.LastIndexOf(enabledToken, StringComparison.Ordinal);
+                if (hasUniqueDisabled == hasUniqueEnabled)
+                {
+                    throw new InvalidOperationException(
+                        $"URP global settings must contain exactly one boolean '{CompatibilityModeField}'.");
+                }
+                return hasUniqueEnabled;
             }
 
             private static int ReadRequiredInt(
