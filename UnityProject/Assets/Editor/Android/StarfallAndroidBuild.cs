@@ -199,10 +199,10 @@ namespace Starfall.Editor
                 // harness.
                 buildOptions |= BuildOptions.Development;
             }
-            else
-            {
-                buildOptions |= BuildOptions.AcceptExternalModificationsToPlayer;
-            }
+
+            // exportAsGoogleAndroidProject performs a fresh Android Gradle export.
+            // AcceptExternalModificationsToPlayer is an append-to-existing-project
+            // option and leaves a first export without its root Gradle wrapper.
 
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException(
                 $"Could not determine output directory for {outputPath}."));

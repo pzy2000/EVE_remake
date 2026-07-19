@@ -97,6 +97,10 @@ jobs:
         shell: bash
         run: bash scripts/android-java-policy-test.sh | tee artifacts/reference/android-java-policy.txt
 
+      - name: Verify Android package and Gradle export policy
+        shell: bash
+        run: python3 scripts/android-build-policy-test.py | tee artifacts/reference/android-build-policy.txt
+
       - name: Upload reference evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
