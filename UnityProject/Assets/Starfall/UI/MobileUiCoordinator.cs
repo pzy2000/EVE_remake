@@ -200,7 +200,7 @@ namespace Starfall.UI
             probe.style.top = 4f;
             probe.style.width = 20f;
             probe.style.height = 20f;
-            probe.style.backgroundColor = new Color32(255, 0, 255, 255);
+            probe.style.backgroundColor = new StyleColor(new Color(1f, 0f, 1f, 1f));
             root.Add(probe);
             probe.BringToFront();
             return probe;
