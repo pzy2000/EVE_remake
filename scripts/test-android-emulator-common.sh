@@ -96,16 +96,16 @@ grep -Fq 'if read_main_menu_layout "$confirmation_layout"' "$back_compat_entry" 
   echo 'Back confirmation polling must use a single-read inner operation.' >&2
   exit 1
 }
-[[ "$(grep -Fc 'ram-size: 4096M' "$workflow_entry")" == "2" ]] || {
-  echo 'Both emulator jobs must keep the bounded 4096M host-memory budget.' >&2
+[[ "$(grep -Fc 'ram-size: 3072M' "$workflow_entry")" == "2" ]] || {
+  echo 'Both emulator jobs must keep the bounded 3072M guest-memory budget.' >&2
   exit 1
 }
-if grep -Fq 'ram-size: 6144M' "$workflow_entry"; then
-  echo 'The API 36 emulator must not reserve 6144M on a hosted runner.' >&2
+if grep -Eq 'ram-size: (4096|6144)M' "$workflow_entry"; then
+  echo 'The emulator must not restore a memory reservation that destabilizes the hosted runner.' >&2
   exit 1
 fi
-[[ "$(grep -Fc -- '-gpu swiftshader ' "$workflow_entry")" == "2" ]] || {
-  echo 'Both emulator jobs must use the supported SwiftShader software backend.' >&2
+[[ "$(grep -Fc -- '-gpu swiftshader -feature -Vulkan ' "$workflow_entry")" == "2" ]] || {
+  echo 'Both emulator jobs must use SwiftShader with emulator Vulkan disabled.' >&2
   exit 1
 }
 if grep -Fq -- '-gpu swiftshader_indirect' "$workflow_entry"; then
@@ -117,12 +117,12 @@ grep -Fq 'PlayerSettings.SplashScreen.show = !isSmoke;' "$android_build_entry" |
   exit 1
 }
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
-if grep -Fq 'yield return new WaitForEndOfFrame' "$android_ci_automation"; then
-  echo 'Android CI readiness must not depend on a visible display surface.' >&2
+if grep -Eq 'yield return new WaitForEndOfFrame|while .*Time\.frameCount' "$android_ci_automation"; then
+  echo 'Android CI scene readiness must not depend on a visible display surface or frame clock.' >&2
   exit 1
 fi
-grep -Fq 'Time.frameCount < firstMainMenuFrame + 2' "$android_ci_automation" || {
-  echo 'Android CI readiness must wait for two player-loop frames after MainMenu.' >&2
+grep -Fq 'SceneManager.GetActiveScene().name == "Bootstrap"' "$android_ci_automation" || {
+  echo 'Android CI readiness must still wait until MainMenu replaces Bootstrap.' >&2
   exit 1
 }
 grep -Fq 'starfall_wait_for_unity_render_ready' "$back_compat_entry" || {
