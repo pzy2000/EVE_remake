@@ -40,6 +40,16 @@ public final class StarfallMobileBridgeLifecycleTest {
                 "API 33 must remain on the predictive back callback");
         assertFalse(CompatBackPolicy.shouldHandleWithActivityCallback(36),
                 "API 36 must remain on the predictive back callback");
+        assertFalse(CompatBackPolicy.shouldHandleKeyEvent(25),
+                "SDKs below the application minimum must not consume hardware Back");
+        assertTrue(CompatBackPolicy.shouldHandleKeyEvent(26),
+                "API 26 must consume hardware Back through GameActivity");
+        assertTrue(CompatBackPolicy.shouldHandleKeyEvent(32),
+                "API 32 must consume hardware Back through GameActivity");
+        assertTrue(CompatBackPolicy.shouldHandleKeyEvent(33),
+                "API 33 hardware Back must coexist with predictive gesture Back");
+        assertTrue(CompatBackPolicy.shouldHandleKeyEvent(36),
+                "API 36 ADB and hardware Back must reach the managed router");
 
         if (arguments.length >= 1) {
             verifyProductionWiring(Paths.get(arguments[0]));
@@ -84,6 +94,8 @@ public final class StarfallMobileBridgeLifecycleTest {
             Path activitySource, Path manifestSource, Path projectSettings) throws IOException {
         String activity = new String(Files.readAllBytes(activitySource), StandardCharsets.UTF_8);
         assertContains(activity, "extends UnityPlayerGameActivity");
+        assertContains(activity,
+                "CompatBackPolicy.shouldHandleKeyEvent(Build.VERSION.SDK_INT)");
         assertContains(activity,
                 "CompatBackPolicy.shouldHandleWithActivityCallback(Build.VERSION.SDK_INT)");
         assertContains(activity, "public boolean onKeyDown(int keyCode, KeyEvent event)");
