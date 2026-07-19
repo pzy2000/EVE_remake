@@ -68,6 +68,25 @@ def read_png(path: pathlib.Path):
     return width, height, channels, rows
 
 
+def probe_ratio(width, height, channels, rows, bounds, expected, scale, inset):
+    x0 = max(0, round((float(bounds["x"]) + inset) * scale))
+    y0 = max(0, round((float(bounds["y"]) + inset) * scale))
+    x1 = min(width, round((float(bounds["x"]) + float(bounds["width"]) - inset) * scale))
+    y1 = min(height, round((float(bounds["y"]) + float(bounds["height"]) - inset) * scale))
+    if x1 <= x0 or y1 <= y0:
+        raise ValueError(f"Invalid probe bounds: {bounds}")
+    total = (x1 - x0) * (y1 - y0)
+    matched = 0
+    tolerance = 12
+    for y in range(y0, y1):
+        row = rows[y]
+        for x in range(x0, x1):
+            pixel = row[x * channels:x * channels + 3]
+            if all(abs(pixel[index] - expected[index]) <= tolerance for index in range(3)):
+                matched += 1
+    return matched, total, matched / total
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit(f"usage: {sys.argv[0]} SCREENSHOT.png LAYOUT.json")
@@ -78,26 +97,37 @@ def main():
     bounds = layout["renderProbe"]
     expected = bytes.fromhex(layout["renderProbeRgb"])
     width, height, channels, rows = read_png(png_path)
-    x0 = max(0, round((float(bounds["x"]) + 4) * density))
-    y0 = max(0, round((float(bounds["y"]) + 4) * density))
-    x1 = min(width, round((float(bounds["x"]) + float(bounds["width"]) - 4) * density))
-    y1 = min(height, round((float(bounds["y"]) + float(bounds["height"]) - 4) * density))
-    if x1 <= x0 or y1 <= y0:
-        raise SystemExit(f"Invalid render probe bounds in {layout_path}: {bounds}")
-    total = (x1 - x0) * (y1 - y0)
-    matched = 0
-    tolerance = 12
-    for y in range(y0, y1):
-        row = rows[y]
-        for x in range(x0, x1):
-            pixel = row[x * channels:x * channels + 3]
-            if all(abs(pixel[index] - expected[index]) <= tolerance for index in range(3)):
-                matched += 1
-    ratio = matched / total
+    try:
+        matched, total, ratio = probe_ratio(
+            width, height, channels, rows, bounds, expected, density, 4)
+        frame_matched, frame_total, frame_ratio = probe_ratio(
+            width,
+            height,
+            channels,
+            rows,
+            layout["frameProbePx"],
+            bytes.fromhex(layout["frameProbeRgb"]),
+            1.0,
+            4,
+        )
+    except ValueError as error:
+        raise SystemExit(f"{error} in {layout_path}") from error
     if ratio < 0.80:
+        frame_status = (
+            f"final-frame probe visible ({frame_matched}/{frame_total}, {frame_ratio:.1%})"
+            if frame_ratio >= 0.80
+            else f"final-frame probe absent ({frame_matched}/{frame_total}, {frame_ratio:.1%})"
+        )
         raise SystemExit(
-            f"UI render probe is absent in {png_path}: {matched}/{total} matching pixels ({ratio:.1%})")
-    print(f"UI render probe visible in {png_path}: {ratio:.1%}")
+            f"UI render probe is absent in {png_path}: {matched}/{total} matching pixels "
+            f"({ratio:.1%}); {frame_status}")
+    if frame_ratio < 0.80:
+        raise SystemExit(
+            f"UI render probe is visible but final-frame probe is absent in {png_path}: "
+            f"{frame_matched}/{frame_total} matching pixels ({frame_ratio:.1%})")
+    print(
+        f"UI render probe visible in {png_path}: {ratio:.1%}; "
+        f"final-frame probe visible: {frame_ratio:.1%}")
 
 
 if __name__ == "__main__":

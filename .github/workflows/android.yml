@@ -78,12 +78,15 @@ jobs:
           bash -n scripts/android-verify-unity-results.sh
           bash -n scripts/validate-android-release.sh
           python3 -m py_compile \
+            scripts/assert-png-color.py \
+            scripts/test-assert-png-color.py \
             scripts/validate-unity-metas.py \
             scripts/test-validate-unity-metas.py \
             scripts/rewrite-unity-android-paths.py \
             scripts/test-rewrite-unity-android-paths.py
           python3 scripts/validate-unity-metas.py UnityProject/Assets
           python3 scripts/test-validate-unity-metas.py
+          python3 scripts/test-assert-png-color.py
           bash scripts/test-android-emulator-common.sh
           python3 scripts/test-rewrite-unity-android-paths.py
           if command -v shellcheck >/dev/null 2>&1; then

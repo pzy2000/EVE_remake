@@ -22,6 +22,17 @@ namespace Starfall.App
         private const string AndroidCiRenderReadyEvidence = "starfall-ci-render-ready.json";
         private int androidCiLowMemoryGeneration;
 
+        private void OnGUI()
+        {
+            // Independent of UI Toolkit: if this physical-pixel probe is present
+            // while the UI probe is absent, Android captured the final Unity frame
+            // and the defect is isolated to the retained-mode panel render chain.
+            var previousColor = GUI.color;
+            GUI.color = Color.green;
+            GUI.DrawTexture(new Rect(80f, 8f, 40f, 40f), Texture2D.whiteTexture);
+            GUI.color = previousColor;
+        }
+
         /// <summary>
         /// The smoke flavor disables Unity's splash. Publish a separate cold-start
         /// marker as soon as MainMenu is active. The shell gate separately requires

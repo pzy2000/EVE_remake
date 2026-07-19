@@ -49,26 +49,11 @@ namespace Starfall.UI
             this.metricsProvider = metricsProvider;
             originalPanelSettings = document.panelSettings;
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-            // Android scenes are bound by StarfallAndroidSceneProcessor before
-            // player serialization. Reassigning the asset from Resources while
-            // UIDocument is enabled can leave its laid-out visual tree on a
-            // detached render panel, so the runtime must consume that prebinding.
-            if (document.panelSettings == null ||
-                !string.Equals(document.panelSettings.name, AndroidPanelSettingsResource,
-                    StringComparison.Ordinal))
-            {
-                Debug.LogError(
-                    $"Android UIDocument was not prebound to {AndroidPanelSettingsResource}; " +
-                    "refusing a runtime PanelSettings swap.");
-            }
-#else
             var androidPanelSettings = Resources.Load<PanelSettings>(AndroidPanelSettingsResource);
             if (androidPanelSettings == null)
                 Debug.LogError($"Missing Resources/{AndroidPanelSettingsResource}.asset; mobile UI will use desktop scaling.");
             else if (document.panelSettings != androidPanelSettings)
                 document.panelSettings = androidPanelSettings;
-#endif
 
             documentRoot = document.rootVisualElement;
             contentRoot = FindContentRoot(documentRoot, screenKind);
@@ -241,6 +226,48 @@ namespace Starfall.UI
                 json.Append(",\"renderProbe\":");
                 AppendRect(json, ciRenderProbe != null ? ciRenderProbe.worldBound : default);
                 json.Append(",\"renderProbeRgb\":\"ff00ff\"");
+                // AppRoot draws this independent IMGUI probe in physical pixels.
+                // It distinguishes a detached UI Toolkit render chain from an
+                // Android screenshot/compositor failure without weakening the gate.
+                json.Append(",\"frameProbePx\":");
+                AppendRect(json, new Rect(80f, 8f, 40f, 40f));
+                json.Append(",\"frameProbeRgb\":\"00ff00\"");
+                json.Append(",\"panelDiagnostics\":{");
+                json.Append("\"documentEnabled\":")
+                    .Append(document != null && document.enabled ? "true" : "false");
+                json.Append(",\"documentAttached\":")
+                    .Append(documentRoot?.panel != null ? "true" : "false");
+                json.Append(",\"contentAttached\":")
+                    .Append(contentRoot?.panel != null ? "true" : "false");
+                json.Append(",\"samePanel\":")
+                    .Append(documentRoot?.panel != null &&
+                            ReferenceEquals(documentRoot.panel, contentRoot?.panel)
+                        ? "true"
+                        : "false");
+                json.Append(",\"targetTexture\":")
+                    .Append(document?.panelSettings?.targetTexture != null ? "true" : "false");
+                json.Append(',');
+                AppendString(json, "panelSettings", document?.panelSettings?.name ?? string.Empty);
+                json.Append(',');
+                AppendString(json, "scaleMode",
+                    document?.panelSettings?.scaleMode.ToString() ?? string.Empty);
+                json.Append(",\"sortingOrder\":")
+                    .Append(Number(document?.panelSettings?.sortingOrder ?? 0f));
+                json.Append(",\"documentRootBoundsDp\":");
+                AppendRect(json, documentRoot != null ? documentRoot.worldBound : default);
+                json.Append(",\"panelRootBoundsDp\":");
+                AppendRect(json, documentRoot?.parent != null
+                    ? documentRoot.parent.worldBound
+                    : default);
+                json.Append(",\"documentOpacity\":")
+                    .Append(Number(documentRoot?.resolvedStyle.opacity ?? 0f));
+                json.Append(',');
+                AppendString(json, "documentDisplay",
+                    documentRoot?.resolvedStyle.display.ToString() ?? string.Empty);
+                json.Append(',');
+                AppendString(json, "documentVisibility",
+                    documentRoot?.resolvedStyle.visibility.ToString() ?? string.Empty);
+                json.Append('}');
 #endif
                 json.Append(",\"controls\":[");
                 var first = true;
