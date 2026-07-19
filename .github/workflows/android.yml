@@ -241,11 +241,11 @@ jobs:
           retention-days: 30
 
   android-emulator:
-    name: API 36 x86_64 emulator acceptance
+    name: API 36 acceptance and API 32 Back compatibility
     needs: unity-android
     if: needs.unity-android.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 165
     steps:
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -271,8 +271,18 @@ jobs:
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          if [[ ! -c /dev/kvm ]]; then
+            sudo modprobe kvm || true
+            sudo modprobe kvm_intel || true
+          fi
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          for _ in {1..30}; do
+            [[ -c /dev/kvm && -r /dev/kvm && -w /dev/kvm ]] && exit 0
+            sleep 1
+          done
+          ls -l /dev/kvm || true
+          lsmod | grep -E '^kvm' || true
           test -c /dev/kvm
           test -r /dev/kvm
           test -w /dev/kvm
@@ -302,43 +312,6 @@ jobs:
           if-no-files-found: warn
           overwrite: true
           retention-days: 30
-
-  android-back-compat:
-    name: API 32 Back compatibility
-    needs: unity-android
-    if: needs.unity-android.result == 'success'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Check out source
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        with:
-          persist-credentials: false
-
-      - name: Download smoke APK
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: starfall-android-ci-smoke-${{ env.STARFALL_EMULATOR_ARCH }}
-          path: downloaded-smoke
-
-      - name: Locate smoke APK
-        id: smoke
-        shell: bash
-        run: |
-          apk="$(find downloaded-smoke -type f -name '*.apk' -print -quit)"
-          test -n "$apk"
-          echo "apk=$apk" >>"$GITHUB_OUTPUT"
-
-      - name: Enable KVM acceleration
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          test -c /dev/kvm
-          test -r /dev/kvm
-          test -w /dev/kvm
 
       - name: Verify API 26-32 Back compatibility on API 32
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
@@ -372,13 +345,11 @@ jobs:
       - reference-tests
       - unity-android
       - android-emulator
-      - android-back-compat
     if: >-
       github.event_name == 'push' &&
       needs.reference-tests.result == 'success' &&
       needs.unity-android.result == 'success' &&
-      needs.android-emulator.result == 'success' &&
-      needs.android-back-compat.result == 'success'
+      needs.android-emulator.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     concurrency:

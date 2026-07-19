@@ -886,7 +886,7 @@ PY
   starfall_wait_for_unity_render_ready \
     "$package_name" "$legacy_directory/render-ready.json" MainMenu
   source_json='{"schemaVersion":1,"source":"github-actions","origin":"top-left","safeAreaOrigin":"top-left","widthPx":2748,"heightPx":1172,"densityDpi":420,"safeArea":{"x":0,"y":0,"width":2748,"height":1172},"foldingFeatures":[]}'
-  adb shell am broadcast -a "$debug_layout_action" --es json "$source_json" \
+  starfall_adb_broadcast_string_extra "$debug_layout_action" json "$source_json" \
     >"$legacy_directory/window-broadcast.txt"
   pull_app_file "starfall-ci-layout-MainMenu.json" "$legacy_directory/MainMenu.layout.json"
   validate_ui_layout_json "$legacy_directory/MainMenu.layout.json" CompactLandscape false
@@ -1012,9 +1012,8 @@ run_scenario() {
   local source_json
   source_json="{\"schemaVersion\":1,\"source\":\"github-actions\",\"origin\":\"top-left\",\"safeAreaOrigin\":\"top-left\",\"widthPx\":${width},\"heightPx\":${height},\"densityDpi\":${density_dpi},\"safeArea\":{\"x\":0,\"y\":0,\"width\":${width},\"height\":${height}},\"foldingFeatures\":${folding_json}}"
   printf '%s\n' "$source_json" >"$scenario_directory/injected-window.json"
-  adb shell am broadcast \
-    -a "$debug_layout_action" \
-    --es json "$source_json" >"$scenario_directory/broadcast.txt"
+  starfall_adb_broadcast_string_extra "$debug_layout_action" json "$source_json" \
+    >"$scenario_directory/broadcast.txt"
 
   sleep 2
   pull_expected_layout_json \

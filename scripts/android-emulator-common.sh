@@ -18,6 +18,31 @@ adb() {
   timeout "${timeout_seconds}s" "$starfall_adb_executable" "$@"
 }
 
+# `adb shell` joins ordinary argv into an unquoted device-side command. JSON
+# objects containing commas are then subject to mksh brace expansion, which
+# silently turns the payload into positional arguments for `am`. Send one
+# explicitly quoted command string so the extra reaches BroadcastReceiver
+# byte-for-byte. CI payloads are single-line; apostrophes are escaped here so
+# this helper remains safe for arbitrary string extras.
+starfall_adb_broadcast_string_extra() {
+  local action="${1:?broadcast action is required}"
+  local key="${2:?string extra key is required}"
+  local value="${3-}"
+  local escaped_value
+
+  if [[ ! "$action" =~ ^[A-Za-z0-9_.]+$ || ! "$key" =~ ^[A-Za-z0-9_]+$ ]]; then
+    echo "Invalid Android broadcast action or extra key: $action $key" >&2
+    return 2
+  fi
+  if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+    echo 'Android broadcast string extras must be single-line text.' >&2
+    return 2
+  fi
+
+  escaped_value="${value//\'/\'\\\'\'}"
+  adb shell "am broadcast -a $action --es $key '$escaped_value'"
+}
+
 starfall_android_app_files_directory() {
   local package_name="${1:?package name is required}"
   if [[ ! "$package_name" =~ ^[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+$ ]]; then

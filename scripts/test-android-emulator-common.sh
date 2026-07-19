@@ -202,6 +202,8 @@ immersive_value="confirmed"
 immersive_window_attempts=0
 immersive_back_calls=0
 render_ready_calls=0
+broadcast_calls=0
+broadcast_command=""
 adb() {
   case "${1:-}" in
     install)
@@ -248,6 +250,12 @@ adb() {
       return 0
       ;;
     shell)
+      if [[ "$#" == "2" && "${2:-}" == am\ broadcast\ -a\ * ]]; then
+        broadcast_calls=$((broadcast_calls + 1))
+        broadcast_command="$2"
+        printf '%s\n' 'Broadcast completed: result=0'
+        return 0
+      fi
       if [[ "$*" == "shell settings put secure immersive_mode_confirmations confirmed" ]]; then
         return 0
       fi
@@ -292,6 +300,19 @@ starfall_wait_for_unity_render_ready \
   com.pzy.starfallodyssey "$render_ready_evidence" MainMenu 3
 [[ "$render_ready_calls" == "2" ]]
 grep -Fq '"frameCount":42' "$render_ready_evidence"
+
+broadcast_json='{"schemaVersion":1,"source":"github-actions","safeArea":{"x":0,"y":0},"label":"pilot'\''s screen"}'
+starfall_adb_broadcast_string_extra \
+  com.pzy.starfall.mobile.DEBUG_WINDOW_LAYOUT json "$broadcast_json" \
+  >"$temporary_directory/broadcast.txt"
+[[ "$broadcast_calls" == "1" ]]
+[[ "$broadcast_command" == \
+  "am broadcast -a com.pzy.starfall.mobile.DEBUG_WINDOW_LAYOUT --es json '{\"schemaVersion\":1,\"source\":\"github-actions\",\"safeArea\":{\"x\":0,\"y\":0},\"label\":\"pilot'\\''s screen\"}'" ]]
+grep -Fqx 'Broadcast completed: result=0' "$temporary_directory/broadcast.txt"
+if starfall_adb_broadcast_string_extra 'invalid action' json '{}'; then
+  echo 'An invalid Android broadcast action was incorrectly accepted.' >&2
+  exit 1
+fi
 
 first_results="$temporary_directory/recoverable"
 starfall_install_apk_with_system_retries "$apk" "$first_results"
