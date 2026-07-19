@@ -124,8 +124,12 @@ grep -Fq 'smokePipeline.Apply(flavor == SmokeFlavor);' "$android_build_entry" ||
   echo 'The smoke build must apply its GLES3-minimum URP settings only to ci-smoke.' >&2
   exit 1
 }
-grep -Fq 'asset.additionalLightsRenderingMode = LightRenderingMode.Disabled;' "$android_build_entry" || {
+grep -Fq 'WriteSerializedSettings(LightRenderingMode.Disabled, false);' "$android_build_entry" || {
   echo 'The smoke URP variant must stay within the emulator GLES3 uniform budget.' >&2
+  exit 1
+}
+grep -Fq '"m_AdditionalLightsRenderingMode"' "$android_build_entry" || {
+  echo 'The smoke URP configuration must use the URP serialized lighting field.' >&2
   exit 1
 }
 grep -Fq 'smokePipeline.Restore();' "$android_build_entry" || {

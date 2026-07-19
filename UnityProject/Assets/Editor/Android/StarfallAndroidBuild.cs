@@ -653,14 +653,36 @@ namespace Starfall.Editor
                 // The headless emulator exposes the GLES3 minimum uniform budget.
                 // Keep the release Mobile URP asset untouched while compiling a
                 // smoke-only Lit variant that stays within that hardware floor.
-                asset.additionalLightsRenderingMode = LightRenderingMode.Disabled;
-                asset.supportsMainLightShadows = false;
+                WriteSerializedSettings(LightRenderingMode.Disabled, false);
             }
 
             public void Restore()
             {
-                asset.additionalLightsRenderingMode = additionalLightsRenderingMode;
-                asset.supportsMainLightShadows = supportsMainLightShadows;
+                WriteSerializedSettings(additionalLightsRenderingMode, supportsMainLightShadows);
+            }
+
+            private void WriteSerializedSettings(
+                LightRenderingMode lightsRenderingMode,
+                bool mainLightShadows)
+            {
+                // URP exposes public getters but keeps these setters internal. Use
+                // Unity's serialized API so this remains compatible with the
+                // package assembly boundary and participates in build-time shader
+                // variant selection.
+                var serializedAsset = new SerializedObject(asset);
+                var lightsProperty = serializedAsset.FindProperty(
+                    "m_AdditionalLightsRenderingMode");
+                var shadowsProperty = serializedAsset.FindProperty(
+                    "m_MainLightShadowsSupported");
+                if (lightsProperty == null || shadowsProperty == null)
+                {
+                    throw new InvalidOperationException(
+                        "The installed URP package does not expose the expected mobile lighting fields.");
+                }
+
+                lightsProperty.intValue = (int)lightsRenderingMode;
+                shadowsProperty.boolValue = mainLightShadows;
+                serializedAsset.ApplyModifiedPropertiesWithoutUndo();
             }
         }
 
