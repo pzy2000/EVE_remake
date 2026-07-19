@@ -94,11 +94,14 @@ namespace Starfall.Editor
             var debugSymbols = DebugSymbolsSnapshot.Capture();
             var icons = AndroidIconSnapshot.Capture();
             var smokePipeline = SmokePipelineSettingsSnapshot.Capture();
+            var smokeMaterials = SmokeMaterialShaderSnapshot.Capture(
+                flavor == SmokeFlavor);
             BuildReport report = null;
             try
             {
                 ApplyCommonSettings(versionName, versionCode, targetSdk);
                 smokePipeline.Apply(flavor == SmokeFlavor);
+                smokeMaterials.Apply();
                 var options = ConfigureFlavor(
                     flavor,
                     architecture,
@@ -122,6 +125,7 @@ namespace Starfall.Editor
             {
                 debugSymbols.Restore();
                 icons.Restore();
+                smokeMaterials.Restore();
                 smokePipeline.Restore();
                 snapshot.Restore();
                 AssetDatabase.SaveAssets();
@@ -726,6 +730,100 @@ namespace Starfall.Editor
                         $"The installed URP package does not expose '{propertyName}'.");
                 }
                 return property.intValue;
+            }
+        }
+
+        private sealed class SmokeMaterialShaderSnapshot
+        {
+            private const string LitShaderName = "Universal Render Pipeline/Lit";
+            private const string SmokeShaderName = "Universal Render Pipeline/Unlit";
+
+            private readonly List<MaterialShaderSnapshot> materials;
+            private Shader smokeShader;
+            private bool applied;
+
+            private SmokeMaterialShaderSnapshot(List<MaterialShaderSnapshot> materials)
+            {
+                this.materials = materials;
+            }
+
+            public static SmokeMaterialShaderSnapshot Capture(bool isSmoke)
+            {
+                var snapshots = new List<MaterialShaderSnapshot>();
+                if (!isSmoke)
+                {
+                    return new SmokeMaterialShaderSnapshot(snapshots);
+                }
+
+                foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets" }))
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                    if (material != null && material.shader != null &&
+                        material.shader.name == LitShaderName)
+                    {
+                        snapshots.Add(new MaterialShaderSnapshot(material, material.shader));
+                    }
+                }
+
+                return new SmokeMaterialShaderSnapshot(snapshots);
+            }
+
+            public void Apply()
+            {
+                if (materials.Count == 0) return;
+
+                smokeShader = Shader.Find(SmokeShaderName);
+                if (smokeShader == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not resolve the CI smoke shader '{SmokeShaderName}'.");
+                }
+
+                foreach (var snapshot in materials)
+                {
+                    WriteShader(snapshot.Material, smokeShader);
+                }
+                applied = true;
+            }
+
+            public void Restore()
+            {
+                if (!applied) return;
+
+                foreach (var snapshot in materials)
+                {
+                    WriteShader(snapshot.Material, snapshot.Shader);
+                }
+                applied = false;
+            }
+
+            private static void WriteShader(Material material, Shader shader)
+            {
+                // Change only the serialized shader reference. This preserves all
+                // material properties and keywords byte-for-byte when the original
+                // reference is restored after BuildPipeline.BuildPlayer.
+                var serializedMaterial = new SerializedObject(material);
+                var shaderProperty = serializedMaterial.FindProperty("m_Shader");
+                if (shaderProperty == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Material '{material.name}' does not expose m_Shader.");
+                }
+                shaderProperty.objectReferenceValue = shader;
+                serializedMaterial.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private sealed class MaterialShaderSnapshot
+            {
+                public MaterialShaderSnapshot(Material material, Shader shader)
+                {
+                    Material = material;
+                    Shader = shader;
+                }
+
+                public Material Material { get; }
+                public Shader Shader { get; }
             }
         }
 

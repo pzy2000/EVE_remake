@@ -58,6 +58,8 @@ android_build_entry="$script_directory/../UnityProject/Assets/Editor/Android/Sta
 back_compat_entry="$script_directory/android-back-compat-ci.sh"
 emulator_entry="$script_directory/android-emulator-ci.sh"
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
+procedural_ship_factory="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralShipFactory.cs"
+procedural_space_materials="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralSpaceMaterials.cs"
 workflow_entry="$script_directory/../.github/workflows/android.yml"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
@@ -136,6 +138,28 @@ grep -Fq 'smokePipeline.Restore();' "$android_build_entry" || {
   echo 'The release Mobile URP settings must be restored after every build attempt.' >&2
   exit 1
 }
+grep -Fq 'SmokeMaterialShaderSnapshot.Capture(' "$android_build_entry" || {
+  echo 'The smoke build must replace project Lit materials for minimum-spec GLES3.' >&2
+  exit 1
+}
+grep -Fq 'private const string SmokeShaderName = "Universal Render Pipeline/Unlit";' "$android_build_entry" || {
+  echo 'The smoke material replacement must use the lean URP Unlit shader.' >&2
+  exit 1
+}
+grep -Fq 'smokeMaterials.Restore();' "$android_build_entry" || {
+  echo 'The release material shader references must be restored after every build attempt.' >&2
+  exit 1
+}
+for runtime_material_source in "$procedural_ship_factory" "$procedural_space_materials"; do
+  grep -Fq '#if STARFALL_ANDROID_CI && UNITY_ANDROID' "$runtime_material_source" || {
+    echo "Runtime material source must isolate its emulator shader: $runtime_material_source" >&2
+    exit 1
+  }
+  grep -Fq 'Shader.Find("Universal Render Pipeline/Unlit")' "$runtime_material_source" || {
+    echo "Runtime smoke materials must avoid URP Lit on GLES3: $runtime_material_source" >&2
+    exit 1
+  }
+done
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 if grep -Eq 'yield return new WaitForEndOfFrame|while .*Time\.frameCount' "$android_ci_automation"; then
   echo 'Android CI scene readiness must not depend on a visible display surface or frame clock.' >&2

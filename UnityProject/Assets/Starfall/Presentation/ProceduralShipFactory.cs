@@ -179,9 +179,7 @@ namespace Starfall.Presentation
         public static Material GetMaterial(string key, Color color, float smoothness = 0.5f, float metallic = 0.2f, bool emission = false)
         {
             if (Materials.TryGetValue(key, out var cached) && cached) return cached;
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ??
-                         Shader.Find("Standard") ??
-                         Shader.Find("Sprites/Default");
+            var shader = FindRuntimeSurfaceShader();
             var material = new Material(shader) { name = $"M_{key}", color = color };
             material.SetFloat("_Smoothness", smoothness);
             material.SetFloat("_Metallic", metallic);
@@ -192,6 +190,21 @@ namespace Starfall.Presentation
             }
             Materials[key] = material;
             return material;
+        }
+
+        private static Shader FindRuntimeSurfaceShader()
+        {
+#if STARFALL_ANDROID_CI && UNITY_ANDROID
+            // The software GLES3 emulator exposes the spec-minimum fragment
+            // uniform budget. CI validates behavior/layout with the lean URP
+            // shader; signed release players retain the Lit surface below.
+            return Shader.Find("Universal Render Pipeline/Unlit") ??
+                   Shader.Find("Sprites/Default");
+#else
+            return Shader.Find("Universal Render Pipeline/Lit") ??
+                   Shader.Find("Standard") ??
+                   Shader.Find("Sprites/Default");
+#endif
         }
 
         private static GameObject CreatePart(Transform parent, PrimitiveType type, string name, Vector3 position,
