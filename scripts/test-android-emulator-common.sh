@@ -9,6 +9,11 @@ sleep() {
   :
 }
 
+timeout() {
+  shift
+  "$@"
+}
+
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 apk="$temporary_directory/smoke.apk"
@@ -43,6 +48,11 @@ grep -Fq \
   echo 'URP Unlit must remain in Always Included Shaders for runtime materials.' >&2
   exit 1
 }
+grep -Fq 'timeout 30s adb wait-for-device' \
+  "$script_directory/android-emulator-common.sh" || {
+  echo 'ADB wait-for-device must remain bounded by a timeout.' >&2
+  exit 1
+}
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
@@ -53,6 +63,8 @@ starfall_wait_for_android_services() {
 install_mode="recoverable"
 install_calls=0
 service_wait_files=()
+transport_mode="ready"
+transport_wait_calls=0
 immersive_value="confirmed"
 immersive_window_attempts=0
 immersive_back_calls=0
@@ -70,7 +82,22 @@ adb() {
       fi
       echo 'Success'
       ;;
-    reconnect|wait-for-device)
+    wait-for-device)
+      transport_wait_calls=$((transport_wait_calls + 1))
+      if [[ "$transport_mode" == "recoverable" && "$transport_wait_calls" == "1" ]]; then
+        echo 'device offline' >&2
+        return 1
+      fi
+      return 0
+      ;;
+    get-state)
+      if [[ "$transport_mode" == "recoverable" && "$transport_wait_calls" == "1" ]]; then
+        echo 'offline'
+      else
+        echo 'device'
+      fi
+      ;;
+    reconnect|kill-server|start-server)
       return 0
       ;;
     shell)
@@ -103,6 +130,15 @@ adb() {
       ;;
   esac
 }
+
+transport_mode="recoverable"
+transport_evidence="$temporary_directory/transport.txt"
+starfall_wait_for_adb_transport "$transport_evidence"
+[[ "$transport_wait_calls" == "2" ]]
+grep -Fqx 'attempt=1 state=offline' "$transport_evidence"
+grep -Fqx 'attempt=2 state=device' "$transport_evidence"
+transport_mode="ready"
+transport_wait_calls=0
 
 first_results="$temporary_directory/recoverable"
 starfall_install_apk_with_system_retries "$apk" "$first_results"

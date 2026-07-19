@@ -94,6 +94,36 @@ starfall_clear_immersive_mode_confirmation() {
   return 1
 }
 
+starfall_wait_for_adb_transport() {
+  local evidence_file="${1:?evidence file is required}"
+  local attempts="${2:-3}"
+  local attempt_log
+  local state
+  local attempt
+
+  mkdir -p "$(dirname "$evidence_file")"
+  : >"$evidence_file"
+  for attempt in $(seq 1 "$attempts"); do
+    attempt_log="${evidence_file%.txt}.attempt-$attempt.txt"
+    timeout 30s adb wait-for-device >"$attempt_log" 2>&1 || true
+    state="$(timeout 10s adb get-state 2>/dev/null | tr -d '\r' || true)"
+    printf 'attempt=%s state=%q\n' "$attempt" "$state" >>"$evidence_file"
+    if [[ "$state" == "device" ]]; then
+      return 0
+    fi
+
+    adb reconnect >>"$attempt_log" 2>&1 || true
+    if (( attempt == 2 )); then
+      adb kill-server >>"$attempt_log" 2>&1 || true
+      adb start-server >>"$attempt_log" 2>&1 || true
+    fi
+    sleep 2
+  done
+
+  echo "ADB transport did not become ready; see $evidence_file." >&2
+  return 1
+}
+
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
   local attempts="${2:-120}"
@@ -105,7 +135,7 @@ starfall_wait_for_android_services() {
 
   mkdir -p "$(dirname "$evidence_file")"
   : >"$evidence_file"
-  adb wait-for-device
+  starfall_wait_for_adb_transport "${evidence_file%.txt}.transport.txt"
 
   for attempt in $(seq 1 "$attempts"); do
     boot_completed="$(timeout 10s adb shell getprop sys.boot_completed 2>/dev/null \
