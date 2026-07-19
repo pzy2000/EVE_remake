@@ -74,6 +74,7 @@ public final class StarfallMobileBridge {
     private static boolean initialized;
     private static boolean legacyImportCacheCleaned;
     private static boolean restoredLegacyImportAcknowledged;
+    private static long backDispatchSequence;
     private static String pendingLegacyErrorTarget;
     private static String pendingLegacyErrorPayload;
     private static final Set<String> dispatchedLegacyImports = new HashSet<>();
@@ -545,10 +546,11 @@ public final class StarfallMobileBridge {
             backCallback = Api33Back.register(registeredActivity, new Runnable() {
                 @Override
                 public void run() {
-                    if (sendUnityIfLifecycleActive(
-                            requestGeneration, registeredActivity, CALLBACK_BACK, "")) {
+                    long sequence = dispatchBackIfLifecycleActive(
+                            requestGeneration, registeredActivity);
+                    if (sequence > 0L) {
                         Log.i(TAG, "STARFALL_ANDROID_BACK_PREDICTIVE_DISPATCH="
-                                + Build.VERSION.SDK_INT);
+                                + Build.VERSION.SDK_INT + ":" + sequence);
                     }
                 }
             });
@@ -635,9 +637,28 @@ public final class StarfallMobileBridge {
             if (!initialized || activity != sourceActivity) {
                 return false;
             }
-            sendUnity(CALLBACK_BACK, "");
-            Log.i(TAG, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH=" + Build.VERSION.SDK_INT);
+            long sequence = dispatchBackLocked();
+            Log.i(TAG, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH="
+                    + Build.VERSION.SDK_INT + ":" + sequence);
             return true;
+        }
+    }
+
+    /** Caller must hold LOCK so lifecycle checks and the sequence stay atomic. */
+    private static long dispatchBackLocked() {
+        long sequence = ++backDispatchSequence;
+        // UnitySendMessage is asynchronous. A unique payload makes every committed
+        // Back independently observable across the native-to-managed player bridge.
+        sendUnity(CALLBACK_BACK, Long.toString(sequence));
+        return sequence;
+    }
+
+    private static long dispatchBackIfLifecycleActive(
+            int requestGeneration, Activity expectedActivity) {
+        synchronized (LOCK) {
+            return isLifecycleActiveLocked(requestGeneration, expectedActivity)
+                    ? dispatchBackLocked()
+                    : 0L;
         }
     }
 

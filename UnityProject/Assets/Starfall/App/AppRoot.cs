@@ -399,7 +399,7 @@ namespace Starfall.App
         {
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (keyboard.escapeKey.wasPressedThisFrame) HandleMobileBack();
+            if (keyboard.escapeKey.wasPressedThisFrame) HandleMobileBack("keyboard");
             if (session == null) return;
             if (keyboard.wKey.wasPressedThisFrame) Queue(GameCommandType.Warp);
             if (keyboard.lKey.wasPressedThisFrame) Queue(GameCommandType.Lock);
@@ -462,15 +462,23 @@ namespace Starfall.App
 #endif
         }
 
-        private void HandleMobileBack()
+        private void HandleMobileBack(string dispatchId)
         {
-            if (MobileBackNavigation.HandleBack()) return;
+            var handler = MobileBackNavigation.Current;
+            var handled = handler != null && handler.HandleMobileBack();
+#if STARFALL_ANDROID_CI
+            Debug.Log("STARFALL_ANDROID_BACK_MANAGED_DISPATCH="
+                      + (string.IsNullOrEmpty(dispatchId) ? "unknown" : dispatchId)
+                      + ":handled=" + handled
+                      + ":handler=" + (handler == null ? "none" : handler.GetType().Name));
+#endif
+            if (handled) return;
             AddLog("Back action is unavailable while this screen is loading.");
         }
 
         public void OnAndroidBackInvoked(string payload)
         {
-            HandleMobileBack();
+            HandleMobileBack(payload);
         }
 
         public void OnAndroidWindowLayoutInfo(string json)

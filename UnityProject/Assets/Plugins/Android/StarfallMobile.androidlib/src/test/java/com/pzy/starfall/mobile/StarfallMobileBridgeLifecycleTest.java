@@ -83,7 +83,9 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "case \"seed-low-memory-fixture\":");
         assertContains(source, "static boolean dispatchCompatBack(Activity sourceActivity)");
         assertContains(source, "if (!initialized || activity != sourceActivity)");
-        assertContains(source, "sendUnity(CALLBACK_BACK, \"\")");
+        assertContains(source, "long sequence = dispatchBackLocked()");
+        assertContains(source, "sendUnity(CALLBACK_BACK, Long.toString(sequence))");
+        assertContains(source, "dispatchBackIfLifecycleActive(");
         assertContains(source, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH=");
         assertContains(source, "STARFALL_ANDROID_BACK_PREDICTIVE_DISPATCH=");
         assertContains(source, "OnBackInvokedDispatcher.PRIORITY_OVERLAY");
