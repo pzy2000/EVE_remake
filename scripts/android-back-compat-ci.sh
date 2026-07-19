@@ -11,12 +11,13 @@ package_name="com.pzy.starfallodyssey"
 expected_activity="$package_name/com.pzy.starfall.mobile.StarfallUnityGameActivity"
 expected_architecture="x86_64"
 persistent_data_directory="$(starfall_android_app_files_directory "$package_name")"
-# API 32 clamps a logical width larger than twice the Pixel 2 physical width.
-# This job only gates the legacy Back callback, so use the largest stable
-# CompactLandscape framebuffer; API 36 separately gates the exact 2748x1172.
-width=2160
-height=1172
-density_dpi=420
+# This job only gates the legacy Back callback. Keep a representative
+# CompactLandscape framebuffer while leaving guest memory for the Unity x86_64
+# player and ADB screenshot transport; API 36 separately gates both exact target
+# resolutions at 420dpi.
+width=1600
+height=900
+density_dpi=320
 
 if [[ ! -f "$apk" ]]; then
   echo "Smoke APK does not exist: $apk" >&2

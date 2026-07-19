@@ -177,7 +177,13 @@ namespace Starfall.Editor
             var buildOptions = BuildOptions.DetailedBuildReport;
             if (isSmoke)
             {
-                buildOptions |= BuildOptions.Development | BuildOptions.AllowDebugging;
+                // Development keeps the application debuggable so the native
+                // bridge can register its CI-only broadcast receiver. Script
+                // debugging is deliberately disabled: AllowDebugging causes
+                // substantial JDWP/adbd pressure on memory-constrained x86_64
+                // emulator images without being needed by the ADB acceptance
+                // harness.
+                buildOptions |= BuildOptions.Development;
             }
             else
             {

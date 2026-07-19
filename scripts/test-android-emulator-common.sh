@@ -54,10 +54,19 @@ if grep -En \
 fi
 
 graphics_settings="$script_directory/../UnityProject/ProjectSettings/GraphicsSettings.asset"
+android_build_entry="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidBuild.cs"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
   "$graphics_settings" || {
   echo 'URP Unlit must remain in Always Included Shaders for runtime materials.' >&2
+  exit 1
+}
+if grep -Fq 'BuildOptions.AllowDebugging' "$android_build_entry"; then
+  echo 'The emulator smoke player must not enable Unity script debugging.' >&2
+  exit 1
+fi
+grep -Fq 'buildOptions |= BuildOptions.Development;' "$android_build_entry" || {
+  echo 'The smoke player must remain debuggable for its CI-only native receiver.' >&2
   exit 1
 }
 grep -Fq 'timeout 30s adb wait-for-device' \
