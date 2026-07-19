@@ -219,6 +219,8 @@ adb wait-for-device
 starfall_wait_for_android_services \
   "$results_directory/android-services-before-dialog-check.txt"
 dismiss_known_system_startup_dialogs "before-install"
+starfall_confirm_immersive_mode \
+  "$results_directory/system-startup-dialogs/immersive-mode-setting.txt"
 actual_abi="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 case "$expected_architecture:$actual_abi" in
   x86_64:x86_64|arm64-v8a:arm64-v8a) ;;
@@ -846,6 +848,8 @@ PY
   adb logcat -c
   adb shell am start -W -n "$activity" >"$legacy_directory/start.txt"
   wait_for_process >/dev/null
+  starfall_clear_immersive_mode_confirmation \
+    "$legacy_directory/immersive-mode-confirmation"
   source_json='{"schemaVersion":1,"source":"github-actions","origin":"top-left","safeAreaOrigin":"top-left","widthPx":2748,"heightPx":1172,"densityDpi":420,"safeArea":{"x":0,"y":0,"width":2748,"height":1172},"foldingFeatures":[]}'
   adb shell am broadcast -a "$debug_layout_action" --es json "$source_json" \
     >"$legacy_directory/window-broadcast.txt"
@@ -941,6 +945,8 @@ run_scenario() {
   adb shell am start -W -n "$activity" --es unity "$graphics_argument" \
     >"$scenario_directory/start.txt"
   wait_for_process >/dev/null
+  starfall_clear_immersive_mode_confirmation \
+    "$scenario_directory/immersive-mode-confirmation"
 
   local expected_graphics_device
   case "$graphics_argument" in

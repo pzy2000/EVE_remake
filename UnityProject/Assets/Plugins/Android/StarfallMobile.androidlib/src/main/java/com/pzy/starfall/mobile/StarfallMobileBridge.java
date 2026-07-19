@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
 import android.graphics.Rect;
 import android.os.Build;
 import android.util.DisplayMetrics;
@@ -555,7 +556,7 @@ public final class StarfallMobileBridge {
     }
 
     private static void registerDebugReceiverLocked(final int requestGeneration) {
-        if (!BuildConfig.DEBUG || activity == null) {
+        if (!isApplicationDebuggable(activity)) {
             return;
         }
         final Activity registeredActivity = activity;
@@ -597,6 +598,11 @@ public final class StarfallMobileBridge {
         } else {
             registeredActivity.registerReceiver(debugReceiver, filter);
         }
+    }
+
+    private static boolean isApplicationDebuggable(Activity sourceActivity) {
+        return sourceActivity != null
+                && (sourceActivity.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 
     private static boolean isLifecycleActive(int requestGeneration, Activity expectedActivity) {

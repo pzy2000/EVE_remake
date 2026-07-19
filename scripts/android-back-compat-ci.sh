@@ -83,6 +83,7 @@ PY
 
 adb wait-for-device
 starfall_wait_for_android_services "$results_directory/android-services-before-api-check.txt"
+starfall_confirm_immersive_mode "$results_directory/immersive-mode-setting.txt"
 sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
 abi="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 [[ "$sdk" == "32" ]] || {
@@ -142,6 +143,8 @@ if [[ ! "$pid_before" =~ ^[0-9]+$ ]]; then
   echo "$package_name did not start on API 32." >&2
   exit 1
 fi
+starfall_clear_immersive_mode_confirmation \
+  "$results_directory/immersive-mode-confirmation"
 
 base_layout="$results_directory/MainMenu.layout.json"
 pull_main_menu_layout "$base_layout"

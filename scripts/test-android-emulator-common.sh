@@ -5,6 +5,10 @@ script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=scripts/android-emulator-common.sh
 source "$script_directory/android-emulator-common.sh"
 
+sleep() {
+  :
+}
+
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 apk="$temporary_directory/smoke.apk"
@@ -16,6 +20,9 @@ starfall_wait_for_android_services() {
 
 install_mode="recoverable"
 install_calls=0
+immersive_value="confirmed"
+immersive_window_attempts=0
+immersive_back_calls=0
 adb() {
   case "${1:-}" in
     install)
@@ -32,6 +39,30 @@ adb() {
       ;;
     reconnect|wait-for-device)
       return 0
+      ;;
+    shell)
+      if [[ "$*" == "shell settings put secure immersive_mode_confirmations confirmed" ]]; then
+        return 0
+      fi
+      if [[ "$*" == "shell settings get secure immersive_mode_confirmations" ]]; then
+        printf '%s\n' "$immersive_value"
+        return 0
+      fi
+      if [[ "$*" == "shell dumpsys window windows" ]]; then
+        immersive_window_attempts=$((immersive_window_attempts + 1))
+        if (( immersive_window_attempts == 1 )); then
+          echo 'mCurrentFocus=Window{123 u0 ImmersiveModeConfirmation}'
+        else
+          echo 'mCurrentFocus=Window{456 u0 com.pzy.starfallodyssey/Main}'
+        fi
+        return 0
+      fi
+      if [[ "$*" == "shell input keyevent KEYCODE_BACK" ]]; then
+        immersive_back_calls=$((immersive_back_calls + 1))
+        return 0
+      fi
+      echo "Unexpected adb shell command in test: $*" >&2
+      return 2
       ;;
     *)
       echo "Unexpected adb command in test: $*" >&2
@@ -55,5 +86,23 @@ if starfall_install_apk_with_system_retries "$apk" "$second_results"; then
 fi
 [[ "$install_calls" == "1" ]]
 grep -Fq 'INSTALL_FAILED_NO_MATCHING_ABIS' "$second_results/install.txt"
+
+immersive_evidence="$temporary_directory/immersive-mode-setting.txt"
+starfall_confirm_immersive_mode "$immersive_evidence"
+grep -Fqx 'requested=confirmed' "$immersive_evidence"
+grep -Fqx 'actual=confirmed' "$immersive_evidence"
+
+immersive_value="null"
+if starfall_confirm_immersive_mode "$temporary_directory/immersive-mode-rejected.txt"; then
+  echo 'A rejected immersive-mode setting was incorrectly accepted.' >&2
+  exit 1
+fi
+
+immersive_clear_evidence="$temporary_directory/immersive-mode-confirmation"
+starfall_clear_immersive_mode_confirmation "$immersive_clear_evidence"
+[[ "$immersive_back_calls" == "1" ]]
+grep -Fq 'owner=SystemUI overlay=ImmersiveModeConfirmation' \
+  "$immersive_clear_evidence/actions.txt"
+grep -Fqx 'status=clear' "$immersive_clear_evidence/summary.txt"
 
 echo 'Android emulator system-retry policy tests passed.'

@@ -199,7 +199,7 @@ printf 'APK=%s\nAAB=%s\nSYMBOLS=%s\n' \
 printf '%s\n' \
   'STARFALL_ANDROID_CI define absent from release export' \
   'OnAndroidCiCommand absent from release IL2CPP output' \
-  'Dynamic debug receivers are disabled by non-debug BuildConfig' \
+  'Dynamic debug receivers are disabled when ApplicationInfo is non-debuggable' \
   >"$output_directory/release-ci-surface.txt"
 
 echo "Signed Android release artifacts were written to: $output_directory"

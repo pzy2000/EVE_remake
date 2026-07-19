@@ -60,6 +60,10 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "startWindowTrackingLocked(requestGeneration)");
         assertContains(source, "registerBackCallbackLocked(requestGeneration)");
         assertContains(source, "registerDebugReceiverLocked(requestGeneration)");
+        assertContains(source, "if (!isApplicationDebuggable(activity))");
+        assertContains(source, "ApplicationInfo.FLAG_DEBUGGABLE");
+        assertFalse(source.contains("if (!BuildConfig.DEBUG || activity == null)"),
+                "debug receiver is still gated by the Android library build variant");
         assertContains(source,
                 "dispatchDebugCommand(intent, requestGeneration, registeredActivity)");
         assertContains(source, "if (!LIFECYCLE.isCurrent(requestGeneration))");

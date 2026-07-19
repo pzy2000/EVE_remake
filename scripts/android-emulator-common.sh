@@ -3,6 +3,51 @@
 # Shared readiness and installation helpers for the Android emulator gates.
 # The caller owns `set -e` policy and must define a writable results directory.
 
+starfall_confirm_immersive_mode() {
+  local evidence_file="${1:?evidence file is required}"
+  local actual
+
+  mkdir -p "$(dirname "$evidence_file")"
+  adb shell settings put secure immersive_mode_confirmations confirmed
+  actual="$(adb shell settings get secure immersive_mode_confirmations \
+    | tr -d '\r')"
+  printf 'requested=confirmed\nactual=%s\n' "$actual" >"$evidence_file"
+  if [[ "$actual" != "confirmed" ]]; then
+    echo "Could not pre-confirm the System UI immersive-mode prompt; see $evidence_file." >&2
+    return 1
+  fi
+}
+
+starfall_clear_immersive_mode_confirmation() {
+  local evidence_directory="${1:?evidence directory is required}"
+  local consecutive_clear=0
+  local attempt
+  local window_file
+
+  mkdir -p "$evidence_directory"
+  for attempt in $(seq 1 20); do
+    window_file="$evidence_directory/window-attempt-$attempt.txt"
+    adb shell dumpsys window windows >"$window_file"
+    if grep -Eq 'mCurrentFocus=.*ImmersiveModeConfirmation' "$window_file"; then
+      printf 'attempt=%s action=back owner=SystemUI overlay=ImmersiveModeConfirmation\n' \
+        "$attempt" >>"$evidence_directory/actions.txt"
+      adb shell input keyevent KEYCODE_BACK
+      consecutive_clear=0
+    else
+      consecutive_clear=$((consecutive_clear + 1))
+      if (( consecutive_clear >= 12 )); then
+        printf 'status=clear\nattempts=%s\n' "$attempt" \
+          >"$evidence_directory/summary.txt"
+        return 0
+      fi
+    fi
+    sleep 0.25
+  done
+
+  echo "System UI immersive-mode confirmation did not clear; see $evidence_directory." >&2
+  return 1
+}
+
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
   local attempts="${2:-120}"
