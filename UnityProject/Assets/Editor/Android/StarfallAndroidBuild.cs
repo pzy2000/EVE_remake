@@ -160,6 +160,10 @@ namespace Starfall.Editor
             DebugSymbolsSnapshot debugSymbols)
         {
             var isSmoke = flavor == SmokeFlavor;
+            // Unity's splash can cover a fully initialized UI tree and swallow ADB
+            // input on headless emulators. The CI-only player starts directly on the
+            // game frame; signed release builds retain the branded splash.
+            PlayerSettings.SplashScreen.show = !isSmoke;
             PlayerSettings.Android.targetArchitectures =
                 isSmoke && architecture == "x86_64"
                     ? AndroidArchitecture.X86_64
@@ -645,6 +649,7 @@ namespace Starfall.Editor
             private readonly bool buildAppBundle;
             private readonly Sprite splashBackground;
             private readonly Color splashBackgroundColor;
+            private readonly bool showSplash;
 
             private SettingsSnapshot()
             {
@@ -680,6 +685,7 @@ namespace Starfall.Editor
                 buildAppBundle = EditorUserBuildSettings.buildAppBundle;
                 splashBackground = PlayerSettings.SplashScreen.background;
                 splashBackgroundColor = PlayerSettings.SplashScreen.backgroundColor;
+                showSplash = PlayerSettings.SplashScreen.show;
             }
 
             public static SettingsSnapshot Capture() => new();
@@ -718,6 +724,7 @@ namespace Starfall.Editor
                 EditorUserBuildSettings.buildAppBundle = buildAppBundle;
                 PlayerSettings.SplashScreen.background = splashBackground;
                 PlayerSettings.SplashScreen.backgroundColor = splashBackgroundColor;
+                PlayerSettings.SplashScreen.show = showSplash;
             }
         }
     }

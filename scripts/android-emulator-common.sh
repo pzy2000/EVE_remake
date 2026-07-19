@@ -62,7 +62,6 @@ except (OSError, json.JSONDecodeError):
     raise SystemExit(1)
 ready = (
     payload.get("scene") == sys.argv[2]
-    and payload.get("splashFinished") is True
     and int(payload.get("frameCount") or 0) > 0
 )
 raise SystemExit(0 if ready else 1)
@@ -73,8 +72,25 @@ PY
     sleep 0.25
   done
 
-  echo "Timed out waiting for Unity's post-splash $expected_scene frame." >&2
+  echo "Timed out waiting for Unity's rendered $expected_scene frame." >&2
   return 1
+}
+
+starfall_start_continuous_logcat() {
+  local destination="${1:?logcat destination is required}"
+  starfall_stop_continuous_logcat
+  mkdir -p "$(dirname "$destination")"
+  timeout 180s "$starfall_adb_executable" logcat -v threadtime \
+    >"$destination" 2>&1 &
+  starfall_logcat_capture_pid=$!
+}
+
+starfall_stop_continuous_logcat() {
+  if [[ "${starfall_logcat_capture_pid:-}" =~ ^[0-9]+$ ]]; then
+    kill "$starfall_logcat_capture_pid" >/dev/null 2>&1 || true
+    wait "$starfall_logcat_capture_pid" >/dev/null 2>&1 || true
+  fi
+  starfall_logcat_capture_pid=""
 }
 
 starfall_capture_emulator_failure() {

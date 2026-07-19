@@ -104,8 +104,16 @@ if grep -Fq 'ram-size: 6144M' "$workflow_entry"; then
   echo 'The API 36 emulator must not reserve 6144M on a hosted runner.' >&2
   exit 1
 fi
-grep -Fq 'while (!SplashScreen.isFinished' "$android_ci_automation" || {
-  echo 'Android CI readiness must wait until the Unity splash is finished.' >&2
+[[ "$(grep -Fc -- '-gpu swiftshader ' "$workflow_entry")" == "2" ]] || {
+  echo 'Both emulator jobs must use the supported SwiftShader software backend.' >&2
+  exit 1
+}
+if grep -Fq -- '-gpu swiftshader_indirect' "$workflow_entry"; then
+  echo 'The deprecated swiftshader_indirect backend must not return.' >&2
+  exit 1
+fi
+grep -Fq 'PlayerSettings.SplashScreen.show = !isSmoke;' "$android_build_entry" || {
+  echo 'The smoke player must disable the Unity splash without changing release builds.' >&2
   exit 1
 }
 grep -Fq 'starfall_wait_for_unity_render_ready' "$back_compat_entry" || {
@@ -165,9 +173,9 @@ adb() {
       if [[ "$*" == "exec-out cat $expected_files_directory/starfall-ci-render-ready.json" ]]; then
         render_ready_calls=$((render_ready_calls + 1))
         if (( render_ready_calls == 1 )); then
-          printf '%s\n' '{"scene":"MainMenu","frameCount":0,"splashFinished":false}'
+          printf '%s\n' '{"scene":"MainMenu","frameCount":0}'
         else
-          printf '%s\n' '{"scene":"MainMenu","frameCount":42,"splashFinished":true}'
+          printf '%s\n' '{"scene":"MainMenu","frameCount":42}'
         fi
         return 0
       fi
@@ -221,7 +229,7 @@ render_ready_evidence="$temporary_directory/render-ready.json"
 starfall_wait_for_unity_render_ready \
   com.pzy.starfallodyssey "$render_ready_evidence" MainMenu 3
 [[ "$render_ready_calls" == "2" ]]
-grep -Fq '"splashFinished":true' "$render_ready_evidence"
+grep -Fq '"frameCount":42' "$render_ready_evidence"
 
 first_results="$temporary_directory/recoverable"
 starfall_install_apk_with_system_retries "$apk" "$first_results"

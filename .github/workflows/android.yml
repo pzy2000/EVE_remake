@@ -288,7 +288,7 @@ jobs:
           ram-size: 4096M
           heap-size: 1024M
           disk-size: 12G
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash scripts/android-emulator-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-emulator
 
@@ -350,7 +350,7 @@ jobs:
           ram-size: 4096M
           heap-size: 768M
           disk-size: 8G
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash scripts/android-back-compat-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-back-compat
 

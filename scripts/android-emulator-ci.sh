@@ -223,6 +223,7 @@ reset_emulator() {
 on_exit() {
   local status=$?
   trap - EXIT INT TERM
+  starfall_stop_continuous_logcat
   if (( status != 0 )); then
     starfall_capture_emulator_failure \
       "$package_name" "$results_directory" "failure"
@@ -877,6 +878,7 @@ PY
   dismiss_known_system_startup_dialogs "legacy-saf-before-start"
   configure_landscape_display 2748 1172 420 "$legacy_directory/display"
   adb logcat -c
+  starfall_start_continuous_logcat "$legacy_directory/session.logcat.txt"
   adb shell am start -W -n "$activity" >"$legacy_directory/start.txt"
   wait_for_process >/dev/null
   starfall_clear_immersive_mode_confirmation \
@@ -981,6 +983,7 @@ run_scenario() {
     "$width" "$height" "$density_dpi" "$scenario_directory/display"
 
   adb logcat -c
+  starfall_start_continuous_logcat "$scenario_directory/session.logcat.txt"
   adb shell am start -W -n "$activity" --es unity "$graphics_argument" \
     >"$scenario_directory/start.txt"
   wait_for_process >/dev/null

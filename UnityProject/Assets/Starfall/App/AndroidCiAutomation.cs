@@ -7,7 +7,6 @@ using Newtonsoft.Json.Linq;
 using Starfall.Presentation;
 using Starfall.Simulation;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 namespace Starfall.App
@@ -24,13 +23,12 @@ namespace Starfall.App
         private int androidCiLowMemoryGeneration;
 
         /// <summary>
-        /// The scene and UI tree can be live while Unity's splash is still covering the
-        /// Android surface. Publish a separate cold-start marker only after the splash
-        /// has finished and two complete frames have reached the display pipeline.
+        /// The smoke flavor disables Unity's splash. Publish a separate cold-start
+        /// marker after MainMenu and two complete frames reach the display pipeline.
         /// </summary>
         private IEnumerator WriteAndroidCiRenderReadyEvidence()
         {
-            while (!SplashScreen.isFinished || SceneManager.GetActiveScene().name == "Bootstrap")
+            while (SceneManager.GetActiveScene().name == "Bootstrap")
                 yield return null;
 
             yield return new WaitForEndOfFrame();
@@ -40,7 +38,6 @@ namespace Starfall.App
             {
                 ["scene"] = SceneManager.GetActiveScene().name,
                 ["frameCount"] = Time.frameCount,
-                ["splashFinished"] = SplashScreen.isFinished,
                 ["timestampUtc"] = DateTime.UtcNow.ToString("O"),
             };
             File.WriteAllText(

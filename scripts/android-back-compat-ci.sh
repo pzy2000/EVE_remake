@@ -35,6 +35,7 @@ reset_emulator() {
 on_exit() {
   local status=$?
   trap - EXIT INT TERM
+  starfall_stop_continuous_logcat
   if (( status != 0 )); then
     starfall_capture_emulator_failure \
       "$package_name" "$results_directory" "failure"
@@ -151,6 +152,7 @@ adb shell dumpsys display >"$results_directory/dumpsys-display.txt"
 
 adb shell pm clear "$package_name" >/dev/null
 adb logcat -c
+starfall_start_continuous_logcat "$results_directory/session.logcat.txt"
 adb shell am start -W -n "$activity" --es unity -force-gles30 \
   >"$results_directory/start.txt"
 
