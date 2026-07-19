@@ -198,7 +198,8 @@ namespace Starfall.Presentation
             // The software GLES3 emulator exposes the spec-minimum fragment
             // uniform budget. CI validates behavior/layout with the lean URP
             // shader; signed release players retain the Lit surface below.
-            return Shader.Find("Universal Render Pipeline/Unlit") ??
+            return Shader.Find("Starfall/CI/MinimalUnlit") ??
+                   Shader.Find("Universal Render Pipeline/Unlit") ??
                    Shader.Find("Sprites/Default");
 #else
             return Shader.Find("Universal Render Pipeline/Lit") ??

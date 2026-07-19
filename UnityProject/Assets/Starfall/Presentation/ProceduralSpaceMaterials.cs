@@ -281,7 +281,8 @@ namespace Starfall.Presentation
         private static Shader FindRuntimeSurfaceShader()
         {
 #if STARFALL_ANDROID_CI && UNITY_ANDROID
-            return Shader.Find("Universal Render Pipeline/Unlit") ??
+            return Shader.Find("Starfall/CI/MinimalUnlit") ??
+                   Shader.Find("Universal Render Pipeline/Unlit") ??
                    Shader.Find("Sprites/Default");
 #else
             return Shader.Find("Universal Render Pipeline/Lit") ??

@@ -736,7 +736,7 @@ namespace Starfall.Editor
         private sealed class SmokeMaterialShaderSnapshot
         {
             private const string LitShaderName = "Universal Render Pipeline/Lit";
-            private const string SmokeShaderName = "Universal Render Pipeline/Unlit";
+            private const string SmokeShaderName = "Starfall/CI/MinimalUnlit";
 
             private readonly List<MaterialShaderSnapshot> materials;
             private Shader smokeShader;

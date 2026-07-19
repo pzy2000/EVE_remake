@@ -74,6 +74,7 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "static boolean dispatchCompatBack(Activity sourceActivity)");
         assertContains(source, "if (!initialized || activity != sourceActivity)");
         assertContains(source, "sendUnity(CALLBACK_BACK, \"\")");
+        assertContains(source, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH=");
         assertContains(source, "drainReadyLegacyImportsLocked(currentActivity)");
         assertContains(source, "public static void acknowledgeLegacyDocument");
         assertContains(source, "consumeRestoredLegacyImportAcknowledgement");
@@ -85,6 +86,11 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(activity, "extends UnityPlayerGameActivity");
         assertContains(activity,
                 "CompatBackPolicy.shouldHandleWithActivityCallback(Build.VERSION.SDK_INT)");
+        assertContains(activity, "public boolean onKeyDown(int keyCode, KeyEvent event)");
+        assertContains(activity, "return super.onKeyDown(keyCode, event)");
+        assertContains(activity, "public boolean onKeyUp(int keyCode, KeyEvent event)");
+        assertContains(activity, "!event.isCanceled()");
+        assertContains(activity, "return super.onKeyUp(keyCode, event)");
         assertContains(activity, "public boolean dispatchKeyEvent(KeyEvent event)");
         assertContains(activity, "event.getKeyCode() == KeyEvent.KEYCODE_BACK");
         assertContains(activity, "event.getAction() == KeyEvent.ACTION_UP");

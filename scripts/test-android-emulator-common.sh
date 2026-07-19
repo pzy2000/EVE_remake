@@ -60,6 +60,7 @@ emulator_entry="$script_directory/android-emulator-ci.sh"
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 procedural_ship_factory="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralShipFactory.cs"
 procedural_space_materials="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralSpaceMaterials.cs"
+ci_minimal_shader="$script_directory/../UnityProject/Assets/Starfall/Shaders/StarfallCiMinimalUnlit.shader"
 workflow_entry="$script_directory/../.github/workflows/android.yml"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
@@ -142,21 +143,29 @@ grep -Fq 'SmokeMaterialShaderSnapshot.Capture(' "$android_build_entry" || {
   echo 'The smoke build must replace project Lit materials for minimum-spec GLES3.' >&2
   exit 1
 }
-grep -Fq 'private const string SmokeShaderName = "Universal Render Pipeline/Unlit";' "$android_build_entry" || {
-  echo 'The smoke material replacement must use the lean URP Unlit shader.' >&2
+grep -Fq 'private const string SmokeShaderName = "Starfall/CI/MinimalUnlit";' "$android_build_entry" || {
+  echo 'The smoke material replacement must use the minimum-uniform CI shader.' >&2
   exit 1
 }
 grep -Fq 'smokeMaterials.Restore();' "$android_build_entry" || {
   echo 'The release material shader references must be restored after every build attempt.' >&2
   exit 1
 }
+grep -Fq 'Shader "Starfall/CI/MinimalUnlit"' "$ci_minimal_shader" || {
+  echo 'The minimum-uniform smoke shader asset is missing.' >&2
+  exit 1
+}
+if grep -Eq 'Packages/com\.unity\.render-pipelines|UnityInstancing|multi_compile' "$ci_minimal_shader"; then
+  echo 'The minimum-uniform smoke shader must not import URP global buffers or variants.' >&2
+  exit 1
+fi
 for runtime_material_source in "$procedural_ship_factory" "$procedural_space_materials"; do
   grep -Fq '#if STARFALL_ANDROID_CI && UNITY_ANDROID' "$runtime_material_source" || {
     echo "Runtime material source must isolate its emulator shader: $runtime_material_source" >&2
     exit 1
   }
-  grep -Fq 'Shader.Find("Universal Render Pipeline/Unlit")' "$runtime_material_source" || {
-    echo "Runtime smoke materials must avoid URP Lit on GLES3: $runtime_material_source" >&2
+  grep -Fq 'Shader.Find("Starfall/CI/MinimalUnlit")' "$runtime_material_source" || {
+    echo "Runtime smoke materials must use the minimum-uniform CI shader: $runtime_material_source" >&2
     exit 1
   }
 done

@@ -633,6 +633,7 @@ public final class StarfallMobileBridge {
                 return false;
             }
             sendUnity(CALLBACK_BACK, "");
+            Log.i(TAG, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH=" + Build.VERSION.SDK_INT);
             return true;
         }
     }

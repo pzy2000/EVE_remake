@@ -15,4 +15,8 @@ public final class KeyEvent {
     public int getRepeatCount() {
         return 0;
     }
+
+    public boolean isCanceled() {
+        return false;
+    }
 }
