@@ -3,16 +3,28 @@ set -Eeuo pipefail
 
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=scripts/android-emulator-common.sh
+export STARFALL_ADB_EXECUTABLE=/usr/bin/false
 source "$script_directory/android-emulator-common.sh"
 
 sleep() {
   :
 }
 
+timeout_wrapper_calls=0
 timeout() {
+  if [[ "${1:-}" == "30s" && "${2:-}" == "/usr/bin/false" ]]; then
+    timeout_wrapper_calls=$((timeout_wrapper_calls + 1))
+    return 124
+  fi
   shift
   "$@"
 }
+
+if adb get-state; then
+  echo 'The shared ADB timeout wrapper incorrectly accepted a timed-out command.' >&2
+  exit 1
+fi
+[[ "$timeout_wrapper_calls" == "1" ]]
 
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT INT TERM
@@ -51,6 +63,11 @@ grep -Fq \
 grep -Fq 'timeout 30s adb wait-for-device' \
   "$script_directory/android-emulator-common.sh" || {
   echo 'ADB wait-for-device must remain bounded by a timeout.' >&2
+  exit 1
+}
+grep -Fq 'timeout "${timeout_seconds}s" "$starfall_adb_executable" "$@"' \
+  "$script_directory/android-emulator-common.sh" || {
+  echo 'Every ordinary ADB command must remain behind the shared timeout wrapper.' >&2
   exit 1
 }
 if grep -En '^[[:space:]]*adb wait-for-device([[:space:]]|$)' \

@@ -3,6 +3,21 @@
 # Shared readiness and installation helpers for the Android emulator gates.
 # The caller owns `set -e` policy and must define a writable results directory.
 
+# A runner can keep the adb client blocked indefinitely after the emulator
+# transport drops under memory pressure. Route every ordinary adb invocation
+# in the acceptance scripts through one bounded client process. Calls which
+# need a shorter timeout (for example transport probing) retain their explicit
+# outer `timeout` command and therefore bypass this shell function.
+starfall_adb_executable="${STARFALL_ADB_EXECUTABLE:-$(type -P adb || true)}"
+adb() {
+  local timeout_seconds="${STARFALL_ADB_COMMAND_TIMEOUT_SECONDS:-30}"
+  if [[ -z "$starfall_adb_executable" ]]; then
+    echo 'adb executable was not found on PATH.' >&2
+    return 127
+  fi
+  timeout "${timeout_seconds}s" "$starfall_adb_executable" "$@"
+}
+
 starfall_android_app_files_directory() {
   local package_name="${1:?package name is required}"
   if [[ ! "$package_name" =~ ^[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+$ ]]; then
