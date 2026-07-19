@@ -32,14 +32,30 @@ wait_for_process() {
 run_ci_command() {
   local command="$1"
   local remote_json="$results_directory/command-current.json"
+  local command_prefix
+  local attempt
+  local broadcast_attempts=0
+  local process_id
   request_id=$((request_id + 1))
-  adb shell am broadcast \
-    -a "$command_action" \
-    --ei requestId "$request_id" \
-    --es command "$command" \
-    >"$results_directory/commands/$(printf '%04d' "$request_id")-$command.broadcast.txt"
+  command_prefix="$results_directory/commands/$(printf '%04d' "$request_id")-$command"
 
-  for _ in $(seq 1 120); do
+  for attempt in $(seq 1 180); do
+    if (( attempt == 1 || (attempt - 1) % 4 == 0 )); then
+      process_id="$(adb shell pidof "$package_name" | tr -d '\r')"
+      if [[ -z "$process_id" ]]; then
+        adb logcat -b all -d >"$command_prefix.process-missing.logcat.txt"
+        echo "$package_name exited while waiting for Android CI command: $command" >&2
+        return 1
+      fi
+      broadcast_attempts=$((broadcast_attempts + 1))
+      adb shell am broadcast \
+        -a "$command_action" \
+        --ei requestId "$request_id" \
+        --es command "$command" >"$command_prefix.broadcast.txt"
+      printf 'attempt=%s requestId=%s command=%s pid=%s\n' \
+        "$broadcast_attempts" "$request_id" "$command" "$process_id" \
+        >>"$command_prefix.broadcast-attempts.txt"
+    fi
     if adb exec-out run-as "$package_name" cat "files/$command_evidence" \
       >"$remote_json" 2>/dev/null && \
       python3 - "$remote_json" "$request_id" <<'PY'
@@ -53,7 +69,7 @@ except (OSError, json.JSONDecodeError):
 raise SystemExit(0 if payload.get("requestId") == int(sys.argv[2]) else 1)
 PY
     then
-      last_command_json="$results_directory/commands/$(printf '%04d' "$request_id")-$command.json"
+      last_command_json="$command_prefix.json"
       cp "$remote_json" "$last_command_json"
       if python3 - "$last_command_json" <<'PY'
 import json
@@ -70,7 +86,9 @@ PY
     fi
     sleep 0.25
   done
-  echo "Timed out waiting for Android CI command acknowledgement: $command" >&2
+  adb logcat -b all -d >"$command_prefix.timeout.logcat.txt"
+  echo "Timed out waiting for Android CI command acknowledgement after " \
+    "${broadcast_attempts} broadcasts: $command" >&2
   return 1
 }
 

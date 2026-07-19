@@ -10,7 +10,10 @@ results_directory="${2:-artifacts/android-back-compat}"
 package_name="com.pzy.starfallodyssey"
 expected_activity="$package_name/com.pzy.starfall.mobile.StarfallUnityGameActivity"
 expected_architecture="x86_64"
-width=2748
+# API 32 clamps a logical width larger than twice the Pixel 2 physical width.
+# This job only gates the legacy Back callback, so use the largest stable
+# CompactLandscape framebuffer; API 36 separately gates the exact 2748x1172.
+width=2160
 height=1172
 density_dpi=420
 

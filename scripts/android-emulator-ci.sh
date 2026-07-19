@@ -626,12 +626,31 @@ wait_for_ui_surface_absent() {
 dispatch_ci_command() {
   local command="$1"
   local evidence="$2"
+  local attempt
+  local broadcast_attempts=0
+  local process_id
   command_request_id=$((command_request_id + 1))
-  adb shell am broadcast \
-    -a "$debug_command_action" \
-    --ei requestId "$command_request_id" \
-    --es command "$command" >"$evidence.broadcast.txt"
-  for _ in $(seq 1 80); do
+
+  # The Activity process becomes visible before Unity's AppRoot has registered
+  # the debug receiver. Re-send the same idempotent request once per second
+  # until the managed ACK exists, while treating process loss as a hard failure.
+  for attempt in $(seq 1 180); do
+    if (( attempt == 1 || (attempt - 1) % 4 == 0 )); then
+      process_id="$(adb shell pidof "$package_name" | tr -d '\r')"
+      if [[ -z "$process_id" ]]; then
+        adb logcat -b all -d >"$evidence.process-missing.logcat.txt"
+        echo "$package_name exited while waiting for Android CI command: $command" >&2
+        return 1
+      fi
+      broadcast_attempts=$((broadcast_attempts + 1))
+      adb shell am broadcast \
+        -a "$debug_command_action" \
+        --ei requestId "$command_request_id" \
+        --es command "$command" >"$evidence.broadcast.txt"
+      printf 'attempt=%s requestId=%s command=%s pid=%s\n' \
+        "$broadcast_attempts" "$command_request_id" "$command" "$process_id" \
+        >>"$evidence.broadcast-attempts.txt"
+    fi
     if adb exec-out run-as "$package_name" cat files/starfall-ci-command.json \
       >"$evidence" 2>/dev/null && \
       python3 - "$evidence" "$command_request_id" "$command" <<'PY'
@@ -654,7 +673,8 @@ PY
     fi
     sleep 0.25
   done
-  echo "Timed out waiting for Android CI command: $command" >&2
+  adb logcat -b all -d >"$evidence.timeout.logcat.txt"
+  echo "Timed out waiting for Android CI command after ${broadcast_attempts} broadcasts: $command" >&2
   return 1
 }
 
