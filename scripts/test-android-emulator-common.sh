@@ -14,6 +14,21 @@ trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 apk="$temporary_directory/smoke.apk"
 : >"$apk"
 
+expected_files_directory="/storage/emulated/0/Android/data/com.pzy.starfallodyssey/files"
+[[ "$(starfall_android_app_files_directory com.pzy.starfallodyssey)" == \
+  "$expected_files_directory" ]]
+[[ "$(starfall_android_app_file_path \
+  com.pzy.starfallodyssey Saves/auto.json)" == \
+  "$expected_files_directory/Saves/auto.json" ]]
+if starfall_android_app_file_path com.pzy.starfallodyssey ../files >/dev/null 2>&1; then
+  echo 'App file path traversal was incorrectly accepted.' >&2
+  exit 1
+fi
+if starfall_android_app_files_directory invalid-package >/dev/null 2>&1; then
+  echo 'Invalid Android package name was incorrectly accepted.' >&2
+  exit 1
+fi
+
 starfall_wait_for_android_services() {
   : >"${1:?evidence file is required}"
 }

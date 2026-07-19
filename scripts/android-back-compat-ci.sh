@@ -10,6 +10,7 @@ results_directory="${2:-artifacts/android-back-compat}"
 package_name="com.pzy.starfallodyssey"
 expected_activity="$package_name/com.pzy.starfall.mobile.StarfallUnityGameActivity"
 expected_architecture="x86_64"
+persistent_data_directory="$(starfall_android_app_files_directory "$package_name")"
 # API 32 clamps a logical width larger than twice the Pixel 2 physical width.
 # This job only gates the legacy Back callback, so use the largest stable
 # CompactLandscape framebuffer; API 36 separately gates the exact 2748x1172.
@@ -29,7 +30,20 @@ reset_emulator() {
   adb shell wm size reset >/dev/null 2>&1 || true
   adb shell wm density reset >/dev/null 2>&1 || true
 }
-trap reset_emulator EXIT INT TERM
+
+on_exit() {
+  local status=$?
+  trap - EXIT INT TERM
+  if (( status != 0 )); then
+    starfall_capture_emulator_failure \
+      "$package_name" "$results_directory" "failure"
+  fi
+  reset_emulator
+  exit "$status"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 assert_png_dimensions() {
   local png="$1"
@@ -52,7 +66,8 @@ PY
 pull_main_menu_layout() {
   local destination="$1"
   for _ in $(seq 1 120); do
-    if adb exec-out run-as "$package_name" cat files/starfall-ci-layout-MainMenu.json \
+    if adb exec-out run-as "$package_name" cat \
+      "$persistent_data_directory/starfall-ci-layout-MainMenu.json" \
       >"$destination" 2>/dev/null && python3 -m json.tool "$destination" >/dev/null 2>&1; then
       return 0
     fi

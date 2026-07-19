@@ -13,6 +13,7 @@ debug_layout_action="com.pzy.starfall.mobile.DEBUG_WINDOW_LAYOUT"
 debug_command_action="com.pzy.starfall.mobile.DEBUG_COMMAND"
 expected_architecture="${STARFALL_EMULATOR_ARCH:-x86_64}"
 command_request_id=500000
+persistent_data_directory="$(starfall_android_app_files_directory "$package_name")"
 
 if [[ "$expected_architecture" != "x86_64" && "$expected_architecture" != "arm64-v8a" ]]; then
   echo "STARFALL_EMULATOR_ARCH must be x86_64 or arm64-v8a." >&2
@@ -54,9 +55,14 @@ dismiss_known_system_startup_dialogs() {
     adb shell dumpsys window windows >"$stem.window.txt"
     adb shell dumpsys activity top >"$stem.activity.txt"
     adb exec-out screencap -p >"$stem.png"
+    adb shell rm -f /sdcard/starfall-startup-dialog.xml >/dev/null 2>&1 || true
     if timeout 15s adb shell uiautomator dump /sdcard/starfall-startup-dialog.xml \
       >"$stem.uiautomator.txt" 2>&1; then
-      adb pull /sdcard/starfall-startup-dialog.xml "$stem.xml" >/dev/null
+      # A freshly booted API 36 system can return zero before the XML is
+      # materialized. The dumpsys ownership evidence remains authoritative;
+      # retain the pull result without turning optional UI text into a failure.
+      adb pull /sdcard/starfall-startup-dialog.xml "$stem.xml" \
+        >"$stem.uiautomator-pull.txt" 2>&1 || true
     fi
 
     decision_file="$stem.decision.json"
@@ -213,7 +219,20 @@ reset_emulator() {
   adb shell wm size reset >/dev/null 2>&1 || true
   adb shell wm density reset >/dev/null 2>&1 || true
 }
-trap reset_emulator EXIT INT TERM
+
+on_exit() {
+  local status=$?
+  trap - EXIT INT TERM
+  if (( status != 0 )); then
+    starfall_capture_emulator_failure \
+      "$package_name" "$results_directory" "failure"
+  fi
+  reset_emulator
+  exit "$status"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 adb wait-for-device
 starfall_wait_for_android_services \
@@ -262,8 +281,10 @@ wait_for_process() {
 
 wait_for_app_file() {
   local remote_name="$1"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   for _ in $(seq 1 45); do
-    if adb shell run-as "$package_name" test -f "files/$remote_name" >/dev/null 2>&1; then
+    if adb shell run-as "$package_name" test -f "$remote_path" >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
@@ -275,8 +296,10 @@ wait_for_app_file() {
 pull_app_file() {
   local remote_name="$1"
   local destination="$2"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   wait_for_app_file "$remote_name"
-  adb exec-out run-as "$package_name" cat "files/$remote_name" >"$destination"
+  adb exec-out run-as "$package_name" cat "$remote_path" >"$destination"
   python3 -m json.tool "$destination" >/dev/null
 }
 
@@ -403,8 +426,10 @@ pull_expected_layout_json() {
   local expected_mode="$3"
   local require_hinge="$4"
   local expected_source_json="$5"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   for _ in $(seq 1 80); do
-    if adb exec-out run-as "$package_name" cat "files/$remote_name" \
+    if adb exec-out run-as "$package_name" cat "$remote_path" \
       >"$destination" 2>/dev/null && \
       python3 -m json.tool "$destination" >/dev/null 2>&1 && \
       validate_layout_json \
@@ -583,8 +608,10 @@ wait_for_ui_surface() {
   local remote_name="$1"
   local destination="$2"
   local expected_surface="$3"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   for _ in $(seq 1 60); do
-    if adb exec-out run-as "$package_name" cat "files/$remote_name" \
+    if adb exec-out run-as "$package_name" cat "$remote_path" \
       >"$destination" 2>/dev/null && \
       python3 - "$destination" "$expected_surface" <<'PY'
 import json
@@ -613,8 +640,10 @@ PY
 wait_for_ui_surface_absent() {
   local remote_name="$1"
   local expected_surface="$2"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   for _ in $(seq 1 60); do
-    if adb exec-out run-as "$package_name" cat "files/$remote_name" 2>/dev/null \
+    if adb exec-out run-as "$package_name" cat "$remote_path" 2>/dev/null \
       | python3 -c 'import json,sys; expected=sys.argv[1]; payload=json.load(sys.stdin); names={item.get("name") for item in payload.get("surfaces", []) if item.get("visible", True)}; raise SystemExit(1 if expected in names else 0)' \
         "$expected_surface"; then
       return 0
@@ -653,7 +682,8 @@ dispatch_ci_command() {
         "$broadcast_attempts" "$command_request_id" "$command" "$process_id" \
         >>"$evidence.broadcast-attempts.txt"
     fi
-    if adb exec-out run-as "$package_name" cat files/starfall-ci-command.json \
+    if adb exec-out run-as "$package_name" cat \
+      "$persistent_data_directory/starfall-ci-command.json" \
       >"$evidence" 2>/dev/null && \
       python3 - "$evidence" "$command_request_id" "$command" <<'PY'
 import json
@@ -878,16 +908,19 @@ PY
   fi
 
   for _ in $(seq 1 180); do
-    if adb shell run-as "$package_name" test -s files/Saves/slot1.json >/dev/null 2>&1; then
+    if adb shell run-as "$package_name" test -s \
+      "$persistent_data_directory/Saves/slot1.json" >/dev/null 2>&1; then
       break
     fi
     sleep 0.5
   done
-  if ! adb shell run-as "$package_name" test -s files/Saves/slot1.json >/dev/null 2>&1; then
+  if ! adb shell run-as "$package_name" test -s \
+    "$persistent_data_directory/Saves/slot1.json" >/dev/null 2>&1; then
     echo "SAF import did not create Slot 1." >&2
     return 1
   fi
-  adb exec-out run-as "$package_name" cat files/Saves/slot1.json \
+  adb exec-out run-as "$package_name" cat \
+    "$persistent_data_directory/Saves/slot1.json" \
     >"$legacy_directory/slot1.json"
   python3 - "$legacy_directory/slot1.json" "$source_sha" <<'PY'
 import json
@@ -1277,16 +1310,20 @@ assert_no_app_failures "stability"
 
 # Exercise lifecycle save coalescing, low-memory cleanup, force-stop recovery,
 # and a real Continue action after the geometry/import/stability gates.
-adb exec-out run-as "$package_name" cat files/Saves/auto.json \
+adb exec-out run-as "$package_name" cat \
+  "$persistent_data_directory/Saves/auto.json" \
   >"$results_directory/lifecycle-auto-before.json"
-auto_mtime_before="$(adb shell run-as "$package_name" stat -c %Y files/Saves/auto.json | tr -d '\r')"
+auto_mtime_before="$(adb shell run-as "$package_name" stat -c %Y \
+  "$persistent_data_directory/Saves/auto.json" | tr -d '\r')"
 for _ in $(seq 1 10); do
   adb shell input keyevent KEYCODE_HOME
   adb shell am start -W -n "$activity" >/dev/null
 done
-adb exec-out run-as "$package_name" cat files/Saves/auto.json \
+adb exec-out run-as "$package_name" cat \
+  "$persistent_data_directory/Saves/auto.json" \
   >"$results_directory/lifecycle-auto-after.json"
-auto_mtime_after="$(adb shell run-as "$package_name" stat -c %Y files/Saves/auto.json | tr -d '\r')"
+auto_mtime_after="$(adb shell run-as "$package_name" stat -c %Y \
+  "$persistent_data_directory/Saves/auto.json" | tr -d '\r')"
 python3 - \
   "$results_directory/lifecycle-auto-before.json" \
   "$results_directory/lifecycle-auto-after.json" \
@@ -1314,12 +1351,14 @@ printf 'mtimeBefore=%s\nmtimeAfter=%s\ncycles=10\n' \
   "$auto_mtime_before" "$auto_mtime_after" >"$results_directory/lifecycle-save-evidence.txt"
   dispatch_ci_command \
     "seed-low-memory-fixture" "$results_directory/trim-memory.seed.command.json"
-  adb shell run-as "$package_name" rm -f files/starfall-ci-low-memory.json
+  adb shell run-as "$package_name" rm -f \
+    "$persistent_data_directory/starfall-ci-low-memory.json"
   adb shell am send-trim-memory "$package_name" RUNNING_CRITICAL \
     >"$results_directory/trim-memory.txt"
   low_memory_observed=false
   for _ in $(seq 1 80); do
-    if adb exec-out run-as "$package_name" cat files/starfall-ci-low-memory.json \
+    if adb exec-out run-as "$package_name" cat \
+      "$persistent_data_directory/starfall-ci-low-memory.json" \
       >"$results_directory/trim-memory.callback.json" 2>/dev/null && \
       python3 - "$results_directory/trim-memory.callback.json" <<'PY'
 import json
@@ -1391,7 +1430,7 @@ if [[ "$continued" != true ]]; then
   echo "Force-stop recovery did not continue the valid saved Space session." >&2
   exit 1
 fi
-adb shell run-as "$package_name" ls -l files/Saves \
+adb shell run-as "$package_name" ls -l "$persistent_data_directory/Saves" \
   >"$results_directory/force-stop-save-files.txt"
 assert_no_app_failures "lifecycle-force-stop-continue"
 

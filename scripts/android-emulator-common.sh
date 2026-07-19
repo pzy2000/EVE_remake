@@ -3,6 +3,52 @@
 # Shared readiness and installation helpers for the Android emulator gates.
 # The caller owns `set -e` policy and must define a writable results directory.
 
+starfall_android_app_files_directory() {
+  local package_name="${1:?package name is required}"
+  if [[ ! "$package_name" =~ ^[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+$ ]]; then
+    echo "Invalid Android package name: $package_name" >&2
+    return 2
+  fi
+  printf '/storage/emulated/0/Android/data/%s/files\n' "$package_name"
+}
+
+starfall_android_app_file_path() {
+  local package_name="${1:?package name is required}"
+  local relative_path="${2:?relative app file path is required}"
+  if [[ "$relative_path" == /* || "$relative_path" == "." || \
+    "$relative_path" == ".." || "$relative_path" == ../* || \
+    "$relative_path" == */../* || "$relative_path" == */.. ]]; then
+    echo "Invalid relative app file path: $relative_path" >&2
+    return 2
+  fi
+  printf '%s/%s\n' \
+    "$(starfall_android_app_files_directory "$package_name")" "$relative_path"
+}
+
+starfall_capture_emulator_failure() {
+  local package_name="${1:?package name is required}"
+  local evidence_directory="${2:?evidence directory is required}"
+  local label="${3:-failure}"
+  local process_id
+
+  mkdir -p "$evidence_directory"
+  process_id="$(adb shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$process_id" =~ ^[0-9]+$ ]]; then
+    adb logcat -d --pid="$process_id" \
+      >"$evidence_directory/$label.app.logcat.txt" 2>&1 || true
+  else
+    printf 'process=missing\npackage=%s\n' "$package_name" \
+      >"$evidence_directory/$label.process.txt"
+  fi
+  adb logcat -b all -d >"$evidence_directory/$label.system.logcat.txt" 2>&1 || true
+  adb shell dumpsys activity top \
+    >"$evidence_directory/$label.activity-top.txt" 2>&1 || true
+  adb shell dumpsys window \
+    >"$evidence_directory/$label.window.txt" 2>&1 || true
+  adb exec-out screencap -p \
+    >"$evidence_directory/$label.png" 2>/dev/null || true
+}
+
 starfall_confirm_immersive_mode() {
   local evidence_file="${1:?evidence file is required}"
   local actual

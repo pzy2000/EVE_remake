@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=scripts/android-emulator-common.sh
+source "$script_directory/android-emulator-common.sh"
+
 results_directory="${1:-artifacts/android-emulator/stability}"
 package_name="com.pzy.starfallodyssey"
 command_action="com.pzy.starfall.mobile.DEBUG_COMMAND"
 command_evidence="starfall-ci-command.json"
 request_id=0
 last_command_json=""
+persistent_data_directory="$(starfall_android_app_files_directory "$package_name")"
 
 mkdir -p "$results_directory/commands"
 results_directory="$(cd "$results_directory" && pwd -P)"
@@ -56,7 +61,8 @@ run_ci_command() {
         "$broadcast_attempts" "$request_id" "$command" "$process_id" \
         >>"$command_prefix.broadcast-attempts.txt"
     fi
-    if adb exec-out run-as "$package_name" cat "files/$command_evidence" \
+    if adb exec-out run-as "$package_name" cat \
+      "$persistent_data_directory/$command_evidence" \
       >"$remote_json" 2>/dev/null && \
       python3 - "$remote_json" "$request_id" <<'PY'
 import json
@@ -223,7 +229,8 @@ expected_saved_jumps=$((initial_jumps + 12))
 saved_auto_json="$results_directory/final-auto-save.json"
 auto_save_ready=false
 for _ in $(seq 1 120); do
-  if adb exec-out run-as "$package_name" cat files/Saves/auto.json \
+  if adb exec-out run-as "$package_name" cat \
+    "$persistent_data_directory/Saves/auto.json" \
     >"$saved_auto_json" 2>/dev/null && \
     python3 - "$saved_auto_json" "$expected_saved_jumps" <<'PY'
 import json
