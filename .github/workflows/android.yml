@@ -78,8 +78,12 @@ jobs:
           bash -n scripts/android-verify-unity-results.sh
           bash -n scripts/validate-android-release.sh
           python3 -m py_compile \
+            scripts/validate-unity-metas.py \
+            scripts/test-validate-unity-metas.py \
             scripts/rewrite-unity-android-paths.py \
             scripts/test-rewrite-unity-android-paths.py
+          python3 scripts/validate-unity-metas.py UnityProject/Assets
+          python3 scripts/test-validate-unity-metas.py
           bash scripts/test-android-emulator-common.sh
           python3 scripts/test-rewrite-unity-android-paths.py
           if command -v shellcheck >/dev/null 2>&1; then
@@ -100,9 +104,95 @@ jobs:
           overwrite: true
           retention-days: 30
 
+  android-preflight:
+    name: Android preflight (player compile and clean import)
+    needs: reference-tests
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: unity-personal-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Require Unity license credentials
+        shell: bash
+        env:
+          REQUIRED_UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          REQUIRED_UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          REQUIRED_UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=()
+          [[ -n "$REQUIRED_UNITY_LICENSE" ]] || missing+=(UNITY_LICENSE)
+          [[ -n "$REQUIRED_UNITY_EMAIL" ]] || missing+=(UNITY_EMAIL)
+          [[ -n "$REQUIRED_UNITY_PASSWORD" ]] || missing+=(UNITY_PASSWORD)
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required GitHub secret: %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
+      - name: Validate Unity meta companions
+        run: python3 scripts/validate-unity-metas.py UnityProject/Assets
+
+      - name: Cache Unity Library
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: UnityProject/Library
+          key: unity-6000.1.10f1-preflight-${{ runner.os }}-${{ hashFiles('UnityProject/Packages/manifest.json', 'UnityProject/Packages/packages-lock.json', 'UnityProject/Assets/**', 'UnityProject/ProjectSettings/**') }}
+          restore-keys: |
+            unity-6000.1.10f1-preflight-${{ runner.os }}-
+            unity-6000.1.10f1-android-${{ runner.os }}-
+
+      - name: Verify clean source before Unity import
+        run: bash scripts/android-assert-clean.sh
+
+      - name: Import and compile Android smoke player scripts
+        uses: game-ci/unity-builder@1d4ee0697f193f54668e98961d79907911f4b4f2
+        with:
+          projectPath: UnityProject
+          unityVersion: ${{ env.UNITY_VERSION }}
+          customImage: ${{ env.UNITY_ANDROID_IMAGE }}
+          targetPlatform: Android
+          buildsPath: artifacts/android-preflight-builder
+          buildName: starfall-android-preflight
+          buildMethod: Starfall.Editor.StarfallAndroidPreflight.Run
+          customParameters: -starfallPreflightOutput ../artifacts/android-preflight
+
+      - name: Verify clean source after Unity import
+        if: always()
+        run: |
+          mkdir -p artifacts/android-preflight
+          git status --porcelain=v2 --untracked-files=all \
+            >artifacts/android-preflight/git-status.txt
+          git diff --binary >artifacts/android-preflight/source.diff
+          bash scripts/android-assert-clean.sh
+
+      - name: Upload Android preflight evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: android-preflight
+          path: artifacts/android-preflight
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 30
+
   unity-android:
     name: Unity tests and x86_64 smoke APK
-    needs: reference-tests
+    needs:
+      - reference-tests
+      - android-preflight
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.head.repo.full_name == github.repository &&
