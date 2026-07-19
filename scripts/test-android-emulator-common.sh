@@ -37,11 +37,14 @@ if grep -En \
 fi
 
 starfall_wait_for_android_services() {
-  : >"${1:?evidence file is required}"
+  local evidence_file="${1:?evidence file is required}"
+  service_wait_files+=("$(basename "$evidence_file")")
+  : >"$evidence_file"
 }
 
 install_mode="recoverable"
 install_calls=0
+service_wait_files=()
 immersive_value="confirmed"
 immersive_window_attempts=0
 immersive_back_calls=0
@@ -98,15 +101,20 @@ starfall_install_apk_with_system_retries "$apk" "$first_results"
 grep -Fqx 'successfulAttempt=2' "$first_results/install-summary.txt"
 grep -Fqx 'Success' "$first_results/install.txt"
 [[ "$install_calls" == "2" ]]
+[[ "${service_wait_files[*]}" == \
+  "android-services-attempt-1.txt android-services-attempt-2.txt android-services-post-install-attempt-2.txt" ]]
+test -f "$first_results/android-services-post-install-attempt-2.txt"
 
 install_mode="apk-error"
 install_calls=0
+service_wait_files=()
 second_results="$temporary_directory/apk-error"
 if starfall_install_apk_with_system_retries "$apk" "$second_results"; then
   echo 'APK validation failure was incorrectly retried or accepted.' >&2
   exit 1
 fi
 [[ "$install_calls" == "1" ]]
+[[ "${service_wait_files[*]}" == "android-services-attempt-1.txt" ]]
 grep -Fq 'INSTALL_FAILED_NO_MATCHING_ABIS' "$second_results/install.txt"
 
 immersive_evidence="$temporary_directory/immersive-mode-setting.txt"
@@ -128,3 +136,4 @@ grep -Fq 'owner=SystemUI overlay=ImmersiveModeConfirmation' \
 grep -Fqx 'status=clear' "$immersive_clear_evidence/summary.txt"
 
 echo 'Android emulator system-retry policy tests passed.'
+python3 "$script_directory/test-android-emulator-graphics.py"

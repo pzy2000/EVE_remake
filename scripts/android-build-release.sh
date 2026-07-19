@@ -190,6 +190,18 @@ if [[ -z "$build_report" ]]; then
   exit 1
 fi
 cp "$build_report" "$output_directory/BuildReport.json"
+python3 - "$output_directory/BuildReport.json" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+actual = report.get("graphicsApis")
+expected = "Vulkan,OpenGLES3"
+if actual != expected:
+    raise SystemExit(
+        f"Release BuildReport graphics API order is {actual!r}; expected {expected!r}"
+    )
+PY
 
 printf 'APK=%s\nAAB=%s\nSYMBOLS=%s\n' \
   "$apk_output" \

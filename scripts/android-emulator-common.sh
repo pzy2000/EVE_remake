@@ -156,6 +156,12 @@ starfall_install_apk_with_system_retries() {
       cp "$attempt_file" "$evidence_directory/install.txt"
       printf 'successfulAttempt=%s\n' "$attempt" \
         >"$evidence_directory/install-summary.txt"
+      # Google API images can briefly drop the ADB transport while Package
+      # Manager completes post-install work under memory pressure. Do not let
+      # the first resolve/start command race that transition: require the
+      # transport and package service to become stable again after success.
+      starfall_wait_for_android_services \
+        "$evidence_directory/android-services-post-install-attempt-$attempt.txt"
       return 0
     else
       install_status=$?

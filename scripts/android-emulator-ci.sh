@@ -965,7 +965,10 @@ run_scenario() {
   local density_scale
   local actual_graphics_device
   local actual_graphics_name
+  local graphics_verdict
+  local qemu_marker
   density_scale="$(python3 -c "print(${density_dpi} / 160.0)")"
+  qemu_marker="$(adb shell getprop ro.kernel.qemu | tr -d '\r')"
 
   local scenario_directory="$results_directory/$label"
   mkdir -p "$scenario_directory"
@@ -991,21 +994,12 @@ run_scenario() {
       ;;
   esac
   dispatch_ci_command "status" "$scenario_directory/graphics-device.command.json"
-  python3 - \
+  python3 "$script_directory/verify-android-emulator-graphics.py" \
     "$scenario_directory/graphics-device.command.json" \
-    "$expected_graphics_device" <<'PY'
-import json
-import sys
-
-payload = json.load(open(sys.argv[1], encoding="utf-8"))
-actual = payload.get("graphicsDeviceType")
-if actual != sys.argv[2]:
-    raise SystemExit(
-        f"Actual Unity graphics device is {actual!r}; expected {sys.argv[2]!r}"
-    )
-if not payload.get("graphicsDeviceName"):
-    raise SystemExit("Unity did not report a graphicsDeviceName")
-PY
+    "$expected_graphics_device" \
+    "$graphics_argument" \
+    "$qemu_marker" \
+    "$scenario_directory/graphics-verification.json"
 
   local source_json
   source_json="{\"schemaVersion\":1,\"source\":\"github-actions\",\"origin\":\"top-left\",\"safeAreaOrigin\":\"top-left\",\"widthPx\":${width},\"heightPx\":${height},\"densityDpi\":${density_dpi},\"safeArea\":{\"x\":0,\"y\":0,\"width\":${width},\"height\":${height}},\"foldingFeatures\":${folding_json}}"
@@ -1281,19 +1275,22 @@ PY
     "$scenario_directory/graphics-device.command.json")"
   actual_graphics_name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["graphicsDeviceName"])' \
     "$scenario_directory/graphics-device.command.json")"
+  graphics_verdict="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["verdict"])' \
+    "$scenario_directory/graphics-verification.json")"
   printf 'label=%s\nwidth=%s\nheight=%s\ndensityDpi=%s\ndensity=%s\nmode=%s\ngraphics=%s\n' \
     "$label" "$width" "$height" "$density_dpi" "$density_scale" \
     "$expected_mode" "$graphics_argument" >"$scenario_directory/scenario.txt"
-  printf 'actualGraphicsDeviceType=%s\nactualGraphicsDeviceName=%s\n' \
-    "$actual_graphics_device" "$actual_graphics_name" >>"$scenario_directory/scenario.txt"
+  printf 'actualGraphicsDeviceType=%s\nactualGraphicsDeviceName=%s\ngraphicsVerification=%s\n' \
+    "$actual_graphics_device" "$actual_graphics_name" "$graphics_verdict" \
+    >>"$scenario_directory/scenario.txt"
 }
 
 no_fold='[]'
 vertical_hinge='[{"bounds":{"x":1198,"y":0,"width":84,"height":2200},"orientation":"VERTICAL","state":"FLAT","occlusion":"FULL","separating":true}]'
 horizontal_hinge='[{"bounds":{"x":0,"y":1060,"width":2480,"height":80},"orientation":"HORIZONTAL","state":"HALF_OPENED","occlusion":"NONE","separating":true}]'
 
-run_scenario "2748x1172-420-vulkan" 2748 1172 420 CompactLandscape -force-vulkan "$no_fold" false
-run_scenario "2480x2200-420-vulkan" 2480 2200 420 SquareExpanded -force-vulkan "$no_fold" false
+run_scenario "2748x1172-420-vulkan-preferred" 2748 1172 420 CompactLandscape -force-vulkan "$no_fold" false
+run_scenario "2480x2200-420-vulkan-preferred" 2480 2200 420 SquareExpanded -force-vulkan "$no_fold" false
 run_scenario "2480x2200-420-vertical-hinge" 2480 2200 420 SquareExpanded -force-vulkan "$vertical_hinge" true
 run_scenario "2480x2200-420-horizontal-half-opened" 2480 2200 420 SquareExpanded -force-vulkan "$horizontal_hinge" true
 run_scenario "2748x1172-420-gles3" 2748 1172 420 CompactLandscape -force-gles30 "$no_fold" false
