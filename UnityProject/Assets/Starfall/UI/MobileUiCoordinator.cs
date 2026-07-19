@@ -49,11 +49,26 @@ namespace Starfall.UI
             this.metricsProvider = metricsProvider;
             originalPanelSettings = document.panelSettings;
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Android scenes are bound by StarfallAndroidSceneProcessor before
+            // player serialization. Reassigning the asset from Resources while
+            // UIDocument is enabled can leave its laid-out visual tree on a
+            // detached render panel, so the runtime must consume that prebinding.
+            if (document.panelSettings == null ||
+                !string.Equals(document.panelSettings.name, AndroidPanelSettingsResource,
+                    StringComparison.Ordinal))
+            {
+                Debug.LogError(
+                    $"Android UIDocument was not prebound to {AndroidPanelSettingsResource}; " +
+                    "refusing a runtime PanelSettings swap.");
+            }
+#else
             var androidPanelSettings = Resources.Load<PanelSettings>(AndroidPanelSettingsResource);
             if (androidPanelSettings == null)
                 Debug.LogError($"Missing Resources/{AndroidPanelSettingsResource}.asset; mobile UI will use desktop scaling.");
             else if (document.panelSettings != androidPanelSettings)
                 document.panelSettings = androidPanelSettings;
+#endif
 
             documentRoot = document.rootVisualElement;
             contentRoot = FindContentRoot(documentRoot, screenKind);
