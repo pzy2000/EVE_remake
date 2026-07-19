@@ -613,6 +613,7 @@ jobs:
           mapfile -t settings_files < <(find UnityProject/Builds -type f -name settings.gradle -print)
           test "${#settings_files[@]}" -eq 1
           gradle_root="$(dirname "${settings_files[0]}")"
+          sudo chown -R "$(id -u):$(id -g)" "$gradle_root"
           bash scripts/android-build-release.sh "$gradle_root" artifacts/android-release
 
       - name: Locate release outputs

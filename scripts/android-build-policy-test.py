@@ -37,6 +37,7 @@ workflow_requirements = (
     "d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab",
     'echo "GRADLE_EXECUTABLE=$gradle_home/bin/gradle" >>"$GITHUB_ENV"',
     "-type f -name settings.gradle",
+    'sudo chown -R "$(id -u):$(id -g)" "$gradle_root"',
 )
 for fragment in workflow_requirements:
     if fragment not in workflow:
