@@ -11,8 +11,9 @@ public final class StarfallUnityGameActivity extends UnityPlayerGameActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         // GameActivity owns a native key buffer and can bypass Activity's normal
         // dispatchKeyEvent/onBackPressed path. Consume the hardware Back down edge
-        // on every supported API and dispatch once from the matching key-up callback.
-        // Gesture Back on API 33+ remains owned by OnBackInvokedDispatcher.
+        // on API 26-32 and dispatch once from the matching key-up callback.
+        // On API 33+, OnBackInvokedDispatcher owns both gestures and Back keys;
+        // intercepting the KeyEvent there would dispatch the same action twice.
         if (CompatBackPolicy.shouldHandleKeyEvent(Build.VERSION.SDK_INT)
                 && keyCode == KeyEvent.KEYCODE_BACK
                 && event.getRepeatCount() == 0) {
@@ -37,8 +38,8 @@ public final class StarfallUnityGameActivity extends UnityPlayerGameActivity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         // Unity GameActivity forwards hardware keys to its native input queue before
         // Activity.onBackPressed() can observe them. Intercept the hardware Back
-        // key-up path on every supported API. API 33+ Back gestures do not emit
-        // this KeyEvent and remain owned by OnBackInvokedDispatcher.
+        // key-up path on API 26-32. API 33+ Back keys and gestures remain owned
+        // by OnBackInvokedDispatcher so the managed router receives one action.
         if (CompatBackPolicy.shouldHandleKeyEvent(Build.VERSION.SDK_INT)
                 && event.getKeyCode() == KeyEvent.KEYCODE_BACK
                 && event.getAction() == KeyEvent.ACTION_UP

@@ -13,6 +13,6 @@ final class CompatBackPolicy {
     }
 
     static boolean shouldHandleKeyEvent(int sdkInt) {
-        return sdkInt >= MINIMUM_SUPPORTED_SDK;
+        return sdkInt >= MINIMUM_SUPPORTED_SDK && sdkInt < PREDICTIVE_BACK_SDK;
     }
 }

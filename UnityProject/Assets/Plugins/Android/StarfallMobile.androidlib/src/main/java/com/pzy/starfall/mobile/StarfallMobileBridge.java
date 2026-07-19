@@ -537,7 +537,7 @@ public final class StarfallMobileBridge {
 
     private static void registerBackCallbackLocked(final int requestGeneration) {
         if (Build.VERSION.SDK_INT < 33 || activity == null) {
-            // API 26-32 intentionally remains handled by Unity's Escape/Back mapping.
+            // API 26-32 is handled by the custom GameActivity KeyEvent path.
             return;
         }
         try {
@@ -545,8 +545,11 @@ public final class StarfallMobileBridge {
             backCallback = Api33Back.register(registeredActivity, new Runnable() {
                 @Override
                 public void run() {
-                    sendUnityIfLifecycleActive(
-                            requestGeneration, registeredActivity, CALLBACK_BACK, "");
+                    if (sendUnityIfLifecycleActive(
+                            requestGeneration, registeredActivity, CALLBACK_BACK, "")) {
+                        Log.i(TAG, "STARFALL_ANDROID_BACK_PREDICTIVE_DISPATCH="
+                                + Build.VERSION.SDK_INT);
+                    }
                 }
             });
         } catch (RuntimeException | LinkageError exception) {

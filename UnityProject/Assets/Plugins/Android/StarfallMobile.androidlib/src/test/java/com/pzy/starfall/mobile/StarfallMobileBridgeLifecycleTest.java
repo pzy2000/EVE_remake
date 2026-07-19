@@ -46,10 +46,10 @@ public final class StarfallMobileBridgeLifecycleTest {
                 "API 26 must consume hardware Back through GameActivity");
         assertTrue(CompatBackPolicy.shouldHandleKeyEvent(32),
                 "API 32 must consume hardware Back through GameActivity");
-        assertTrue(CompatBackPolicy.shouldHandleKeyEvent(33),
-                "API 33 hardware Back must coexist with predictive gesture Back");
-        assertTrue(CompatBackPolicy.shouldHandleKeyEvent(36),
-                "API 36 ADB and hardware Back must reach the managed router");
+        assertFalse(CompatBackPolicy.shouldHandleKeyEvent(33),
+                "API 33 Back keys must not duplicate the predictive callback");
+        assertFalse(CompatBackPolicy.shouldHandleKeyEvent(36),
+                "API 36 ADB Back must dispatch only through the predictive callback");
 
         if (arguments.length >= 1) {
             verifyProductionWiring(Paths.get(arguments[0]));
@@ -85,6 +85,7 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "if (!initialized || activity != sourceActivity)");
         assertContains(source, "sendUnity(CALLBACK_BACK, \"\")");
         assertContains(source, "STARFALL_ANDROID_BACK_COMPAT_DISPATCH=");
+        assertContains(source, "STARFALL_ANDROID_BACK_PREDICTIVE_DISPATCH=");
         assertContains(source, "OnBackInvokedDispatcher.PRIORITY_OVERLAY");
         assertFalse(source.contains("OnBackInvokedDispatcher.PRIORITY_DEFAULT"),
                 "predictive Back must not lose to Unity GameActivity's callback priority");
