@@ -61,6 +61,7 @@ jobs:
         shell: bash
         run: |
           ruby scripts/validate-workflow-yaml.rb .github/workflows/android.yml
+          ruby scripts/validate-workflow-yaml.rb .github/workflows/android-emulator-replay.yml
           ruby -c Gemfile
           ruby -c fastlane/Fastfile
           test -s Gemfile.lock
