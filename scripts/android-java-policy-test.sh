@@ -35,6 +35,7 @@ javac --release 8 -Xlint:all -Werror \
   -d "$classes_directory" \
   "$stub_source/android/app/Activity.java" \
   "$stub_source/android/os/Build.java" \
+  "$stub_source/android/view/KeyEvent.java" \
   "$stub_source/com/unity3d/player/UnityPlayerGameActivity.java" \
   "$stub_source/com/pzy/starfall/mobile/StarfallMobileBridge.java" \
   "$activity"

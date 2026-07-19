@@ -85,7 +85,12 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(activity, "extends UnityPlayerGameActivity");
         assertContains(activity,
                 "CompatBackPolicy.shouldHandleWithActivityCallback(Build.VERSION.SDK_INT)");
+        assertContains(activity, "public boolean dispatchKeyEvent(KeyEvent event)");
+        assertContains(activity, "event.getKeyCode() == KeyEvent.KEYCODE_BACK");
+        assertContains(activity, "event.getAction() == KeyEvent.ACTION_UP");
+        assertContains(activity, "event.getRepeatCount() == 0");
         assertContains(activity, "StarfallMobileBridge.dispatchCompatBack(this)");
+        assertContains(activity, "return super.dispatchKeyEvent(event)");
         assertContains(activity, "super.onBackPressed()");
         assertBefore(activity, "StarfallMobileBridge.dispatchCompatBack(this)", "super.onBackPressed()");
 

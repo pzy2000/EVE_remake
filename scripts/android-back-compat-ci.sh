@@ -64,14 +64,18 @@ if actual != expected:
 PY
 }
 
-pull_main_menu_layout() {
+read_main_menu_layout() {
   local destination="$1"
-  for _ in $(seq 1 120); do
-    if adb exec-out cat \
-      "$persistent_data_directory/starfall-ci-layout-MainMenu.json" \
-      >"$destination" 2>/dev/null && python3 -m json.tool "$destination" >/dev/null 2>&1; then
-      return 0
-    fi
+  adb exec-out cat \
+    "$persistent_data_directory/starfall-ci-layout-MainMenu.json" \
+    >"$destination" 2>/dev/null && python3 -m json.tool "$destination" >/dev/null 2>&1
+}
+
+wait_for_main_menu_layout() {
+  local destination="$1"
+  local attempts="${2:-120}"
+  for _ in $(seq 1 "$attempts"); do
+    read_main_menu_layout "$destination" && return 0
     sleep 0.25
   done
   echo "Timed out waiting for MainMenu layout evidence." >&2
@@ -164,7 +168,7 @@ starfall_clear_immersive_mode_confirmation \
   "$results_directory/immersive-mode-confirmation"
 
 base_layout="$results_directory/MainMenu.layout.json"
-pull_main_menu_layout "$base_layout"
+wait_for_main_menu_layout "$base_layout"
 python3 - "$base_layout" <<'PY'
 import json
 import sys
@@ -186,7 +190,7 @@ adb shell input keyevent KEYCODE_BACK
 confirmation_layout="$results_directory/MainMenu.BackConfirmation.layout.json"
 confirmation_visible=false
 for _ in $(seq 1 120); do
-  if pull_main_menu_layout "$confirmation_layout" && \
+  if read_main_menu_layout "$confirmation_layout" && \
     layout_has_confirmation "$confirmation_layout" true; then
     confirmation_visible=true
     break
@@ -209,7 +213,7 @@ fi
 adb shell input keyevent KEYCODE_BACK
 confirmation_closed=false
 for _ in $(seq 1 80); do
-  if pull_main_menu_layout "$results_directory/MainMenu.AfterClose.layout.json" && \
+  if read_main_menu_layout "$results_directory/MainMenu.AfterClose.layout.json" && \
     layout_has_confirmation "$results_directory/MainMenu.AfterClose.layout.json" false; then
     confirmation_closed=true
     break

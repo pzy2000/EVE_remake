@@ -55,6 +55,7 @@ fi
 
 graphics_settings="$script_directory/../UnityProject/ProjectSettings/GraphicsSettings.asset"
 android_build_entry="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidBuild.cs"
+back_compat_entry="$script_directory/android-back-compat-ci.sh"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
   "$graphics_settings" || {
@@ -84,6 +85,14 @@ if grep -En '^[[:space:]]*adb wait-for-device([[:space:]]|$)' \
   echo 'Every ADB wait-for-device call must use the bounded transport helper.' >&2
   exit 1
 fi
+[[ "$(grep -Fc 'wait_for_main_menu_layout' "$back_compat_entry")" == "2" ]] || {
+  echo 'Back compatibility evidence polling must not nest two retry loops.' >&2
+  exit 1
+}
+grep -Fq 'if read_main_menu_layout "$confirmation_layout"' "$back_compat_entry" || {
+  echo 'Back confirmation polling must use a single-read inner operation.' >&2
+  exit 1
+}
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
