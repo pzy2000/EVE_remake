@@ -56,6 +56,7 @@ fi
 graphics_settings="$script_directory/../UnityProject/ProjectSettings/GraphicsSettings.asset"
 android_build_entry="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidBuild.cs"
 back_compat_entry="$script_directory/android-back-compat-ci.sh"
+workflow_entry="$script_directory/../.github/workflows/android.yml"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
   "$graphics_settings" || {
@@ -93,6 +94,14 @@ grep -Fq 'if read_main_menu_layout "$confirmation_layout"' "$back_compat_entry" 
   echo 'Back confirmation polling must use a single-read inner operation.' >&2
   exit 1
 }
+[[ "$(grep -Fc 'ram-size: 4096M' "$workflow_entry")" == "2" ]] || {
+  echo 'Both emulator jobs must keep the bounded 4096M host-memory budget.' >&2
+  exit 1
+}
+if grep -Fq 'ram-size: 6144M' "$workflow_entry"; then
+  echo 'The API 36 emulator must not reserve 6144M on a hosted runner.' >&2
+  exit 1
+fi
 
 starfall_wait_for_android_services() {
   local evidence_file="${1:?evidence file is required}"
