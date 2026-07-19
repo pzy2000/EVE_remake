@@ -626,12 +626,21 @@ namespace Starfall.Editor
             private readonly UniversalRenderPipelineAsset asset;
             private readonly LightRenderingMode additionalLightsRenderingMode;
             private readonly bool supportsMainLightShadows;
+            private readonly int prefilteringModeMainLightShadows;
+            private readonly int prefilteringModeAdditionalLight;
 
             private SmokePipelineSettingsSnapshot(UniversalRenderPipelineAsset asset)
             {
                 this.asset = asset;
                 additionalLightsRenderingMode = asset.additionalLightsRenderingMode;
                 supportsMainLightShadows = asset.supportsMainLightShadows;
+                var serializedAsset = new SerializedObject(asset);
+                prefilteringModeMainLightShadows = ReadRequiredInt(
+                    serializedAsset,
+                    "m_PrefilteringModeMainLightShadows");
+                prefilteringModeAdditionalLight = ReadRequiredInt(
+                    serializedAsset,
+                    "m_PrefilteringModeAdditionalLight");
             }
 
             public static SmokePipelineSettingsSnapshot Capture()
@@ -658,12 +667,18 @@ namespace Starfall.Editor
 
             public void Restore()
             {
-                WriteSerializedSettings(additionalLightsRenderingMode, supportsMainLightShadows);
+                WriteSerializedSettings(
+                    additionalLightsRenderingMode,
+                    supportsMainLightShadows,
+                    prefilteringModeMainLightShadows,
+                    prefilteringModeAdditionalLight);
             }
 
             private void WriteSerializedSettings(
                 LightRenderingMode lightsRenderingMode,
-                bool mainLightShadows)
+                bool mainLightShadows,
+                int? mainLightShadowPrefiltering = null,
+                int? additionalLightPrefiltering = null)
             {
                 // URP exposes public getters but keeps these setters internal. Use
                 // Unity's serialized API so this remains compatible with the
@@ -674,7 +689,14 @@ namespace Starfall.Editor
                     "m_AdditionalLightsRenderingMode");
                 var shadowsProperty = serializedAsset.FindProperty(
                     "m_MainLightShadowsSupported");
-                if (lightsProperty == null || shadowsProperty == null)
+                var mainPrefilterProperty = serializedAsset.FindProperty(
+                    "m_PrefilteringModeMainLightShadows");
+                var additionalPrefilterProperty = serializedAsset.FindProperty(
+                    "m_PrefilteringModeAdditionalLight");
+                if (lightsProperty == null ||
+                    shadowsProperty == null ||
+                    mainPrefilterProperty == null ||
+                    additionalPrefilterProperty == null)
                 {
                     throw new InvalidOperationException(
                         "The installed URP package does not expose the expected mobile lighting fields.");
@@ -682,7 +704,28 @@ namespace Starfall.Editor
 
                 lightsProperty.intValue = (int)lightsRenderingMode;
                 shadowsProperty.boolValue = mainLightShadows;
+                if (mainLightShadowPrefiltering.HasValue)
+                {
+                    mainPrefilterProperty.intValue = mainLightShadowPrefiltering.Value;
+                }
+                if (additionalLightPrefiltering.HasValue)
+                {
+                    additionalPrefilterProperty.intValue = additionalLightPrefiltering.Value;
+                }
                 serializedAsset.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private static int ReadRequiredInt(
+                SerializedObject serializedAsset,
+                string propertyName)
+            {
+                var property = serializedAsset.FindProperty(propertyName);
+                if (property == null)
+                {
+                    throw new InvalidOperationException(
+                        $"The installed URP package does not expose '{propertyName}'.");
+                }
+                return property.intValue;
             }
         }
 
