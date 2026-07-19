@@ -61,6 +61,8 @@ android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/And
 procedural_ship_factory="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralShipFactory.cs"
 procedural_space_materials="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralSpaceMaterials.cs"
 ci_minimal_shader="$script_directory/../UnityProject/Assets/Starfall/Shaders/StarfallCiMinimalUnlit.shader"
+android_panel_settings="$script_directory/../UnityProject/Assets/Resources/StarfallAndroidPanelSettings.asset"
+android_scene_processor="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidSceneProcessor.cs"
 workflow_entry="$script_directory/../.github/workflows/android.yml"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
@@ -159,6 +161,14 @@ if grep -Eq 'Packages/com\.unity\.render-pipelines|UnityInstancing|multi_compile
   echo 'The minimum-uniform smoke shader must not import URP global buffers or variants.' >&2
   exit 1
 fi
+grep -Fq 'm_SpriteShader: {fileID: 19012' "$android_panel_settings" || {
+  echo "Android PanelSettings must retain Unity's built-in sprite shader." >&2
+  exit 1
+}
+grep -Fq 'IProcessSceneWithReport' "$android_scene_processor" || {
+  echo 'Android builds must bind PanelSettings before UIDocument player serialization.' >&2
+  exit 1
+}
 for runtime_material_source in "$procedural_ship_factory" "$procedural_space_materials"; do
   grep -Fq '#if STARFALL_ANDROID_CI && UNITY_ANDROID' "$runtime_material_source" || {
     echo "Runtime material source must isolate its emulator shader: $runtime_material_source" >&2

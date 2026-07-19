@@ -31,6 +31,9 @@ namespace Starfall.UI
         private readonly MobileScreenKind screenKind;
         private readonly IWindowMetricsProvider metricsProvider;
         private readonly IVisualElementScheduledItem pollItem;
+#if STARFALL_ANDROID_CI
+        private readonly VisualElement ciRenderProbe;
+#endif
         private MobileWindowMetrics lastMetrics;
         private string lastCiLayoutEvidence = string.Empty;
         private bool hasMetrics;
@@ -47,11 +50,16 @@ namespace Starfall.UI
             originalPanelSettings = document.panelSettings;
 
             var androidPanelSettings = Resources.Load<PanelSettings>(AndroidPanelSettingsResource);
-            if (androidPanelSettings != null) document.panelSettings = androidPanelSettings;
-            else Debug.LogError($"Missing Resources/{AndroidPanelSettingsResource}.asset; mobile UI will use desktop scaling.");
+            if (androidPanelSettings == null)
+                Debug.LogError($"Missing Resources/{AndroidPanelSettingsResource}.asset; mobile UI will use desktop scaling.");
+            else if (document.panelSettings != androidPanelSettings)
+                document.panelSettings = androidPanelSettings;
 
             documentRoot = document.rootVisualElement;
             contentRoot = FindContentRoot(documentRoot, screenKind);
+#if STARFALL_ANDROID_CI
+            ciRenderProbe = CreateCiRenderProbe(documentRoot);
+#endif
             documentRoot.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             Refresh(true);
             pollItem = documentRoot.schedule.Execute(() => Refresh(false)).Every(MetricsPollIntervalMs);
@@ -79,6 +87,9 @@ namespace Starfall.UI
             disposed = true;
             pollItem?.Pause();
             documentRoot?.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+#if STARFALL_ANDROID_CI
+            ciRenderProbe?.RemoveFromHierarchy();
+#endif
             ResetHingeOverrides();
             if (contentRoot != null)
             {
@@ -176,6 +187,26 @@ namespace Starfall.UI
         }
 
 #if UNITY_EDITOR || STARFALL_ANDROID_CI
+#if STARFALL_ANDROID_CI
+        private static VisualElement CreateCiRenderProbe(VisualElement root)
+        {
+            var probe = new VisualElement
+            {
+                name = "starfall-ci-render-probe",
+                pickingMode = PickingMode.Ignore,
+            };
+            probe.style.position = Position.Absolute;
+            probe.style.left = 4f;
+            probe.style.top = 4f;
+            probe.style.width = 20f;
+            probe.style.height = 20f;
+            probe.style.backgroundColor = new Color32(255, 0, 255, 255);
+            root.Add(probe);
+            probe.BringToFront();
+            return probe;
+        }
+#endif
+
         private void WriteCiLayoutEvidence(MobileLayout layout)
         {
             if (disposed || contentRoot == null) return;
@@ -191,6 +222,11 @@ namespace Starfall.UI
                 AppendRect(json, layout.SafeBoundsDp);
                 json.Append(",\"foldingBoundsDp\":");
                 AppendRect(json, layout.FoldingBoundsDp);
+#if STARFALL_ANDROID_CI
+                json.Append(",\"renderProbe\":");
+                AppendRect(json, ciRenderProbe != null ? ciRenderProbe.worldBound : default);
+                json.Append(",\"renderProbeRgb\":\"ff00ff\"");
+#endif
                 json.Append(",\"controls\":[");
                 var first = true;
                 var scrollViews = contentRoot.Query<ScrollView>().ToList();

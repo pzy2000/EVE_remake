@@ -366,6 +366,7 @@ capture_screen() {
   local label="$1"
   local width="$2"
   local height="$3"
+  local layout_json="${4:-}"
   local png="$results_directory/$label.png"
   local hierarchy="$results_directory/$label.uiautomator.xml"
   adb exec-out screencap -p >"$png"
@@ -374,6 +375,9 @@ capture_screen() {
     adb pull /sdcard/starfall-window.xml "$hierarchy" >/dev/null
   fi
   adb shell dumpsys window displays >"$results_directory/$label.window.txt"
+  if [[ -n "$layout_json" ]]; then
+    python3 scripts/assert-png-color.py "$png" "$layout_json"
+  fi
 }
 
 validate_layout_json() {
@@ -1022,21 +1026,22 @@ run_scenario() {
 
   pull_app_file "starfall-ci-layout-MainMenu.json" "$scenario_directory/MainMenu.layout.json"
   validate_ui_layout_json "$scenario_directory/MainMenu.layout.json" "$expected_mode" "$require_hinge"
-  capture_screen "$label-MainMenu" "$width" "$height"
+  capture_screen "$label-MainMenu" "$width" "$height" "$scenario_directory/MainMenu.layout.json"
 
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface \
     "starfall-ci-layout-MainMenu.json" "$scenario_directory/MainMenu.BackConfirmation.layout.json" "confirmation-card"
   validate_ui_layout_json \
     "$scenario_directory/MainMenu.BackConfirmation.layout.json" "$expected_mode" "$require_hinge" "confirmation-card"
-  capture_screen "$label-MainMenu-BackConfirmation" "$width" "$height"
+  capture_screen "$label-MainMenu-BackConfirmation" "$width" "$height" \
+    "$scenario_directory/MainMenu.BackConfirmation.layout.json"
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-MainMenu.json" "confirmation-card"
 
   tap_control "$scenario_directory/MainMenu.layout.json" "launch"
   pull_app_file "starfall-ci-layout-Station.json" "$scenario_directory/Station.layout.json"
   validate_ui_layout_json "$scenario_directory/Station.layout.json" "$expected_mode" "$require_hinge"
-  capture_screen "$label-Station" "$width" "$height"
+  capture_screen "$label-Station" "$width" "$height" "$scenario_directory/Station.layout.json"
 
   tap_control "$scenario_directory/Station.layout.json" "tab-market"
   tap_control "$scenario_directory/Station.layout.json" "tab-fitting"
@@ -1063,7 +1068,7 @@ run_scenario() {
 
   pull_app_file "starfall-ci-layout-Space.json" "$scenario_directory/Space.layout.json"
   validate_ui_layout_json "$scenario_directory/Space.layout.json" "$expected_mode" "$require_hinge"
-  capture_screen "$label-Space" "$width" "$height"
+  capture_screen "$label-Space" "$width" "$height" "$scenario_directory/Space.layout.json"
 
   if [[ "$expected_mode" == "CompactLandscape" ]]; then
     tap_control "$scenario_directory/Space.layout.json" "mobile-target-toggle"
