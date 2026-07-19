@@ -66,7 +66,7 @@ PY
 pull_main_menu_layout() {
   local destination="$1"
   for _ in $(seq 1 120); do
-    if adb exec-out run-as "$package_name" cat \
+    if adb exec-out cat \
       "$persistent_data_directory/starfall-ci-layout-MainMenu.json" \
       >"$destination" 2>/dev/null && python3 -m json.tool "$destination" >/dev/null 2>&1; then
       return 0

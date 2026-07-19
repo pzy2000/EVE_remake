@@ -29,6 +29,13 @@ if starfall_android_app_files_directory invalid-package >/dev/null 2>&1; then
   exit 1
 fi
 
+if grep -En \
+  'run-as.*(persistent_data_directory|starfall_android_app_file_path|/storage/emulated/0/Android/data)' \
+  "$script_directory"/android-{back-compat-ci,emulator-ci,stability-ci}.sh; then
+  echo 'External Unity persistent data must be accessed by the ADB shell, not run-as.' >&2
+  exit 1
+fi
+
 starfall_wait_for_android_services() {
   : >"${1:?evidence file is required}"
 }

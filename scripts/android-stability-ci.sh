@@ -61,7 +61,7 @@ run_ci_command() {
         "$broadcast_attempts" "$request_id" "$command" "$process_id" \
         >>"$command_prefix.broadcast-attempts.txt"
     fi
-    if adb exec-out run-as "$package_name" cat \
+    if adb exec-out cat \
       "$persistent_data_directory/$command_evidence" \
       >"$remote_json" 2>/dev/null && \
       python3 - "$remote_json" "$request_id" <<'PY'
@@ -229,7 +229,7 @@ expected_saved_jumps=$((initial_jumps + 12))
 saved_auto_json="$results_directory/final-auto-save.json"
 auto_save_ready=false
 for _ in $(seq 1 120); do
-  if adb exec-out run-as "$package_name" cat \
+  if adb exec-out cat \
     "$persistent_data_directory/Saves/auto.json" \
     >"$saved_auto_json" 2>/dev/null && \
     python3 - "$saved_auto_json" "$expected_saved_jumps" <<'PY'
