@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/android-release-badging.sh
+source "$script_directory/android-release-badging.sh"
+
 apk="${1:?usage: validate-android-release.sh APK AAB PACKAGE VERSION_CODE VERSION_NAME OUTPUT_DIRECTORY}"
 aab="${2:?missing AAB}"
 expected_package="${3:?missing package name}"
@@ -58,8 +62,8 @@ validation_log="$output_directory/release-validation.txt"
 actual_package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$badging")"
 actual_version_code="$(sed -n "s/^package:.* versionCode='\([^']*\)'.*/\1/p" "$badging")"
 actual_version_name="$(sed -n "s/^package:.* versionName='\([^']*\)'.*/\1/p" "$badging")"
-actual_min_sdk="$(sed -n "s/^sdkVersion:'\([^']*\)'.*/\1/p" "$badging")"
-actual_target_sdk="$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" "$badging")"
+actual_min_sdk="$(starfall_badging_sdk_value "$badging" min)"
+actual_target_sdk="$(starfall_badging_sdk_value "$badging" target)"
 actual_launch_activity="$(sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" "$badging")"
 
 [[ "$actual_package" == "$expected_package" ]] || {
@@ -196,8 +200,8 @@ test -s "$universal_apk"
 universal_package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$universal_badging")"
 universal_version_code="$(sed -n "s/^package:.* versionCode='\([^']*\)'.*/\1/p" "$universal_badging")"
 universal_version_name="$(sed -n "s/^package:.* versionName='\([^']*\)'.*/\1/p" "$universal_badging")"
-universal_min_sdk="$(sed -n "s/^sdkVersion:'\([^']*\)'.*/\1/p" "$universal_badging")"
-universal_target_sdk="$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" "$universal_badging")"
+universal_min_sdk="$(starfall_badging_sdk_value "$universal_badging" min)"
+universal_target_sdk="$(starfall_badging_sdk_value "$universal_badging" target)"
 [[ "$universal_package" == "$expected_package" ]] || {
   echo "Universal APK package mismatch: $universal_package" >&2
   exit 1

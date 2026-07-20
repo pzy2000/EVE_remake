@@ -2,6 +2,7 @@
 """Fast source-level guard for the Android package/export split."""
 
 from pathlib import Path
+import subprocess
 import sys
 
 
@@ -78,6 +79,12 @@ if r"\( -type f -o -type l \) -name llvm-readelf" not in validation_script:
         file=sys.stderr,
     )
     raise SystemExit(1)
+
+subprocess.run(
+    ["bash", str(repository_root / "scripts/test-android-release-badging.sh")],
+    cwd=repository_root,
+    check=True,
+)
 
 android_back_guard = """#if !UNITY_ANDROID || UNITY_EDITOR
             // Android system Back is owned by StarfallMobileBridge on every supported
