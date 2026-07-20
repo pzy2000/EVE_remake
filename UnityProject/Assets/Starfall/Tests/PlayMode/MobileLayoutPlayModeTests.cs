@@ -437,13 +437,15 @@ namespace Starfall.Tests.PlayMode
             if (!layout.HasSeparatingFeature) return;
 
             foreach (var button in root.Query<Button>().ToList())
-                AssertVisibleControlAvoidsFolding(profile, root, button, layout.FoldingBoundsDp, scene);
+                AssertVisibleElementAvoidsFolding(profile, root, button, layout.FoldingBoundsDp, scene);
             foreach (var textField in root.Query<TextField>().ToList())
-                AssertVisibleControlAvoidsFolding(profile, root, textField, layout.FoldingBoundsDp, scene);
+                AssertVisibleElementAvoidsFolding(profile, root, textField, layout.FoldingBoundsDp, scene);
             foreach (var slider in root.Query<Slider>().ToList())
-                AssertVisibleControlAvoidsFolding(profile, root, slider, layout.FoldingBoundsDp, scene);
+                AssertVisibleElementAvoidsFolding(profile, root, slider, layout.FoldingBoundsDp, scene);
             foreach (var toggle in root.Query<Toggle>().ToList())
-                AssertVisibleControlAvoidsFolding(profile, root, toggle, layout.FoldingBoundsDp, scene);
+                AssertVisibleElementAvoidsFolding(profile, root, toggle, layout.FoldingBoundsDp, scene);
+            foreach (var text in root.Query<TextElement>().ToList())
+                AssertVisibleElementAvoidsFolding(profile, root, text, layout.FoldingBoundsDp, scene);
 
             if (scene == "Station" &&
                 layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
@@ -460,7 +462,7 @@ namespace Starfall.Tests.PlayMode
             }
         }
 
-        private static void AssertVisibleControlAvoidsFolding(
+        private static void AssertVisibleElementAvoidsFolding(
             Profile profile,
             VisualElement root,
             VisualElement control,

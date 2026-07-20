@@ -250,6 +250,10 @@
     margin-left: 4px;
 }
 
+/* The left Space topbar pane cannot also fit the desktop mission summary.
+   The full mission remains available in Journal without crossing the hinge. */
+.mobile.hinge-vertical .mission { display: none; }
+
 /* Dynamic dialogs live inside a single vertical pane. Account for their own
    padding so controls never spill into the 84px occluding hinge. */
 .mobile.hinge-vertical .settings-card {
