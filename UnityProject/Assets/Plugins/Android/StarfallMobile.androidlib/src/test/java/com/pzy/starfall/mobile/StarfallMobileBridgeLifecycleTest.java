@@ -93,6 +93,8 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertFalse(source.contains("OnBackInvokedDispatcher.PRIORITY_DEFAULT"),
                 "predictive Back must not lose to Unity GameActivity's callback priority");
         assertContains(source, "drainReadyLegacyImportsLocked(currentActivity)");
+        assertContains(source, "onUnityActivityWindowFocusChanged(");
+        assertContains(source, "!activity.hasWindowFocus()");
         assertContains(source, "public static void acknowledgeLegacyDocument");
         assertContains(source, "consumeRestoredLegacyImportAcknowledgement");
     }
@@ -101,6 +103,9 @@ public final class StarfallMobileBridgeLifecycleTest {
             Path activitySource, Path manifestSource, Path projectSettings) throws IOException {
         String activity = new String(Files.readAllBytes(activitySource), StandardCharsets.UTF_8);
         assertContains(activity, "extends UnityPlayerGameActivity");
+        assertContains(activity, "public void onWindowFocusChanged(boolean hasFocus)");
+        assertContains(activity,
+                "StarfallMobileBridge.onUnityActivityWindowFocusChanged(this, hasFocus)");
         assertContains(activity,
                 "CompatBackPolicy.shouldHandleKeyEvent(Build.VERSION.SDK_INT)");
         assertContains(activity,

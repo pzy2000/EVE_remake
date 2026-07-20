@@ -225,8 +225,9 @@ public final class StarfallMobileBridge {
         final String canonicalPath;
         final boolean shouldDispatch;
         synchronized (LOCK) {
-            if (!initialized || activity == null) {
-                // The durable .ready/.json pair is drained after the Unity bridge initializes.
+            if (!initialized || activity == null || !activity.hasWindowFocus()) {
+                // UnitySendMessage can be lost while ACTION_OPEN_DOCUMENT still owns focus.
+                // The durable .ready/.json pair is drained when the Unity window focuses again.
                 return;
             }
             canonicalPath = validateLegacyImportPath(activity, absoluteCachePath, true);
@@ -240,7 +241,7 @@ public final class StarfallMobileBridge {
     static void notifyLegacyDocumentError(String targetGameObject, String payload) {
         final boolean shouldDispatch;
         synchronized (LOCK) {
-            shouldDispatch = initialized && activity != null;
+            shouldDispatch = initialized && activity != null && activity.hasWindowFocus();
             if (!shouldDispatch) {
                 pendingLegacyErrorTarget = targetGameObject;
                 pendingLegacyErrorPayload = payload;
@@ -248,6 +249,27 @@ public final class StarfallMobileBridge {
         }
         if (shouldDispatch) {
             sendUnityTo(targetGameObject, CALLBACK_DOCUMENT_ERROR, payload);
+        }
+    }
+
+    /** Drains durable picker results only after Unity has resumed and owns window focus. */
+    static void onUnityActivityWindowFocusChanged(Activity sourceActivity, boolean hasFocus) {
+        if (!hasFocus) {
+            return;
+        }
+        synchronized (LOCK) {
+            if (!initialized || activity != sourceActivity) {
+                return;
+            }
+            boolean resumedImport = drainReadyLegacyImportsLocked(sourceActivity);
+            if (!resumedImport && pendingLegacyErrorPayload != null) {
+                sendUnityTo(
+                        pendingLegacyErrorTarget,
+                        CALLBACK_DOCUMENT_ERROR,
+                        pendingLegacyErrorPayload);
+            }
+            pendingLegacyErrorTarget = null;
+            pendingLegacyErrorPayload = null;
         }
     }
 

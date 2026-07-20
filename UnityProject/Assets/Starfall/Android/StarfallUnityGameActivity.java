@@ -8,6 +8,12 @@ import com.unity3d.player.UnityPlayerGameActivity;
 /** Unity GameActivity entry point with hardware-key and predictive Back support. */
 public final class StarfallUnityGameActivity extends UnityPlayerGameActivity {
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        StarfallMobileBridge.onUnityActivityWindowFocusChanged(this, hasFocus);
+    }
+
+    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         // GameActivity owns a native key buffer and can bypass Activity's normal
         // dispatchKeyEvent/onBackPressed path. Consume the hardware Back down edge

@@ -7,4 +7,7 @@ final class StarfallMobileBridge {
     static boolean dispatchCompatBack(Object activity) {
         return activity != null;
     }
+
+    static void onUnityActivityWindowFocusChanged(Object activity, boolean hasFocus) {
+    }
 }
