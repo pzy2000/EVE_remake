@@ -846,6 +846,29 @@ PY
   tap_coordinate "$coordinate"
 }
 
+tap_control_until_surface() {
+  local ui_json="$1"
+  local control_name="$2"
+  local remote_name="$3"
+  local destination="$4"
+  local expected_surface="$5"
+  local expected_control="${6:-}"
+  local attempt
+  for attempt in $(seq 1 3); do
+    printf 'attempt=%s control=%s expectedSurface=%s\n' \
+      "$attempt" "$control_name" "$expected_surface" \
+      >>"$destination.tap-attempts.txt"
+    tap_control "$ui_json" "$control_name"
+    if wait_for_ui_surface \
+      "$remote_name" "$destination" "$expected_surface" "$expected_control"; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Control $control_name did not open $expected_surface after three physical taps." >&2
+  return 1
+}
+
 assert_no_app_failures() {
   local label="$1"
   local app_log="$results_directory/$label.app.logcat.txt"
@@ -994,8 +1017,12 @@ PY
   starfall_wait_for_unity_render_ready \
     "$package_name" "$legacy_directory/render-ready.json" MainMenu
   source_json='{"schemaVersion":1,"source":"github-actions","origin":"top-left","safeAreaOrigin":"top-left","widthPx":2748,"heightPx":1172,"densityDpi":420,"safeArea":{"x":0,"y":0,"width":2748,"height":1172},"foldingFeatures":[]}'
+  printf '%s\n' "$source_json" >"$legacy_directory/injected-window.json"
   starfall_adb_broadcast_string_extra "$debug_layout_action" json "$source_json" \
     >"$legacy_directory/window-broadcast.txt"
+  pull_expected_layout_json \
+    "starfall-ci-layout.json" "$legacy_directory/mobile-layout.json" \
+    CompactLandscape false "$legacy_directory/injected-window.json"
   pull_app_file "starfall-ci-layout-MainMenu.json" "$legacy_directory/MainMenu.layout.json"
   validate_ui_layout_json "$legacy_directory/MainMenu.layout.json" CompactLandscape false
   tap_control "$legacy_directory/MainMenu.layout.json" import
@@ -1440,8 +1467,8 @@ PY
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "starmap-card"
 
-  tap_control "$scenario_directory/Space.layout.json" "journal"
-  wait_for_ui_surface \
+  tap_control_until_surface \
+    "$scenario_directory/Space.layout.json" "journal" \
     "starfall-ci-layout-Space.json" "$scenario_directory/Journal.layout.json" "journal-card"
   validate_ui_layout_json \
     "$scenario_directory/Journal.layout.json" "$expected_mode" "$require_hinge" "journal-card"

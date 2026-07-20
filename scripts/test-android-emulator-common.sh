@@ -149,6 +149,15 @@ grep -Fq 'record_scenario_stage' "$emulator_entry" || {
   echo 'Every API 36 scenario must retain monotonic stage evidence.' >&2
   exit 1
 }
+grep -Fq 'tap_control_until_surface' "$emulator_entry" || {
+  echo 'Overlay taps must retry bounded physical input before failing a shard.' >&2
+  exit 1
+}
+grep -A95 '^run_legacy_saf_import()' "$emulator_entry" \
+  | grep -Fq 'pull_expected_layout_json' || {
+  echo 'Legacy SAF must wait for injected window metrics before reading MainMenu.' >&2
+  exit 1
+}
 grep -Fq 'fail-fast: false' "$replay_workflow_entry" || {
   echo 'Replay scenario shards must continue after another scenario fails.' >&2
   exit 1
