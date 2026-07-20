@@ -291,7 +291,7 @@ jobs:
           artifactsPath: artifacts/unity/playmode
 
       - name: Verify exact PlayMode baseline plus mobile suite
-        run: bash scripts/android-verify-unity-results.sh artifacts/unity/playmode PlayMode 24
+        run: bash scripts/android-verify-unity-results.sh artifacts/unity/playmode PlayMode 25
 
       - name: Compute internal version
         id: version

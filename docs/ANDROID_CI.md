@@ -16,7 +16,7 @@ The Android pipeline is implemented by `.github/workflows/android.yml`. It does 
 
 The release validator checks package/version/API metadata, non-debuggable state, ARM64-only libraries, matching APK/AAB certificates, adaptive launcher resources, `bundletool validate`, and 16 KiB ZIP/ELF alignment. It also builds a signed bundletool universal APK and repeats the ARM64-only and 16 KiB checks on that Play-style artifact. Release IL2CPP output is rejected if the smoke-only command callback is present.
 
-Unity discovery is also an exact hard gate: EditMode must report 144 cases (109 desktop baseline plus 35 Android/mobile cases), and PlayMode must report 24 cases (19 desktop baseline plus 5 Android/mobile cases). A passing subset or silently undiscovered fixture cannot satisfy CI.
+Unity discovery is also an exact hard gate: EditMode must report 144 cases (109 desktop baseline plus 35 Android/mobile cases), and PlayMode must report 25 cases (19 desktop baseline plus 6 Android/mobile cases). A passing subset or silently undiscovered fixture cannot satisfy CI.
 
 ## GitHub configuration
 
