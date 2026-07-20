@@ -308,7 +308,7 @@ fi
 wait_for_process() {
   local process_id=""
   for _ in $(seq 1 45); do
-    process_id="$(adb shell pidof "$package_name" | tr -d '\r')"
+    process_id="$(adb shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)"
     if [[ -n "$process_id" ]]; then
       printf '%s\n' "$process_id"
       return 0
@@ -944,13 +944,14 @@ assert_no_app_failures() {
   local app_log="$results_directory/$label.app.logcat.txt"
   local system_log="$results_directory/$label.system.logcat.txt"
   local process_id
-  process_id="$(adb shell pidof "$package_name" | tr -d '\r')"
+  process_id="$(starfall_adb_retry_read shell pidof "$package_name" 2>/dev/null \
+    | tr -d '\r' || true)"
   if [[ -n "$process_id" ]]; then
-    adb logcat -d --pid="$process_id" >"$app_log"
+    starfall_adb_capture_file "$app_log" logcat -d --pid="$process_id"
   else
     printf '%s\n' 'App process missing; PID-filtered log unavailable.' >"$app_log"
   fi
-  adb logcat -b all -d >"$system_log"
+  starfall_adb_capture_file "$system_log" logcat -b all -d
 
   if grep -Eqi \
     'FATAL EXCEPTION|Unhandled Exception|(^|[[:space:]])([[:alpha:]_][[:alnum:]_.]*Exception|UnityException):|SIGABRT|SIGSEGV|VK_ERROR_DEVICE_LOST|VK_ERROR_OUT_OF_(DEVICE|HOST)_MEMORY|Vulkan.*(device lost|out of memory)|OutOfMemoryError' \
@@ -986,18 +987,26 @@ import xml.etree.ElementTree as ET
 
 root = ET.parse(sys.argv[1]).getroot()
 pattern = re.compile(sys.argv[2], re.IGNORECASE)
-for node in root.iter("node"):
-    haystack = " ".join((node.attrib.get("text", ""), node.attrib.get("content-desc", "")))
-    if not pattern.search(haystack):
+candidates = []
+for index, node in enumerate(root.iter("node")):
+    text = node.attrib.get("text", "")
+    description = node.attrib.get("content-desc", "")
+    if pattern.search(text):
+        priority = 0
+    elif pattern.search(description):
+        priority = 1
+    else:
         continue
     match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
     if not match:
         continue
     x1, y1, x2, y2 = map(int, match.groups())
     if x2 > x1 and y2 > y1:
-        print(f"{(x1 + x2) // 2} {(y1 + y2) // 2}")
-        raise SystemExit(0)
-raise SystemExit(1)
+        candidates.append((priority, index, (x1 + x2) // 2, (y1 + y2) // 2))
+if not candidates:
+    raise SystemExit(1)
+_, _, x, y = min(candidates)
+print(f"{x} {y}")
 PY
 )" || return 1
   tap_coordinate "$coordinate"
@@ -1160,8 +1169,15 @@ PY
     echo "Temporary legacy import files remain after a successful import." >&2
     return 1
   fi
-  adb logcat -d --pid="$(adb shell pidof "$package_name" | tr -d '\r')" \
-    >"$legacy_directory/app.logcat.txt"
+  local legacy_pid
+  legacy_pid="$(starfall_adb_retry_read shell pidof "$package_name" 2>/dev/null \
+    | tr -d '\r' || true)"
+  [[ "$legacy_pid" =~ ^[0-9]+$ ]] || {
+    echo "App process missing after SAF import." >&2
+    return 1
+  }
+  starfall_adb_capture_file \
+    "$legacy_directory/app.logcat.txt" logcat -d --pid="$legacy_pid"
   assert_no_app_failures "legacy-saf-import"
 }
 
@@ -1603,7 +1619,8 @@ PY
   printf 'source=STARFALL_ANDROID_CI show-death-overlay fixture\nreleaseIncluded=false\n' \
     >"$scenario_directory/death-fixture.txt"
 
-  adb shell dumpsys meminfo "$package_name" >"$scenario_directory/meminfo.txt"
+  starfall_adb_capture_file \
+    "$scenario_directory/meminfo.txt" shell dumpsys meminfo "$package_name"
 
   assert_no_app_failures "$label"
   actual_graphics_device="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["graphicsDeviceType"])' \
@@ -1739,14 +1756,17 @@ PY
     echo "Unity did not publish evidence that AppRoot.OnLowMemory handled RUNNING_CRITICAL." >&2
     exit 1
   fi
-  trim_pid="$(adb shell pidof "$package_name" | tr -d '\r')"
+  trim_pid="$(starfall_adb_retry_read shell pidof "$package_name" 2>/dev/null \
+    | tr -d '\r' || true)"
 if [[ ! "$trim_pid" =~ ^[0-9]+$ ]]; then
   echo "App process did not survive the RUNNING_CRITICAL trim-memory callback." >&2
   exit 1
 fi
 printf '%s\n' "$trim_pid" >"$results_directory/trim-memory.pid.txt"
-adb shell dumpsys meminfo "$package_name" >"$results_directory/trim-memory.meminfo.txt"
-adb logcat -d --pid="$trim_pid" >"$results_directory/trim-memory.app.logcat.txt"
+starfall_adb_capture_file \
+  "$results_directory/trim-memory.meminfo.txt" shell dumpsys meminfo "$package_name"
+starfall_adb_capture_file \
+  "$results_directory/trim-memory.app.logcat.txt" logcat -d --pid="$trim_pid"
 dispatch_ci_command status "$results_directory/trim-memory.post-status.command.json"
 assert_no_app_failures "low-memory-trim"
 adb shell am force-stop "$package_name"

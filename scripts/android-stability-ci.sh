@@ -25,7 +25,7 @@ fi
 
 wait_for_process() {
   for _ in $(seq 1 60); do
-    if [[ -n "$(adb shell pidof "$package_name" | tr -d '\r')" ]]; then
+    if [[ -n "$(adb shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)" ]]; then
       return 0
     fi
     sleep 1
@@ -46,9 +46,10 @@ run_ci_command() {
 
   for attempt in $(seq 1 180); do
     if (( attempt == 1 || (attempt - 1) % 4 == 0 )); then
-      process_id="$(adb shell pidof "$package_name" | tr -d '\r')"
+      process_id="$(adb shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)"
       if [[ -z "$process_id" ]]; then
-        adb logcat -b all -d >"$command_prefix.process-missing.logcat.txt"
+        starfall_adb_capture_file \
+          "$command_prefix.process-missing.logcat.txt" logcat -b all -d || true
         echo "$package_name exited while waiting for Android CI command: $command" >&2
         return 1
       fi
@@ -92,7 +93,8 @@ PY
     fi
     sleep 0.25
   done
-  adb logcat -b all -d >"$command_prefix.timeout.logcat.txt"
+  starfall_adb_capture_file \
+    "$command_prefix.timeout.logcat.txt" logcat -b all -d || true
   echo "Timed out waiting for Android CI command acknowledgement after " \
     "${broadcast_attempts} broadcasts: $command" >&2
   return 1
@@ -154,7 +156,7 @@ record_pss() {
   local meminfo
   local pss
   meminfo="$results_directory/meminfo-cycle-$(printf '%02d' "$cycle").txt"
-  adb shell dumpsys meminfo "$package_name" >"$meminfo"
+  starfall_adb_capture_file "$meminfo" shell dumpsys meminfo "$package_name"
   pss="$(awk '/TOTAL PSS:/ { print $3; exit } /^[[:space:]]*TOTAL[[:space:]]+[0-9]+/ { print $2; exit }' "$meminfo")"
   if [[ ! "$pss" =~ ^[0-9]+$ ]]; then
     echo "Could not parse TOTAL PSS from $meminfo." >&2
@@ -303,6 +305,12 @@ if failed:
     )
 PY
 
-adb logcat -d --pid="$(adb shell pidof "$package_name" | tr -d '\r')" \
-  >"$results_directory/app.logcat.txt"
+final_pid="$(starfall_adb_retry_read shell pidof "$package_name" 2>/dev/null \
+  | tr -d '\r' || true)"
+[[ "$final_pid" =~ ^[0-9]+$ ]] || {
+  echo "$package_name is no longer running after the stability test." >&2
+  exit 1
+}
+starfall_adb_capture_file \
+  "$results_directory/app.logcat.txt" logcat -d --pid="$final_pid"
 echo "Android stability evidence: $results_directory"

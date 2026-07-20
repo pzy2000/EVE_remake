@@ -117,20 +117,20 @@ grep -Fq 'if read_main_menu_layout "$confirmation_layout"' "$back_compat_entry" 
   echo 'Back confirmation polling must use a single-read inner operation.' >&2
   exit 1
 }
-[[ "$(grep -Fc 'ram-size: 3072M' "$workflow_entry")" == "2" ]] || {
-  echo 'Both emulator jobs must keep the bounded 3072M guest-memory budget.' >&2
+[[ "$(grep -Fc 'ram-size: 3072M' "$workflow_entry")" == "3" ]] || {
+  echo 'Every emulator attempt must keep the bounded 3072M guest-memory budget.' >&2
   exit 1
 }
 if grep -Eq 'ram-size: (4096|6144)M' "$workflow_entry"; then
   echo 'The emulator must not restore a memory reservation that destabilizes the hosted runner.' >&2
   exit 1
 fi
-[[ "$(grep -Fc 'emulator-build: 15004761' "$workflow_entry")" == "2" ]] || {
-  echo 'Both emulator jobs must pin Android Emulator 36.4.10 build 15004761.' >&2
+[[ "$(grep -Fc 'emulator-build: 15004761' "$workflow_entry")" == "3" ]] || {
+  echo 'Every emulator attempt must pin Android Emulator 36.4.10 build 15004761.' >&2
   exit 1
 }
-[[ "$(grep -Fc -- '-gpu software -feature -Vulkan ' "$workflow_entry")" == "2" ]] || {
-  echo 'Both emulator jobs must use the supported adaptive software backend with Vulkan disabled.' >&2
+[[ "$(grep -Fc -- '-gpu software -feature -Vulkan ' "$workflow_entry")" == "3" ]] || {
+  echo 'Every emulator attempt must use the supported adaptive software backend with Vulkan disabled.' >&2
   exit 1
 }
 if grep -Eq -- '-gpu (swiftshader|swiftshader_indirect)' "$workflow_entry"; then
@@ -162,6 +162,10 @@ grep -A95 '^run_legacy_saf_import()' "$emulator_entry" \
   echo 'Legacy SAF must wait for injected window metrics before reading MainMenu.' >&2
   exit 1
 }
+grep -Fq 'candidates.append((priority, index' "$emulator_entry" || {
+  echo 'Legacy SAF picker matching must prefer visible text over preview descriptions.' >&2
+  exit 1
+}
 grep -Fq 'fail-fast: false' "$replay_workflow_entry" || {
   echo 'Replay scenario shards must continue after another scenario fails.' >&2
   exit 1
@@ -184,6 +188,20 @@ grep -A5 '^  android-back-compat:' "$workflow_entry" \
   echo 'Main CI must run API 32 independently of API 36 acceptance.' >&2
   exit 1
 }
+for workflow in "$workflow_entry" "$replay_workflow_entry"; do
+  grep -Fq 'id: api32_attempt_1' "$workflow" || {
+    echo "API 32 workflow must record its first emulator attempt: $workflow" >&2
+    exit 1
+  }
+  grep -Fq 'id: api32_attempt_2' "$workflow" || {
+    echo "API 32 workflow must automatically retry a failed emulator attempt: $workflow" >&2
+    exit 1
+  }
+  grep -Fq 'Both API 32' "$workflow" || {
+    echo "API 32 workflow must fail when neither emulator attempt passes: $workflow" >&2
+    exit 1
+  }
+done
 grep -A12 '^  android-emulator:' "$workflow_entry" \
   | grep -Fq 'fail-fast: false' || {
   echo 'Main CI must collect every API 36 shard result after one shard fails.' >&2

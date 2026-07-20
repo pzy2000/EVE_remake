@@ -158,7 +158,7 @@ adb shell am start -W -n "$activity" --es unity -force-gles30 \
 
 pid_before=""
 for _ in $(seq 1 60); do
-  pid_before="$(adb shell pidof "$package_name" | tr -d '\r')"
+  pid_before="$(adb shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)"
   [[ "$pid_before" =~ ^[0-9]+$ ]] && break
   sleep 0.5
 done
@@ -208,7 +208,8 @@ fi
 adb exec-out screencap -p >"$results_directory/MainMenu.BackConfirmation.png"
 assert_png_dimensions "$results_directory/MainMenu.BackConfirmation.png"
 
-pid_after="$(adb shell pidof "$package_name" | tr -d '\r')"
+pid_after="$(starfall_adb_retry_read shell pidof "$package_name" 2>/dev/null \
+  | tr -d '\r' || true)"
 if [[ "$pid_after" != "$pid_before" ]]; then
   echo "App process changed after API 32 Back: before=$pid_before after=${pid_after:-missing}" >&2
   exit 1
@@ -229,15 +230,18 @@ if [[ "$confirmation_closed" != true ]]; then
   exit 1
 fi
 
-pid_final="$(adb shell pidof "$package_name" | tr -d '\r')"
+pid_final="$(starfall_adb_retry_read shell pidof "$package_name" 2>/dev/null \
+  | tr -d '\r' || true)"
 if [[ "$pid_final" != "$pid_before" ]]; then
   echo "App process changed after closing API 32 Back confirmation: " \
     "before=$pid_before final=${pid_final:-missing}" >&2
   exit 1
 fi
 
-adb logcat -d --pid="$pid_final" >"$results_directory/app.logcat.txt"
-adb logcat -b all -d >"$results_directory/system.logcat.txt"
+starfall_adb_capture_file \
+  "$results_directory/app.logcat.txt" logcat -d --pid="$pid_final"
+starfall_adb_capture_file \
+  "$results_directory/system.logcat.txt" logcat -b all -d
 if grep -Eqi \
   'FATAL EXCEPTION|Unhandled Exception|(^|[[:space:]])([[:alpha:]_][[:alnum:]_.]*Exception|UnityException):|SIGABRT|SIGSEGV|OutOfMemoryError' \
   "$results_directory/app.logcat.txt"; then

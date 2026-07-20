@@ -497,7 +497,9 @@ jobs:
           test -r /dev/kvm
           test -w /dev/kvm
 
-      - name: Verify API 26-32 Back compatibility on API 32
+      - name: Verify API 26-32 Back compatibility on API 32 (attempt 1)
+        id: api32_attempt_1
+        continue-on-error: true
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 32
@@ -512,6 +514,45 @@ jobs:
           emulator-options: -no-window -gpu software -feature -Vulkan -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash scripts/android-back-compat-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-back-compat
+
+      - name: Clear failed API 32 attempt evidence
+        if: steps.api32_attempt_1.outcome == 'failure'
+        shell: bash
+        run: |
+          if [[ -d artifacts/android-back-compat ]]; then
+            find artifacts/android-back-compat -mindepth 1 -delete
+          fi
+
+      - name: Retry API 26-32 Back compatibility on API 32
+        id: api32_attempt_2
+        if: steps.api32_attempt_1.outcome == 'failure'
+        continue-on-error: true
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 32
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          cores: 4
+          ram-size: 3072M
+          heap-size: 768M
+          disk-size: 8G
+          emulator-build: 15004761
+          emulator-options: -no-window -gpu software -feature -Vulkan -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash scripts/android-back-compat-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-back-compat
+
+      - name: Require a successful API 32 attempt
+        if: always()
+        shell: bash
+        env:
+          ATTEMPT_1: ${{ steps.api32_attempt_1.outcome }}
+          ATTEMPT_2: ${{ steps.api32_attempt_2.outcome }}
+        run: |
+          if [[ "$ATTEMPT_1" != success && "$ATTEMPT_2" != success ]]; then
+            echo "Both API 32 emulator attempts failed: first=$ATTEMPT_1 second=$ATTEMPT_2" >&2
+            exit 1
+          fi
 
       - name: Upload API 32 Back evidence
         if: always()
