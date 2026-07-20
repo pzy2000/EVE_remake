@@ -76,6 +76,18 @@
     max-width: 720px;
 }
 
+.mobile.square-expanded .station-header-actions {
+    flex-shrink: 1;
+}
+
+.mobile.square-expanded .station-header-actions Button {
+    width: auto;
+    min-width: 48px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-left: 4px;
+}
+
 .mobile.compact-landscape .station-header {
     left: 4px;
     right: 4px;
