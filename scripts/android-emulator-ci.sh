@@ -632,12 +632,13 @@ wait_for_ui_surface() {
   local remote_name="$1"
   local destination="$2"
   local expected_surface="$3"
+  local expected_control="${4:-}"
   local remote_path
   remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   for _ in $(seq 1 60); do
     if adb exec-out cat "$remote_path" \
       >"$destination" 2>/dev/null && \
-      python3 - "$destination" "$expected_surface" <<'PY'
+      python3 - "$destination" "$expected_surface" "$expected_control" <<'PY'
 import json
 import sys
 
@@ -650,7 +651,13 @@ names = {
     for surface in payload.get("surfaces", [])
     if surface.get("visible", True)
 }
-raise SystemExit(0 if sys.argv[2] in names else 1)
+control_ready = not sys.argv[3] or any(
+    control.get("name") == sys.argv[3]
+    and control.get("visible", False)
+    and control.get("fullyVisible", False)
+    for control in payload.get("controls", [])
+)
+raise SystemExit(0 if sys.argv[2] in names and control_ready else 1)
 PY
     then
       return 0
@@ -1365,7 +1372,8 @@ PY
 
   tap_control "$scenario_directory/Space.layout.json" "map"
   wait_for_ui_surface \
-    "starfall-ci-layout-Space.json" "$scenario_directory/Starmap.layout.json" "starmap-card"
+    "starfall-ci-layout-Space.json" "$scenario_directory/Starmap.layout.json" \
+    "starmap-card" "map-close"
   validate_ui_layout_json \
     "$scenario_directory/Starmap.layout.json" "$expected_mode" "$require_hinge" "starmap-card"
   capture_screen "$label-Starmap" "$width" "$height"

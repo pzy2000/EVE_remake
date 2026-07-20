@@ -273,6 +273,14 @@ grep -Fq 'world_swipe_duration_ms=1500' "$emulator_entry" || {
   echo 'The real ADB drag must span multiple frames on the slow square software renderer.' >&2
   exit 1
 }
+grep -Fq 'local expected_control="${4:-}"' "$emulator_entry" || {
+  echo 'Overlay evidence waits must support a required settled control.' >&2
+  exit 1
+}
+grep -A3 'Starmap.layout.json' "$emulator_entry" | grep -Fq '"starmap-card" "map-close"' || {
+  echo 'Starmap validation must wait until its close control has settled.' >&2
+  exit 1
+}
 grep -A2 'adb shell input swipe' "$emulator_entry" | \
   grep -Fq '"$world_swipe_duration_ms"' || {
   echo 'The real ADB drag must use the multi-frame swipe duration.' >&2
