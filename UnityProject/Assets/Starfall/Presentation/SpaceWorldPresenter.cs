@@ -272,6 +272,23 @@ namespace Starfall.Presentation
                 end = candidateEnd;
                 return true;
             }
+
+            // Preparing the physical-touch target deliberately occupies the first clear
+            // ray with a selectable proxy. Search both foldable panes for a second path,
+            // keeping every drag on its own side of a possible central vertical hinge.
+            foreach (var normalizedY in new[] { 0.35f, 0.50f, 0.65f, 0.80f })
+            foreach (var normalizedX in new[] { 0.18f, 0.30f, 0.42f, 0.58f, 0.70f, 0.82f })
+            {
+                var candidateStart = new Vector2(width * normalizedX, height * normalizedY);
+                var horizontalDirection = normalizedX < 0.5f ? -1f : 1f;
+                var verticalDirection = normalizedY < 0.5f ? 1f : -1f;
+                var candidateEnd = candidateStart + new Vector2(
+                    delta.x * horizontalDirection, delta.y * verticalDirection);
+                if (!IsBlankWorldPoint(candidateStart) || !IsBlankWorldPoint(candidateEnd)) continue;
+                start = candidateStart;
+                end = candidateEnd;
+                return true;
+            }
             return false;
         }
 
