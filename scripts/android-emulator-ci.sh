@@ -494,7 +494,9 @@ pull_expected_layout_json() {
   return 1
 }
 
-validate_ui_layout_json() {
+# Retained temporarily as a behavior reference while the aggregate validator
+# below is exercised by CI. It is intentionally not used by the acceptance run.
+validate_ui_layout_json_first_failure_reference() {
   local ui_json="$1"
   local expected_mode="$2"
   local require_hinge="$3"
