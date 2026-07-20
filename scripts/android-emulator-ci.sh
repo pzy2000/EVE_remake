@@ -683,6 +683,7 @@ wait_for_gesture_evidence() {
   local destination="$2"
   local expected_generation="$3"
   local expected_gesture="$4"
+  local report_timeout="${5:-true}"
   for _ in $(seq 1 80); do
     if adb exec-out cat "$remote_path" >"$destination" 2>/dev/null && \
       python3 - "$destination" "$expected_generation" "$expected_gesture" <<'PY'
@@ -702,7 +703,9 @@ PY
     fi
     sleep 0.025
   done
-  echo "Timed out waiting for gesture $expected_gesture generation $expected_generation." >&2
+  if [[ "$report_timeout" == "true" ]]; then
+    echo "Timed out waiting for gesture $expected_gesture generation $expected_generation." >&2
+  fi
   return 1
 }
 
@@ -1211,31 +1214,76 @@ PY
   sleep 0.35
   local first_gesture="$scenario_directory/Touch.DoubleTap.First.gesture.json"
   local second_gesture="$scenario_directory/Touch.DoubleTap.Second.gesture.json"
+  local double_tap_max_attempts=3
+  local double_tap_shell_gap_seconds=0.02
+  local double_tap_succeeded=false
+  local double_tap_attempt
   local gesture_generation
-  pull_app_file "starfall-ci-gesture.json" \
-    "$scenario_directory/Touch.Selected.gesture.json"
-  gesture_generation="$(python3 - \
-    "$scenario_directory/Touch.Selected.gesture.json" <<'PY'
+  local first_gesture_remote_path
+  local second_gesture_remote_path
+  for double_tap_attempt in $(seq 1 "$double_tap_max_attempts"); do
+    local attempt_prefix="$scenario_directory/Touch.DoubleTap.Attempt-$double_tap_attempt"
+    local baseline_gesture="$attempt_prefix.Baseline.gesture.json"
+    local attempt_first_gesture="$attempt_prefix.First.gesture.json"
+    local attempt_second_gesture="$attempt_prefix.Second.gesture.json"
+
+    # A failed pair must age beyond the 300 ms recognition window before the
+    # next baseline is sampled, otherwise a retry could join an earlier Tap.
+    if (( double_tap_attempt > 1 )); then
+      sleep 0.35
+    fi
+    pull_app_file "starfall-ci-gesture.json" "$baseline_gesture"
+    gesture_generation="$(python3 - "$baseline_gesture" <<'PY'
 import json
 import sys
 
 print(int(json.load(open(sys.argv[1], encoding="utf-8"))["generation"]))
 PY
 )"
-  local first_gesture_remote_path
-  first_gesture_remote_path="$(starfall_android_app_file_path \
-    "$package_name" "starfall-ci-gesture-$((gesture_generation + 1)).json")"
-  local second_gesture_remote_path
-  second_gesture_remote_path="$(starfall_android_app_file_path \
-    "$package_name" "starfall-ci-gesture-$((gesture_generation + 2)).json")"
-  adb shell "rm -f '$first_gesture_remote_path' '$second_gesture_remote_path'; \
-    input tap '$target_x' '$target_y'; sleep 0.12; \
-    input tap '$target_x' '$target_y'" \
-    >"$scenario_directory/Touch.DoubleTap.Input.txt" 2>&1
-  wait_for_gesture_evidence \
-    "$first_gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"
-  wait_for_gesture_evidence \
-    "$second_gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"
+    first_gesture_remote_path="$(starfall_android_app_file_path \
+      "$package_name" "starfall-ci-gesture-$((gesture_generation + 1)).json")"
+    second_gesture_remote_path="$(starfall_android_app_file_path \
+      "$package_name" "starfall-ci-gesture-$((gesture_generation + 2)).json")"
+    adb shell "rm -f '$first_gesture_remote_path' '$second_gesture_remote_path'; \
+      input tap '$target_x' '$target_y'; sleep '$double_tap_shell_gap_seconds'; \
+      input tap '$target_x' '$target_y'" \
+      >"$attempt_prefix.Input.txt" 2>&1
+
+    local first_gesture_ready=false
+    local second_gesture_ready=false
+    if wait_for_gesture_evidence \
+      "$first_gesture_remote_path" "$attempt_first_gesture" \
+      "$((gesture_generation + 1))" "Tap" false; then
+      first_gesture_ready=true
+    fi
+    if wait_for_gesture_evidence \
+      "$second_gesture_remote_path" "$attempt_second_gesture" \
+      "$((gesture_generation + 2))" "DoubleTap" false; then
+      second_gesture_ready=true
+    fi
+    if [[ "$first_gesture_ready" == "true" && "$second_gesture_ready" == "true" ]]; then
+      cp "$attempt_first_gesture" "$first_gesture"
+      cp "$attempt_second_gesture" "$second_gesture"
+      cp "$attempt_prefix.Input.txt" "$scenario_directory/Touch.DoubleTap.Input.txt"
+      double_tap_succeeded=true
+      break
+    fi
+    echo "Physical double-tap attempt $double_tap_attempt/$double_tap_max_attempts did not complete inside 300 ms." >&2
+  done
+  if [[ "$double_tap_succeeded" != "true" ]]; then
+    echo "Timed out waiting for a physical ADB double-tap inside the 300 ms product window." >&2
+    exit 1
+  fi
+  python3 - "$first_gesture" "$second_gesture" <<'PY'
+import json
+import sys
+
+first = json.load(open(sys.argv[1], encoding="utf-8"))
+second = json.load(open(sys.argv[2], encoding="utf-8"))
+cadence = float(second["inputStartTime"]) - float(first["inputStartTime"])
+if cadence < 0.0 or cadence > 0.3:
+    raise SystemExit(f"physical double-tap cadence outside 300 ms: {cadence:.6f}s")
+PY
   local approached_by_double_tap=false
   for _ in $(seq 1 40); do
     dispatch_ci_command "status" "$scenario_directory/Touch.DoubleTap.command.json"

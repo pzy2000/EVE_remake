@@ -219,18 +219,34 @@ grep -Fq 'wait_for_gesture_evidence' "$emulator_entry" || {
   echo 'The real Android double-tap gate must synchronize against Unity gesture frames.' >&2
   exit 1
 }
-grep -Fq '"$first_gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"' \
+grep -Fq 'double_tap_max_attempts=3' "$emulator_entry" || {
+  echo 'The physical ADB double-tap gate must retry incomplete pairs a bounded number of times.' >&2
+  exit 1
+}
+grep -Fq 'if (( double_tap_attempt > 1 )); then' "$emulator_entry" || {
+  echo 'A failed physical tap pair must age out before retrying.' >&2
+  exit 1
+}
+grep -Fq '"$first_gesture_remote_path" "$attempt_first_gesture"' \
   "$emulator_entry" || {
   echo 'The double-tap gate must retain first-tap recognizer evidence.' >&2
   exit 1
 }
-grep -Fq "input tap '\$target_x' '\$target_y'; sleep 0.12;" "$emulator_entry" || {
+grep -Fq 'double_tap_shell_gap_seconds=0.02' "$emulator_entry" || {
+  echo 'The physical ADB pair needs margin for Android input command overhead.' >&2
+  exit 1
+}
+grep -Fq "input tap '\$target_x' '\$target_y'; sleep '\$double_tap_shell_gap_seconds';" "$emulator_entry" || {
   echo 'The physical ADB tap pair must stay inside the 300 ms product window.' >&2
   exit 1
 }
-grep -Fq '"$second_gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"' \
+grep -Fq '"$second_gesture_remote_path" "$attempt_second_gesture"' \
   "$emulator_entry" || {
   echo 'The double-tap gate must retain recognizer evidence for the completed pair.' >&2
+  exit 1
+}
+grep -Fq 'if cadence < 0.0 or cadence > 0.3:' "$emulator_entry" || {
+  echo 'The accepted physical tap pair must be checked against the product cadence.' >&2
   exit 1
 }
 grep -Fq 'AndroidCiGestureEvidenceFile = "starfall-ci-gesture.json"' \
