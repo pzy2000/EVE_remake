@@ -185,6 +185,31 @@ namespace Starfall.Tests.EditMode.Mobile
         }
 
         [Test]
+        public void EnhancedTouchRetainsDoubleTapQueuedWithinOneRenderFrame()
+        {
+            var center = ScreenCenter();
+            presenter.MainCamera.transform.SetPositionAndRotation(
+                new Vector3(0f, 10f, -10f),
+                Quaternion.LookRotation(new Vector3(0f, -10f, 10f)));
+            var approachCount = 0;
+            presenter.ApproachRequested += (_, _) => approachCount++;
+
+            BeginTouch(31, center, queueEventOnly: true, screen: touchscreen, time: 20d);
+            EndTouch(31, center, queueEventOnly: true, screen: touchscreen, time: 20.05d);
+            BeginTouch(32, center, queueEventOnly: true, screen: touchscreen, time: 20.2d);
+            EndTouch(32, center, queueEventOnly: true, screen: touchscreen, time: 20.25d);
+
+            InputSystem.Update();
+            InvokeTouchUpdate();
+
+            Assert.That(approachCount, Is.EqualTo(1),
+                "Two physical taps must survive Input System state coalescing in a slow render frame.");
+            var recognizer = (WorldGestureRecognizer)TouchGesturesField.GetValue(presenter);
+            var recordedTapTime = (double)LastTapTimeField.GetValue(recognizer);
+            Assert.That(recordedTapTime, Is.EqualTo(20.2d).Within(0.0001d));
+        }
+
+        [Test]
         public void TwoInputSystemTouchesDrivePresenterPinchZoom()
         {
             var center = ScreenCenter();

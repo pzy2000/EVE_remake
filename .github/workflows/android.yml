@@ -275,7 +275,7 @@ jobs:
           artifactsPath: artifacts/unity/editmode
 
       - name: Verify exact EditMode baseline plus mobile suite
-        run: bash scripts/android-verify-unity-results.sh artifacts/unity/editmode EditMode 145
+        run: bash scripts/android-verify-unity-results.sh artifacts/unity/editmode EditMode 146
 
       - name: Run PlayMode tests
         id: playmode

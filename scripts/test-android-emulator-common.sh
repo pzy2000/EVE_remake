@@ -207,31 +207,14 @@ grep -Fq 'wait_for_gesture_evidence' "$emulator_entry" || {
 }
 grep -Fq '"$first_gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"' \
   "$emulator_entry" || {
-  echo 'The double-tap gate must observe the first tap before sending the second.' >&2
+  echo 'The double-tap gate must retain first-tap recognizer evidence.' >&2
   exit 1
 }
-grep -Fq "until grep -Fq '\$generation_pattern' '\$gesture_remote_path'" \
-  "$emulator_entry" || {
-  echo 'The second real tap must be armed on-device before the first tap is sent.' >&2
+grep -Fq "input tap '\$target_x' '\$target_y'; sleep 0.12;" "$emulator_entry" || {
+  echo 'The physical ADB tap pair must stay inside the 300 ms product window.' >&2
   exit 1
 }
-grep -Fq "cp '\$gesture_remote_path' '\$first_gesture_remote_path'" \
-  "$emulator_entry" || {
-  echo 'The device-side watcher must preserve first-tap evidence after immediate reinjection.' >&2
-  exit 1
-}
-python3 - "$emulator_entry" <<'PY'
-import sys
-
-source = open(sys.argv[1], encoding="utf-8").read()
-watcher = source[source.index('local queued_tap_log='):source.index('local queued_tap_pid=')]
-if watcher.index("input tap '$target_x' '$target_y'") > watcher.index(
-        "cp '$gesture_remote_path' '$first_gesture_remote_path'"):
-    raise SystemExit("Second-tap injection must precede evidence copying to stay within 300 ms.")
-if "do sleep" in watcher:
-    raise SystemExit("The one-frame device watcher must not add polling sleep jitter.")
-PY
-grep -Fq '"$gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"' \
+grep -Fq '"$second_gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"' \
   "$emulator_entry" || {
   echo 'The double-tap gate must retain recognizer evidence for the completed pair.' >&2
   exit 1
@@ -241,14 +224,19 @@ grep -Fq 'AndroidCiGestureEvidenceFile = "starfall-ci-gesture.json"' \
   echo 'The smoke presenter must publish gesture-frame evidence for real ADB input.' >&2
   exit 1
 }
-grep -Fq 'var touchStartTime = touch.startTime.ReadValue();' \
+grep -Fq 'EnhancedTouchSupport.Enable();' \
   "$space_world_presenter" || {
-  echo 'Double-tap cadence must use the physical Input System touch timestamp.' >&2
+  echo 'Runtime touch input must preserve state changes shorter than one render frame.' >&2
   exit 1
 }
-grep -Fq 'touchGestures.End(pointerId, position, tapTime), tapTime' \
+grep -Fq 'var tapTime = touch.startTime;' \
   "$space_world_presenter" || {
-  echo 'Touch End must pass device timing to the recognizer and CI evidence.' >&2
+  echo 'Double-tap cadence must use the physical EnhancedTouch timestamp.' >&2
+  exit 1
+}
+grep -Fq '"starfall-ci-gesture-" + androidCiGestureGeneration + ".json"' \
+  "$space_world_presenter" || {
+  echo 'Per-generation gesture evidence must survive same-frame tap processing.' >&2
   exit 1
 }
 grep -Fq 'world_swipe_duration_ms=1500' "$emulator_entry" || {

@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using EnhancedTouch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Starfall.Presentation
 {
@@ -26,6 +28,7 @@ namespace Starfall.Presentation
         private float lastClickTime = -10f;
         private Vector2 lastClickPosition;
         private bool touchInputActive;
+        private bool enhancedTouchEnabled;
 #if STARFALL_ANDROID_CI
         private const string AndroidCiGestureEvidenceFile = "starfall-ci-gesture.json";
         private GameObject androidCiTouchProxy;
@@ -41,7 +44,12 @@ namespace Starfall.Presentation
         private void Awake()
         {
             EnsureEnvironment();
+            EnableEnhancedTouchInput();
         }
+
+        private void OnEnable() => EnableEnhancedTouchInput();
+
+        private void OnDisable() => DisableEnhancedTouchInput();
 
         private void Update()
         {
@@ -452,50 +460,80 @@ namespace Starfall.Presentation
 
         private void UpdateTouchInput()
         {
-            var touchscreen = Touchscreen.current;
-            if (touchscreen == null)
-            {
-                if (touchGestures.ActivePointerCount > 0) touchGestures.Reset();
-                touchInputActive = false;
-                return;
-            }
-
             touchGestures.ConfigureDpi(Screen.dpi);
-            var anyPressed = false;
-            foreach (var touch in touchscreen.touches)
+            if (Touchscreen.current == null && touchGestures.ActivePointerCount > 0)
             {
-                var pointerId = (int)touch.touchId.ReadValue();
-                var position = touch.position.ReadValue();
-                var phase = touch.phase.ReadValue();
-                if (phase == UnityEngine.InputSystem.TouchPhase.Canceled)
-                {
-                    touchGestures.Cancel(pointerId);
-                    continue;
-                }
-                if (touch.press.wasPressedThisFrame)
-                    touchGestures.Begin(pointerId, position, Time.unscaledTimeAsDouble,
-                        WorldPointerBlocker.Blocks(position), !HitsSelectable(position));
-                if (touch.press.isPressed)
-                {
-                    anyPressed = true;
-                    if (!touch.press.wasPressedThisFrame && touch.delta.ReadValue().sqrMagnitude > 0f)
-                        DispatchGesture(touchGestures.Move(pointerId, position, Time.unscaledTimeAsDouble));
-                }
-                if (phase == UnityEngine.InputSystem.TouchPhase.Ended && touch.press.wasReleasedThisFrame)
-                {
-                    // Input System preserves the physical touch start on the same
-                    // timeline as realtimeSinceStartup. Use it for tap cadence so
-                    // a slow render frame does not turn a valid 300 ms double tap
-                    // into two ordinary taps merely because End was sampled late.
-                    var touchStartTime = touch.startTime.ReadValue();
-                    var tapTime = double.IsNaN(touchStartTime) || double.IsInfinity(touchStartTime)
-                        ? Time.unscaledTimeAsDouble
-                        : touchStartTime;
-                    DispatchGesture(touchGestures.End(pointerId, position, tapTime), tapTime);
-                }
+                touchGestures.Reset();
             }
             DispatchGesture(touchGestures.Tick(Time.unscaledTimeAsDouble));
-            touchInputActive = anyPressed || touchGestures.ActivePointerCount > 0;
+            touchInputActive = touchGestures.ActivePointerCount > 0;
+        }
+
+        private void EnableEnhancedTouchInput()
+        {
+            if (enhancedTouchEnabled) return;
+            EnhancedTouchSupport.Enable();
+            EnhancedTouch.onFingerDown += OnFingerDown;
+            EnhancedTouch.onFingerMove += OnFingerMove;
+            EnhancedTouch.onFingerUp += OnFingerUp;
+            enhancedTouchEnabled = true;
+        }
+
+        private void DisableEnhancedTouchInput()
+        {
+            if (!enhancedTouchEnabled) return;
+            EnhancedTouch.onFingerDown -= OnFingerDown;
+            EnhancedTouch.onFingerMove -= OnFingerMove;
+            EnhancedTouch.onFingerUp -= OnFingerUp;
+            EnhancedTouchSupport.Disable();
+            touchGestures.Reset();
+            touchInputActive = false;
+            enhancedTouchEnabled = false;
+        }
+
+        private void OnFingerDown(Finger finger)
+        {
+            var touch = finger.currentTouch;
+            if (!touch.valid) return;
+            touchGestures.ConfigureDpi(Screen.dpi);
+            var position = touch.screenPosition;
+            touchGestures.Begin(finger.index, position, touch.startTime,
+                WorldPointerBlocker.Blocks(position), !HitsSelectable(position));
+            touchInputActive = true;
+        }
+
+        private void OnFingerMove(Finger finger)
+        {
+            var touch = finger.currentTouch;
+            if (!touch.valid) return;
+            DispatchGesture(touchGestures.Move(
+                finger.index, touch.screenPosition, touch.time));
+            touchInputActive = touchGestures.ActivePointerCount > 0;
+        }
+
+        private void OnFingerUp(Finger finger)
+        {
+            var touch = finger.currentTouch;
+            if (!touch.valid)
+            {
+                touchGestures.Cancel(finger.index);
+                touchInputActive = touchGestures.ActivePointerCount > 0;
+                return;
+            }
+            if (touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
+            {
+                touchGestures.Cancel(finger.index);
+            }
+            else
+            {
+                // EnhancedTouch records every state change, including touches
+                // that begin and end between two slow render frames. Device
+                // start time keeps double-tap cadence independent of FPS.
+                var tapTime = touch.startTime;
+                DispatchGesture(touchGestures.End(
+                    finger.index, touch.screenPosition, tapTime), tapTime);
+            }
+            touchInputActive = touchGestures.ActivePointerCount > 0;
         }
 
         private void DispatchGesture(WorldGestureEvent? gesture, double? inputStartTime = null)
@@ -549,6 +587,10 @@ namespace Starfall.Presentation
                 System.IO.File.WriteAllText(
                     System.IO.Path.Combine(Application.persistentDataPath,
                         AndroidCiGestureEvidenceFile),
+                    payload);
+                System.IO.File.WriteAllText(
+                    System.IO.Path.Combine(Application.persistentDataPath,
+                        "starfall-ci-gesture-" + androidCiGestureGeneration + ".json"),
                     payload);
             }
             catch (Exception exception)
