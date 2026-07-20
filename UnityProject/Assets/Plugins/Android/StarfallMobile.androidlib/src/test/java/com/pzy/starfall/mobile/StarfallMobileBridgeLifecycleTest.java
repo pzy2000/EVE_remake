@@ -77,6 +77,7 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source,
                 "dispatchDebugCommand(intent, requestGeneration, registeredActivity)");
         assertContains(source, "if (!LIFECYCLE.isCurrent(requestGeneration))");
+        assertContains(source, "case \"prepare-touch-target\":");
         assertContains(source, "case \"select-first-hostile\":");
         assertContains(source, "case \"lock-selected\":");
         assertContains(source, "case \"show-death-overlay\":");

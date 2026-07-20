@@ -701,6 +701,7 @@ public final class StarfallMobileBridge {
             case "status":
             case "start-new-game":
             case "undock":
+            case "prepare-touch-target":
             case "select-first-station":
             case "select-first-gate":
             case "select-first-hostile":
