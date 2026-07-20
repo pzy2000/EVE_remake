@@ -461,8 +461,7 @@ namespace Starfall.Tests.PlayMode
                     $"{profile.Name}/Station: footer {footerBounds} is not contained by the primary pane.");
             }
 
-            if (scene == "Space" &&
-                layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
+            if (scene == "Space")
             {
                 var shipStatus = root.Q<VisualElement>("ship-status");
                 var speed = root.Q<Label>("speed");

@@ -577,7 +577,7 @@ namespace Starfall.UI
                     new Rect(primary.xMax - Mathf.Min(330f, primary.width * 0.42f) - 8f, primary.yMin + 70f,
                         Mathf.Min(330f, primary.width * 0.42f), Mathf.Max(0f, primary.height - 78f)));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("ship-status"),
-                    new Rect(secondary.xMin + 8f, secondary.yMax - 126f, 220f, 118f));
+                    new Rect(secondary.xMin + 8f, secondary.yMax - 164f, 220f, 156f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(secondary.xMin + 238f, secondary.yMax - 126f,
                         Mathf.Max(0f, secondary.width - 586f), 120f));
