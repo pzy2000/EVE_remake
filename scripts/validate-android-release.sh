@@ -4,6 +4,8 @@ set -Eeuo pipefail
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/android-release-badging.sh
 source "$script_directory/android-release-badging.sh"
+# shellcheck source=scripts/android-release-manifest.sh
+source "$script_directory/android-release-manifest.sh"
 
 apk="${1:?usage: validate-android-release.sh APK AAB PACKAGE VERSION_CODE VERSION_NAME OUTPUT_DIRECTORY}"
 aab="${2:?missing AAB}"
@@ -167,7 +169,7 @@ grep -Fq 'android:resizeableActivity="true"' "$bundle_manifest" || {
   echo "AAB custom GameActivity is not resizable." >&2
   exit 1
 }
-grep -Fq 'android:screenOrientation="sensorLandscape"' "$bundle_manifest" || {
+starfall_manifest_allows_both_landscape_orientations "$bundle_manifest" || {
   echo "AAB custom GameActivity does not permit both landscape orientations." >&2
   exit 1
 }

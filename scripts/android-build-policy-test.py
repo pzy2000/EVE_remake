@@ -106,6 +106,11 @@ subprocess.run(
     cwd=repository_root,
     check=True,
 )
+subprocess.run(
+    ["bash", str(repository_root / "scripts/test-android-release-manifest.sh")],
+    cwd=repository_root,
+    check=True,
+)
 
 android_back_guard = """#if !UNITY_ANDROID || UNITY_EDITOR
             // Android system Back is owned by StarfallMobileBridge on every supported
