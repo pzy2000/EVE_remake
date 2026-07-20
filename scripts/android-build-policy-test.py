@@ -30,6 +30,10 @@ required_fragments = (
     'var expectedExportType = flavor == SmokeFlavor ? "androidPackage" : "androidStudioProject";',
     "EditorUserBuildSettings.exportAsGoogleAndroidProject = !isSmoke;",
     "EditorUserBuildSettings.buildAppBundle = false;",
+    "PlayerSettings.allowedAutorotateToPortrait = false;",
+    "PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;",
+    "PlayerSettings.allowedAutorotateToLandscapeLeft = true;",
+    "PlayerSettings.allowedAutorotateToLandscapeRight = true;",
 )
 
 missing = [fragment for fragment in required_fragments if fragment not in source]
