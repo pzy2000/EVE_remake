@@ -205,9 +205,19 @@ grep -Fq 'wait_for_gesture_evidence' "$emulator_entry" || {
   echo 'The real Android double-tap gate must synchronize against Unity gesture frames.' >&2
   exit 1
 }
-grep -Fq '"$gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"' \
+grep -Fq '"$first_gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"' \
   "$emulator_entry" || {
   echo 'The double-tap gate must observe the first tap before sending the second.' >&2
+  exit 1
+}
+grep -Fq "until grep -Fq '\$generation_pattern' '\$gesture_remote_path'" \
+  "$emulator_entry" || {
+  echo 'The second real tap must be armed on-device before the first tap is sent.' >&2
+  exit 1
+}
+grep -Fq "cp '\$gesture_remote_path' '\$first_gesture_remote_path'" \
+  "$emulator_entry" || {
+  echo 'The device-side watcher must preserve first-tap evidence before reinjection.' >&2
   exit 1
 }
 grep -Fq '"$gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"' \

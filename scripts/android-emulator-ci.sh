@@ -1210,6 +1210,9 @@ PY
   local gesture_remote_path
   gesture_remote_path="$(starfall_android_app_file_path \
     "$package_name" "starfall-ci-gesture.json")"
+  local first_gesture_remote_path
+  first_gesture_remote_path="$(starfall_android_app_file_path \
+    "$package_name" "starfall-ci-gesture-first.json")"
   local first_gesture="$scenario_directory/Touch.DoubleTap.First.gesture.json"
   local second_gesture="$scenario_directory/Touch.DoubleTap.Second.gesture.json"
   local gesture_generation
@@ -1224,10 +1227,27 @@ print(int(json.load(open(sys.argv[1], encoding="utf-8"))["generation"]))
 PY
 )"
 
+  # The software renderer currently advances at about 3.4 fps at 2748x1172.
+  # Host-side polling skipped a frame (observed frames 242 -> 244, 583 ms),
+  # which correctly produced two ordinary taps outside the 300 ms window.
+  # Arm a device-side watcher first: once Unity writes the first Tap marker in
+  # its Update, the watcher preserves it and injects the second physical tap.
+  # Input System then consumes that event on the immediately following frame.
+  local generation_pattern
+  generation_pattern="\"generation\":$((gesture_generation + 1))"
+  local queued_tap_log="$scenario_directory/Touch.DoubleTap.QueuedTap.txt"
+  adb shell "rm -f '$first_gesture_remote_path'; \
+    until grep -Fq '$generation_pattern' '$gesture_remote_path'; do sleep 0.01; done; \
+    cp '$gesture_remote_path' '$first_gesture_remote_path'; \
+    input tap '$target_x' '$target_y'" >"$queued_tap_log" 2>&1 &
+  local queued_tap_pid=$!
   adb shell input tap "$target_x" "$target_y"
+  if ! wait "$queued_tap_pid"; then
+    echo "The device-side second-tap watcher failed; see $queued_tap_log." >&2
+    exit 1
+  fi
   wait_for_gesture_evidence \
-    "$gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"
-  adb shell input tap "$target_x" "$target_y"
+    "$first_gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"
   wait_for_gesture_evidence \
     "$gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"
   local approached_by_double_tap=false
