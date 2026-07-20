@@ -57,6 +57,7 @@ workflow_requirements = (
     'sudo chown -R "$(id -u):$(id -g)" "$gradle_root"',
     "find downloaded-release -maxdepth 1 -type f -name '*.apk' -print",
     "find downloaded-release -maxdepth 1 -type f -name '*.aab' -print",
+    "android-verify-unity-results.sh artifacts/unity/editmode EditMode 145",
 )
 for fragment in workflow_requirements:
     if fragment not in workflow:
