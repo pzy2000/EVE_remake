@@ -12,6 +12,12 @@ source = build_source.read_text(encoding="utf-8")
 app_root = (repository_root / "UnityProject/Assets/Starfall/App/AppRoot.cs").read_text(
     encoding="utf-8"
 )
+android_ci_automation = (
+    repository_root / "UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
+).read_text(encoding="utf-8")
+space_presenter = (
+    repository_root / "UnityProject/Assets/Starfall/Presentation/SpaceWorldPresenter.cs"
+).read_text(encoding="utf-8")
 workflow = (repository_root / ".github/workflows/android.yml").read_text(encoding="utf-8")
 release_script = (repository_root / "scripts/android-build-release.sh").read_text(
     encoding="utf-8"
@@ -113,5 +119,21 @@ if android_back_guard not in app_root:
         file=sys.stderr,
     )
     raise SystemExit(1)
+
+for fragment in (
+    'case "prepare-touch-target":',
+    "spacePresenter.PrepareAndroidCiTouchTarget()",
+):
+    if fragment not in android_ci_automation:
+        print(f"Missing deterministic Android touch preparation: {fragment}", file=sys.stderr)
+        raise SystemExit(1)
+for fragment in (
+    "TryGetAndroidCiDragPath(out var clearPoint, out _)",
+    'androidCiTouchProxy.name = "AndroidCiTouchProxy"',
+    "TryResolveAndroidCiTouchView(",
+):
+    if fragment not in space_presenter:
+        print(f"Missing raycastable Android touch fixture: {fragment}", file=sys.stderr)
+        raise SystemExit(1)
 
 print("Android smoke/package and release/Gradle export policy passed.")

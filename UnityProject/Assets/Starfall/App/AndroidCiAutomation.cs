@@ -96,6 +96,14 @@ namespace Starfall.App
                     if (!session.State.Docked) throw new InvalidOperationException("Player is already in space");
                     Execute("undock");
                     return "undock queued";
+                case "prepare-touch-target":
+                    RequireSpaceSession();
+                    if (!spacePresenter)
+                        throw new InvalidOperationException("Space presenter is unavailable");
+                    var touchTargetId = spacePresenter.PrepareAndroidCiTouchTarget();
+                    if (string.IsNullOrEmpty(touchTargetId))
+                        throw new InvalidOperationException("Space presenter has no non-player touch target");
+                    return touchTargetId;
                 case "select-first-station":
                     RequireSpaceSession();
                     var station = session.State.Universe.Systems[session.State.Player.CurrentSystemId]

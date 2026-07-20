@@ -1098,8 +1098,30 @@ run_scenario() {
   # Exercise the real Android -> Input System -> world/UI paths. The smoke-only
   # status response supplies a raycast-proven world target and a UI-free drag path;
   # it does not invoke the gestures themselves.
+  dispatch_ci_command \
+    "prepare-touch-target" "$scenario_directory/Touch.Prepare.command.json"
   local touch_initial="$scenario_directory/Touch.Initial.command.json"
-  dispatch_ci_command "status" "$touch_initial"
+  local touch_target_ready=false
+  for _ in $(seq 1 40); do
+    dispatch_ci_command "status" "$touch_initial"
+    if python3 - "$touch_initial" <<'PY'
+import json
+import sys
+
+payload = json.load(open(sys.argv[1], encoding="utf-8"))
+required = ("touchTargetId", "touchTargetX", "touchTargetY")
+raise SystemExit(0 if all(name in payload for name in required) else 1)
+PY
+    then
+      touch_target_ready=true
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$touch_target_ready" != "true" ]]; then
+    echo "The prepared world target never became visible and raycast-selectable." >&2
+    exit 1
+  fi
   local touch_coordinates
   touch_coordinates="$(python3 - "$touch_initial" "$height" <<'PY'
 import json

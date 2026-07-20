@@ -26,6 +26,10 @@ namespace Starfall.Presentation
         private float lastClickTime = -10f;
         private Vector2 lastClickPosition;
         private bool touchInputActive;
+#if STARFALL_ANDROID_CI
+        private GameObject androidCiTouchProxy;
+        private string androidCiTouchProxyId = string.Empty;
+#endif
 
         public event Action<string> SelectionChanged;
         public event Action<Vector3, string> ApproachRequested;
@@ -168,6 +172,33 @@ namespace Starfall.Presentation
             ? cameraController.AndroidCiDistance
             : float.NaN;
 
+        public string PrepareAndroidCiTouchTarget()
+        {
+            if (!cameraController || !cameraController.Camera) return string.Empty;
+            if (!TryGetAndroidCiDragPath(out var clearPoint, out _)) return string.Empty;
+            foreach (var pair in views)
+            {
+                var view = pair.Value;
+                if (!view || !dataById.TryGetValue(pair.Key, out var data) || data.IsPlayer) continue;
+
+                if (androidCiTouchProxy) Destroy(androidCiTouchProxy);
+                androidCiTouchProxy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                androidCiTouchProxy.name = "AndroidCiTouchProxy";
+                androidCiTouchProxy.hideFlags = HideFlags.DontSave;
+                androidCiTouchProxy.transform.SetParent(worldRoot, false);
+                androidCiTouchProxy.transform.position = cameraController.Camera
+                    .ScreenPointToRay(clearPoint).GetPoint(8f);
+                androidCiTouchProxy.transform.localScale = Vector3.one * 0.9f;
+                androidCiTouchProxy.GetComponent<Renderer>().sharedMaterial =
+                    ProceduralShipFactory.GetMaterial("android-ci-touch-proxy", data.Color, 0.2f, 0f, true);
+                androidCiTouchProxy.AddComponent<SelectableView>().Configure(data);
+                androidCiTouchProxyId = pair.Key;
+                Physics.SyncTransforms();
+                return pair.Key;
+            }
+            return string.Empty;
+        }
+
         public bool TryGetAndroidCiTouchTarget(out string stableId, out Vector2 screenPosition)
         {
             stableId = string.Empty;
@@ -175,24 +206,39 @@ namespace Starfall.Presentation
             if (!cameraController || !cameraController.Camera) return false;
 
             Physics.SyncTransforms();
+            if (androidCiTouchProxy && TryResolveAndroidCiTouchView(
+                    androidCiTouchProxy, androidCiTouchProxyId, out screenPosition))
+            {
+                stableId = androidCiTouchProxyId;
+                return true;
+            }
             foreach (var pair in views)
             {
                 var view = pair.Value;
                 if (!view || !dataById.TryGetValue(pair.Key, out var data) || data.IsPlayer) continue;
-                var projected = cameraController.Camera.WorldToScreenPoint(view.transform.position);
-                var candidate = new Vector2(projected.x, projected.y);
-                if (projected.z <= 0f || !IsInsideScreen(candidate) || WorldPointerBlocker.Blocks(candidate))
-                    continue;
-                var ray = cameraController.Camera.ScreenPointToRay(candidate);
-                if (!Physics.Raycast(ray, out var hit, 15000f)) continue;
-                var selectable = hit.collider.GetComponentInParent<SelectableView>();
-                if (!selectable || !string.Equals(selectable.StableId, pair.Key, StringComparison.Ordinal))
-                    continue;
+                if (!TryResolveAndroidCiTouchView(view, pair.Key, out var candidate)) continue;
                 stableId = pair.Key;
                 screenPosition = candidate;
                 return true;
             }
             return false;
+        }
+
+        private bool TryResolveAndroidCiTouchView(
+            GameObject view, string stableId, out Vector2 screenPosition)
+        {
+            screenPosition = default;
+            var projected = cameraController.Camera.WorldToScreenPoint(view.transform.position);
+            var candidate = new Vector2(projected.x, projected.y);
+            if (projected.z <= 0f || !IsInsideScreen(candidate) || WorldPointerBlocker.Blocks(candidate))
+                return false;
+            var ray = cameraController.Camera.ScreenPointToRay(candidate);
+            if (!Physics.Raycast(ray, out var hit, 15000f)) return false;
+            var selectable = hit.collider.GetComponentInParent<SelectableView>();
+            if (!selectable || !string.Equals(selectable.StableId, stableId, StringComparison.Ordinal))
+                return false;
+            screenPosition = candidate;
+            return true;
         }
 
         public bool TryGetAndroidCiDragPath(out Vector2 start, out Vector2 end)
