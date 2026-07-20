@@ -39,9 +39,10 @@ tap_coordinate() {
   fi
   adb shell input tap "$tap_x" "$tap_y"
   # `input tap` returns before Unity necessarily consumes the pointer-up event.
-  # Keep sequential UI controls on distinct player frames; otherwise a burst of
-  # Station tab/save/settings taps can collapse into the first click only.
-  sleep 0.25
+  # SwiftShader runners can render below 4 fps while a scene is settling. Give
+  # each system tap a full second so sequential Station tab/save/settings taps
+  # cannot collapse into one Unity player frame and lose the final action.
+  sleep 1
 }
 
 dismiss_known_system_startup_dialogs() {
