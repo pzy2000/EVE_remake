@@ -8,13 +8,18 @@ on:
         description: Android CI run ID or full 40-character commit SHA
         required: true
         type: string
+      script_ref:
+        description: Optional ref containing newer emulator scripts; APK remains frozen
+        required: false
+        default: ''
+        type: string
 
 permissions:
   actions: read
   contents: read
 
 concurrency:
-  group: android-emulator-replay-${{ inputs.source_run }}
+  group: android-emulator-replay-${{ inputs.source_run }}-${{ inputs.script_ref || 'apk-source' }}
   cancel-in-progress: false
 
 env:
@@ -86,20 +91,40 @@ jobs:
           {
             echo '### Emulator replay source'
             echo "- Android CI run: $run_id"
-            echo "- Commit: $head_sha"
+            echo "- APK commit: $head_sha"
+            echo "- Script ref: ${{ inputs.script_ref || 'same as APK commit' }}"
             echo '- APK: retained `starfall-android-ci-smoke-x86_64` artifact'
           } >>"$GITHUB_STEP_SUMMARY"
 
-  replay-emulators:
-    name: Replay API 36 and API 32
+  replay-api36-scenarios:
+    name: API 36 / ${{ matrix.slug }}
     needs: resolve-source
     runs-on: ubuntu-24.04
-    timeout-minutes: 165
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - slug: compact-vulkan
+            scenario: 2748x1172-420-vulkan-preferred
+          - slug: square-vulkan
+            scenario: 2480x2200-420-vulkan-preferred
+          - slug: vertical-hinge
+            scenario: 2480x2200-420-vertical-hinge
+          - slug: horizontal-half-opened
+            scenario: 2480x2200-420-horizontal-half-opened
+          - slug: compact-gles3
+            scenario: 2748x1172-420-gles3
+          - slug: compact-320dpi
+            scenario: 2748x1172-320-geometry
+          - slug: square-560dpi
+            scenario: 2480x2200-560-geometry
     steps:
-      - name: Check out exact APK source revision
+      - name: Check out emulator scripts
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          ref: ${{ needs.resolve-source.outputs.head_sha }}
+          ref: ${{ inputs.script_ref || needs.resolve-source.outputs.head_sha }}
           persist-credentials: false
 
       - name: Download retained smoke APK
@@ -141,10 +166,11 @@ jobs:
           test -r /dev/kvm
           test -w /dev/kvm
 
-      - name: Replay API 36 geometry, lifecycle, and log gates
-        id: api36
-        continue-on-error: true
+      - name: Replay selected API 36 scenario
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          STARFALL_ANDROID_SUITE: scenarios
+          STARFALL_ANDROID_SCENARIOS: ${{ matrix.scenario }}
         with:
           api-level: 36
           target: default
@@ -159,19 +185,147 @@ jobs:
           disable-animations: true
           script: bash scripts/android-emulator-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-emulator
 
-      - name: Upload replay API 36 evidence
+      - name: Upload scenario evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: android-emulator-replay-api36-${{ needs.resolve-source.outputs.run_id }}
+          name: android-replay-api36-${{ matrix.slug }}-${{ needs.resolve-source.outputs.run_id }}
           path: artifacts/android-emulator
           if-no-files-found: warn
           overwrite: true
           retention-days: 30
 
+  replay-api36-lifecycle:
+    name: API 36 / lifecycle and stability
+    needs: resolve-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - name: Check out emulator scripts
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ inputs.script_ref || needs.resolve-source.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Download retained smoke APK
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: starfall-android-ci-smoke-${{ env.STARFALL_EMULATOR_ARCH }}
+          path: downloaded-smoke
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.resolve-source.outputs.run_id }}
+
+      - name: Locate smoke APK
+        id: smoke
+        shell: bash
+        run: |
+          apk="$(find downloaded-smoke -type f -name '*.apk' -print -quit)"
+          test -n "$apk"
+          test -s "$apk"
+          echo "apk=$apk" >>"$GITHUB_OUTPUT"
+
+      - name: Enable KVM acceleration
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          if [[ ! -c /dev/kvm ]]; then
+            sudo modprobe kvm || true
+            sudo modprobe kvm_intel || true
+          fi
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          for _ in {1..30}; do
+            [[ -c /dev/kvm && -r /dev/kvm && -w /dev/kvm ]] && exit 0
+            sleep 1
+          done
+          ls -l /dev/kvm || true
+          lsmod | grep -E '^kvm' || true
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+
+      - name: Replay API 36 lifecycle and stability
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          STARFALL_ANDROID_SUITE: lifecycle
+        with:
+          api-level: 36
+          target: default
+          arch: ${{ env.STARFALL_EMULATOR_ARCH }}
+          profile: pixel_2
+          cores: 4
+          ram-size: 3072M
+          heap-size: 1024M
+          disk-size: 12G
+          emulator-build: 15004761
+          emulator-options: -no-window -gpu software -feature -Vulkan -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash scripts/android-emulator-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-lifecycle
+
+      - name: Upload lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: android-replay-api36-lifecycle-${{ needs.resolve-source.outputs.run_id }}
+          path: artifacts/android-lifecycle
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 30
+
+  replay-api32-back:
+    name: API 32 / Back compatibility
+    needs: resolve-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out emulator scripts
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ inputs.script_ref || needs.resolve-source.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Download retained smoke APK
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: starfall-android-ci-smoke-${{ env.STARFALL_EMULATOR_ARCH }}
+          path: downloaded-smoke
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.resolve-source.outputs.run_id }}
+
+      - name: Locate smoke APK
+        id: smoke
+        shell: bash
+        run: |
+          apk="$(find downloaded-smoke -type f -name '*.apk' -print -quit)"
+          test -n "$apk"
+          test -s "$apk"
+          echo "apk=$apk" >>"$GITHUB_OUTPUT"
+
+      - name: Enable KVM acceleration
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          if [[ ! -c /dev/kvm ]]; then
+            sudo modprobe kvm || true
+            sudo modprobe kvm_intel || true
+          fi
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          for _ in {1..30}; do
+            [[ -c /dev/kvm && -r /dev/kvm && -w /dev/kvm ]] && exit 0
+            sleep 1
+          done
+          ls -l /dev/kvm || true
+          lsmod | grep -E '^kvm' || true
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+
       - name: Replay API 32 Back compatibility
-        id: api32
-        continue-on-error: true
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 32
@@ -187,28 +341,46 @@ jobs:
           disable-animations: true
           script: bash scripts/android-back-compat-ci.sh "${{ steps.smoke.outputs.apk }}" artifacts/android-back-compat
 
-      - name: Upload replay API 32 evidence
+      - name: Upload API 32 evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: android-emulator-replay-api32-${{ needs.resolve-source.outputs.run_id }}
+          name: android-replay-api32-back-${{ needs.resolve-source.outputs.run_id }}
           path: artifacts/android-back-compat
           if-no-files-found: warn
           overwrite: true
           retention-days: 30
 
-      - name: Enforce both replay gates
-        if: always()
+  enforce-replay:
+    name: Enforce complete replay inventory
+    if: always()
+    needs:
+      - resolve-source
+      - replay-api36-scenarios
+      - replay-api36-lifecycle
+      - replay-api32-back
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Publish and enforce replay results
         shell: bash
         env:
-          API36_OUTCOME: ${{ steps.api36.outcome }}
-          API32_OUTCOME: ${{ steps.api32.outcome }}
+          SOURCE_RESULT: ${{ needs.resolve-source.result }}
+          SCENARIO_RESULT: ${{ needs.replay-api36-scenarios.result }}
+          LIFECYCLE_RESULT: ${{ needs.replay-api36-lifecycle.result }}
+          API32_RESULT: ${{ needs.replay-api32-back.result }}
           SOURCE_RUN_ID: ${{ needs.resolve-source.outputs.run_id }}
         run: |
           {
-            echo '### Emulator replay result'
-            echo "- Source Android CI run: $SOURCE_RUN_ID"
-            echo "- API 36: $API36_OUTCOME"
-            echo "- API 32: $API32_OUTCOME"
+            echo '### Emulator replay inventory'
+            echo "- Source resolution: $SOURCE_RESULT"
+            echo "- API 36 scenario matrix: $SCENARIO_RESULT"
+            echo "- API 36 lifecycle/stability: $LIFECYCLE_RESULT"
+            echo "- API 32 Back: $API32_RESULT"
+            echo "- Frozen APK run: $SOURCE_RUN_ID"
+            echo '- Exact scenario failures are listed as independent matrix jobs.'
           } >>"$GITHUB_STEP_SUMMARY"
-          [[ "$API36_OUTCOME" == 'success' && "$API32_OUTCOME" == 'success' ]]
+          [[ "$SOURCE_RESULT" == 'success' ]]
+          [[ "$SCENARIO_RESULT" == 'success' ]]
+          [[ "$LIFECYCLE_RESULT" == 'success' ]]
+          [[ "$API32_RESULT" == 'success' ]]

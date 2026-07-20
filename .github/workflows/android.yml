@@ -81,6 +81,8 @@ jobs:
           python3 -m py_compile \
             scripts/assert-png-color.py \
             scripts/test-assert-png-color.py \
+            scripts/validate-android-ui-layout.py \
+            scripts/test-validate-android-ui-layout.py \
             scripts/validate-unity-metas.py \
             scripts/test-validate-unity-metas.py \
             scripts/rewrite-unity-android-paths.py \
@@ -88,6 +90,7 @@ jobs:
           python3 scripts/validate-unity-metas.py UnityProject/Assets
           python3 scripts/test-validate-unity-metas.py
           python3 scripts/test-assert-png-color.py
+          python3 scripts/test-validate-android-ui-layout.py
           bash scripts/test-android-emulator-common.sh
           python3 scripts/test-rewrite-unity-android-paths.py
           if command -v shellcheck >/dev/null 2>&1; then
@@ -342,11 +345,40 @@ jobs:
           retention-days: 30
 
   android-emulator:
-    name: API 36 acceptance and API 32 Back compatibility
+    name: API 36 / ${{ matrix.slug }}
     needs: unity-android
     if: needs.unity-android.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 165
+    timeout-minutes: 105
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - slug: compact-vulkan
+            suite: scenarios
+            scenario: 2748x1172-420-vulkan-preferred
+          - slug: square-vulkan
+            suite: scenarios
+            scenario: 2480x2200-420-vulkan-preferred
+          - slug: vertical-hinge
+            suite: scenarios
+            scenario: 2480x2200-420-vertical-hinge
+          - slug: horizontal-half-opened
+            suite: scenarios
+            scenario: 2480x2200-420-horizontal-half-opened
+          - slug: compact-gles3
+            suite: scenarios
+            scenario: 2748x1172-420-gles3
+          - slug: compact-320dpi
+            suite: scenarios
+            scenario: 2748x1172-320-geometry
+          - slug: square-560dpi
+            suite: scenarios
+            scenario: 2480x2200-560-geometry
+          - slug: lifecycle-stability
+            suite: lifecycle
+            scenario: all
     steps:
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -388,8 +420,11 @@ jobs:
           test -r /dev/kvm
           test -w /dev/kvm
 
-      - name: Run API 36 geometry, lifecycle, and log gates
+      - name: Run selected API 36 acceptance shard
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          STARFALL_ANDROID_SUITE: ${{ matrix.suite }}
+          STARFALL_ANDROID_SCENARIOS: ${{ matrix.scenario }}
         with:
           api-level: 36
           target: default
@@ -408,11 +443,59 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: android-emulator-api36-${{ env.STARFALL_EMULATOR_ARCH }}
+          name: android-emulator-api36-${{ matrix.slug }}-${{ env.STARFALL_EMULATOR_ARCH }}
           path: artifacts/android-emulator
           if-no-files-found: warn
           overwrite: true
           retention-days: 30
+
+  android-back-compat:
+    name: API 32 Back compatibility
+    needs: unity-android
+    if: needs.unity-android.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Download smoke APK
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: starfall-android-ci-smoke-${{ env.STARFALL_EMULATOR_ARCH }}
+          path: downloaded-smoke
+
+      - name: Locate smoke APK
+        id: smoke
+        shell: bash
+        run: |
+          apk="$(find downloaded-smoke -type f -name '*.apk' -print -quit)"
+          test -n "$apk"
+          test -s "$apk"
+          echo "apk=$apk" >>"$GITHUB_OUTPUT"
+
+      - name: Enable KVM acceleration
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          if [[ ! -c /dev/kvm ]]; then
+            sudo modprobe kvm || true
+            sudo modprobe kvm_intel || true
+          fi
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          for _ in {1..30}; do
+            [[ -c /dev/kvm && -r /dev/kvm && -w /dev/kvm ]] && exit 0
+            sleep 1
+          done
+          ls -l /dev/kvm || true
+          lsmod | grep -E '^kvm' || true
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
 
       - name: Verify API 26-32 Back compatibility on API 32
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
@@ -822,11 +905,13 @@ jobs:
     needs:
       - android-release
       - android-emulator
+      - android-back-compat
       - github-release
     if: >-
       github.event_name == 'push' &&
       needs.android-release.result == 'success' &&
       needs.android-emulator.result == 'success' &&
+      needs.android-back-compat.result == 'success' &&
       needs.github-release.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -875,12 +960,14 @@ jobs:
     needs:
       - android-release
       - android-emulator
+      - android-back-compat
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       vars.ENABLE_PLAY_INTERNAL == 'true' &&
       needs.android-release.result == 'success' &&
-      needs.android-emulator.result == 'success'
+      needs.android-emulator.result == 'success' &&
+      needs.android-back-compat.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: google-play-internal

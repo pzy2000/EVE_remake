@@ -79,6 +79,7 @@ ci_minimal_shader="$script_directory/../UnityProject/Assets/Starfall/Shaders/Sta
 android_panel_settings="$script_directory/../UnityProject/Assets/Resources/StarfallAndroidPanelSettings.asset"
 android_scene_processor="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidSceneProcessor.cs"
 workflow_entry="$script_directory/../.github/workflows/android.yml"
+replay_workflow_entry="$script_directory/../.github/workflows/android-emulator-replay.yml"
 grep -Fq \
   '{fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}' \
   "$graphics_settings" || {
@@ -136,6 +137,50 @@ if grep -Eq -- '-gpu (swiftshader|swiftshader_indirect)' "$workflow_entry"; then
   echo 'The ColorBuffer-crashing or deprecated SwiftShader modes must not return.' >&2
   exit 1
 fi
+grep -Fq 'STARFALL_ANDROID_SUITE' "$emulator_entry" || {
+  echo 'The API 36 acceptance script must support independently replayable suites.' >&2
+  exit 1
+}
+grep -Fq 'STARFALL_ANDROID_SCENARIOS' "$emulator_entry" || {
+  echo 'The API 36 acceptance script must support exact scenario selection.' >&2
+  exit 1
+}
+grep -Fq 'record_scenario_stage' "$emulator_entry" || {
+  echo 'Every API 36 scenario must retain monotonic stage evidence.' >&2
+  exit 1
+}
+grep -Fq 'fail-fast: false' "$replay_workflow_entry" || {
+  echo 'Replay scenario shards must continue after another scenario fails.' >&2
+  exit 1
+}
+[[ "$(grep -Ec '^          - slug: ' "$replay_workflow_entry")" == "7" ]] || {
+  echo 'Replay must keep all seven API 36 acceptance scenarios as independent shards.' >&2
+  exit 1
+}
+grep -Fq 'script_ref:' "$replay_workflow_entry" || {
+  echo 'Replay must allow newer scripts to test a frozen retained APK.' >&2
+  exit 1
+}
+grep -A4 '^  replay-api32-back:' "$replay_workflow_entry" \
+  | grep -Fq 'needs: resolve-source' || {
+  echo 'API 32 replay must depend only on APK resolution, never on API 36.' >&2
+  exit 1
+}
+grep -A5 '^  android-back-compat:' "$workflow_entry" \
+  | grep -Fq 'needs: unity-android' || {
+  echo 'Main CI must run API 32 independently of API 36 acceptance.' >&2
+  exit 1
+}
+grep -A12 '^  android-emulator:' "$workflow_entry" \
+  | grep -Fq 'fail-fast: false' || {
+  echo 'Main CI must collect every API 36 shard result after one shard fails.' >&2
+  exit 1
+}
+[[ "$(sed -n '/^  android-emulator:/,/^  android-back-compat:/p' "$workflow_entry" \
+  | grep -Ec '^          - slug: ')" == "8" ]] || {
+  echo 'Main CI must shard seven layout scenarios plus lifecycle/stability.' >&2
+  exit 1
+}
 grep -Fq 'PlayerSettings.SplashScreen.show = !isSmoke;' "$android_build_entry" || {
   echo 'The smoke player must disable the Unity splash without changing release builds.' >&2
   exit 1

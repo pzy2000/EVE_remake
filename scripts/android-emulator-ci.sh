@@ -12,6 +12,8 @@ expected_activity="$package_name/com.pzy.starfall.mobile.StarfallUnityGameActivi
 debug_layout_action="com.pzy.starfall.mobile.DEBUG_WINDOW_LAYOUT"
 debug_command_action="com.pzy.starfall.mobile.DEBUG_COMMAND"
 expected_architecture="${STARFALL_EMULATOR_ARCH:-x86_64}"
+acceptance_suite="${STARFALL_ANDROID_SUITE:-all}"
+scenario_filter="${STARFALL_ANDROID_SCENARIOS:-all}"
 command_request_id=500000
 world_swipe_duration_ms=1500
 persistent_data_directory="$(starfall_android_app_files_directory "$package_name")"
@@ -20,6 +22,13 @@ if [[ "$expected_architecture" != "x86_64" && "$expected_architecture" != "arm64
   echo "STARFALL_EMULATOR_ARCH must be x86_64 or arm64-v8a." >&2
   exit 2
 fi
+case "$acceptance_suite" in
+  all|scenarios|lifecycle) ;;
+  *)
+    echo "STARFALL_ANDROID_SUITE must be all, scenarios, or lifecycle." >&2
+    exit 2
+    ;;
+esac
 if [[ ! -f "$apk" ]]; then
   echo "Smoke APK does not exist: $apk" >&2
   exit 2
@@ -27,6 +36,29 @@ fi
 
 mkdir -p "$results_directory"
 results_directory="$(cd "$results_directory" && pwd -P)"
+
+scenario_is_selected() {
+  local wanted_label="$1"
+  local selected_label
+  local -a selected_labels=()
+  if [[ "$scenario_filter" == "all" ]]; then
+    return 0
+  fi
+  IFS=',' read -r -a selected_labels <<<"$scenario_filter"
+  for selected_label in "${selected_labels[@]}"; do
+    if [[ "$selected_label" == "$wanted_label" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+record_scenario_stage() {
+  local stage_file="$1"
+  local stage_name="$2"
+  scenario_stage_sequence=$((scenario_stage_sequence + 1))
+  printf '%02d\tPASS\t%s\n' "$scenario_stage_sequence" "$stage_name" >>"$stage_file"
+}
 
 tap_coordinate() {
   local coordinate="$1"
@@ -587,6 +619,7 @@ required_by_surface = {
     "death-card": {"respawn"},
     "target-panel": {"approach", "orbit", "warp", "lock", "dock"},
 }
+
 required_controls |= required_by_surface.get(expected_surface, set())
 visible_control_names = {item.get("name") for item in visible_controls}
 missing_controls = sorted(required_controls - visible_control_names)
@@ -626,6 +659,19 @@ for text in visible_texts:
         raise SystemExit(f"{path}: non-scrolling text {name!r} is clipped")
     validate_visible_rect(rect_from(text, "visibleBoundsDp"), "text", name)
 PY
+}
+
+# Override the original inline validator with the aggregate reporter. Every
+# layout snapshot now emits a machine-readable verdict and all defects found
+# in that snapshot instead of stopping at the first one.
+validate_ui_layout_json() {
+  local ui_json="$1"
+  local expected_mode="$2"
+  local require_hinge="$3"
+  local expected_surface="${4:-}"
+  python3 "$script_directory/validate-android-ui-layout.py" \
+    "$ui_json" "$expected_mode" "$require_hinge" "$expected_surface" \
+    "$ui_json.validation.json"
 }
 
 wait_for_ui_surface() {
@@ -1032,11 +1078,15 @@ run_scenario() {
   local actual_graphics_name
   local graphics_verdict
   local qemu_marker
+  local scenario_stage_sequence=0
   density_scale="$(python3 -c "print(${density_dpi} / 160.0)")"
   qemu_marker="$(adb shell getprop ro.kernel.qemu | tr -d '\r')"
 
   local scenario_directory="$results_directory/$label"
   mkdir -p "$scenario_directory"
+  local stage_file="$scenario_directory/stages.tsv"
+  : >"$stage_file"
+  record_scenario_stage "$stage_file" "APK installed"
   adb shell pm clear "$package_name" >/dev/null
   dismiss_known_system_startup_dialogs "$label-before-start"
   configure_landscape_display \
@@ -1051,6 +1101,7 @@ run_scenario() {
     "$scenario_directory/immersive-mode-confirmation"
   starfall_wait_for_unity_render_ready \
     "$package_name" "$scenario_directory/render-ready.json" MainMenu
+  record_scenario_stage "$stage_file" "Unity initialized"
 
   local expected_graphics_device
   case "$graphics_argument" in
@@ -1083,6 +1134,7 @@ run_scenario() {
   pull_app_file "starfall-ci-layout-MainMenu.json" "$scenario_directory/MainMenu.layout.json"
   validate_ui_layout_json "$scenario_directory/MainMenu.layout.json" "$expected_mode" "$require_hinge"
   capture_screen "$label-MainMenu" "$width" "$height" "$scenario_directory/MainMenu.layout.json"
+  record_scenario_stage "$stage_file" "MainMenu layout and PNG"
 
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface \
@@ -1098,6 +1150,7 @@ run_scenario() {
   pull_app_file "starfall-ci-layout-Station.json" "$scenario_directory/Station.layout.json"
   validate_ui_layout_json "$scenario_directory/Station.layout.json" "$expected_mode" "$require_hinge"
   capture_screen "$label-Station" "$width" "$height" "$scenario_directory/Station.layout.json"
+  record_scenario_stage "$stage_file" "Station layout and PNG"
 
   tap_control "$scenario_directory/Station.layout.json" "tab-market"
   tap_control "$scenario_directory/Station.layout.json" "tab-fitting"
@@ -1108,6 +1161,7 @@ run_scenario() {
   validate_ui_layout_json \
     "$scenario_directory/Station.Settings.layout.json" "$expected_mode" "$require_hinge" "settings-card"
   capture_screen "$label-Station-Settings" "$width" "$height"
+  record_scenario_stage "$stage_file" "Station Settings layout and PNG"
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Station.json" "settings-card"
 
@@ -1125,6 +1179,7 @@ run_scenario() {
   pull_app_file "starfall-ci-layout-Space.json" "$scenario_directory/Space.layout.json"
   validate_ui_layout_json "$scenario_directory/Space.layout.json" "$expected_mode" "$require_hinge"
   capture_screen "$label-Space" "$width" "$height" "$scenario_directory/Space.layout.json"
+  record_scenario_stage "$stage_file" "Space layout and PNG"
 
   if [[ "$expected_mode" == "CompactLandscape" ]]; then
     tap_control "$scenario_directory/Space.layout.json" "mobile-target-toggle"
@@ -1360,6 +1415,7 @@ PY
     echo "A real ADB tap on module-1 did not toggle the live module state." >&2
     exit 1
   fi
+  record_scenario_stage "$stage_file" "ADB touch selection, double-tap, drag, and module"
 
   tap_control "$scenario_directory/Space.layout.json" "settings"
   wait_for_ui_surface \
@@ -1367,6 +1423,7 @@ PY
   validate_ui_layout_json \
     "$scenario_directory/Settings.layout.json" "$expected_mode" "$require_hinge" "settings-card"
   capture_screen "$label-Settings" "$width" "$height"
+  record_scenario_stage "$stage_file" "Space Settings layout and PNG"
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "settings-card"
 
@@ -1377,6 +1434,7 @@ PY
   validate_ui_layout_json \
     "$scenario_directory/Starmap.layout.json" "$expected_mode" "$require_hinge" "starmap-card"
   capture_screen "$label-Starmap" "$width" "$height"
+  record_scenario_stage "$stage_file" "Starmap layout and PNG"
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "starmap-card"
 
@@ -1386,6 +1444,7 @@ PY
   validate_ui_layout_json \
     "$scenario_directory/Journal.layout.json" "$expected_mode" "$require_hinge" "journal-card"
   capture_screen "$label-Journal" "$width" "$height"
+  record_scenario_stage "$stage_file" "Journal layout and PNG"
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "journal-card"
 
@@ -1409,6 +1468,7 @@ PY
   validate_ui_layout_json \
     "$scenario_directory/CombatLog.layout.json" "$expected_mode" "$require_hinge" "combat-log-scroll"
   capture_screen "$label-CombatLog" "$width" "$height"
+  record_scenario_stage "$stage_file" "Combat Log layout and PNG"
   if [[ "$expected_mode" == "CompactLandscape" ]]; then
     tap_control "$scenario_directory/CombatLog.layout.json" "mobile-overview-toggle"
     wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "combat-log-scroll"
@@ -1422,6 +1482,7 @@ PY
   validate_ui_layout_json \
     "$scenario_directory/BackConfirmation.layout.json" "$expected_mode" "$require_hinge" "confirmation-card"
   capture_screen "$label-BackConfirmation" "$width" "$height"
+  record_scenario_stage "$stage_file" "Back behavior and confirmation layout"
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "confirmation-card"
 
@@ -1432,6 +1493,7 @@ PY
   validate_ui_layout_json \
     "$scenario_directory/Death.layout.json" "$expected_mode" "$require_hinge" "death-card"
   capture_screen "$label-Death-Fixture" "$width" "$height"
+  record_scenario_stage "$stage_file" "Death overlay layout and PNG"
   printf 'source=STARFALL_ANDROID_CI show-death-overlay fixture\nreleaseIncluded=false\n' \
     >"$scenario_directory/death-fixture.txt"
 
@@ -1450,21 +1512,39 @@ PY
   printf 'actualGraphicsDeviceType=%s\nactualGraphicsDeviceName=%s\ngraphicsVerification=%s\n' \
     "$actual_graphics_device" "$actual_graphics_name" "$graphics_verdict" \
     >>"$scenario_directory/scenario.txt"
+  record_scenario_stage "$stage_file" "shader and logcat gates"
+}
+
+run_selected_scenario() {
+  local label="$1"
+  if ! scenario_is_selected "$label"; then
+    return 0
+  fi
+  selected_scenario_count=$((selected_scenario_count + 1))
+  run_scenario "$@"
 }
 
 no_fold='[]'
 vertical_hinge='[{"bounds":{"x":1198,"y":0,"width":84,"height":2200},"orientation":"VERTICAL","state":"FLAT","occlusion":"FULL","separating":true}]'
 horizontal_hinge='[{"bounds":{"x":0,"y":1060,"width":2480,"height":80},"orientation":"HORIZONTAL","state":"HALF_OPENED","occlusion":"NONE","separating":true}]'
 
-run_scenario "2748x1172-420-vulkan-preferred" 2748 1172 420 CompactLandscape -force-vulkan "$no_fold" false
-run_scenario "2480x2200-420-vulkan-preferred" 2480 2200 420 SquareExpanded -force-vulkan "$no_fold" false
-run_scenario "2480x2200-420-vertical-hinge" 2480 2200 420 SquareExpanded -force-vulkan "$vertical_hinge" true
-run_scenario "2480x2200-420-horizontal-half-opened" 2480 2200 420 SquareExpanded -force-vulkan "$horizontal_hinge" true
-run_scenario "2748x1172-420-gles3" 2748 1172 420 CompactLandscape -force-gles30 "$no_fold" false
-run_scenario "2748x1172-320-geometry" 2748 1172 320 CompactLandscape -force-vulkan "$no_fold" false
-run_scenario "2480x2200-560-geometry" 2480 2200 560 SquareExpanded -force-vulkan "$no_fold" false
+selected_scenario_count=0
+if [[ "$acceptance_suite" == "all" || "$acceptance_suite" == "scenarios" ]]; then
+  run_selected_scenario "2748x1172-420-vulkan-preferred" 2748 1172 420 CompactLandscape -force-vulkan "$no_fold" false
+  run_selected_scenario "2480x2200-420-vulkan-preferred" 2480 2200 420 SquareExpanded -force-vulkan "$no_fold" false
+  run_selected_scenario "2480x2200-420-vertical-hinge" 2480 2200 420 SquareExpanded -force-vulkan "$vertical_hinge" true
+  run_selected_scenario "2480x2200-420-horizontal-half-opened" 2480 2200 420 SquareExpanded -force-vulkan "$horizontal_hinge" true
+  run_selected_scenario "2748x1172-420-gles3" 2748 1172 420 CompactLandscape -force-gles30 "$no_fold" false
+  run_selected_scenario "2748x1172-320-geometry" 2748 1172 320 CompactLandscape -force-vulkan "$no_fold" false
+  run_selected_scenario "2480x2200-560-geometry" 2480 2200 560 SquareExpanded -force-vulkan "$no_fold" false
+  if (( selected_scenario_count == 0 )); then
+    echo "STARFALL_ANDROID_SCENARIOS did not select a known scenario: $scenario_filter" >&2
+    exit 2
+  fi
+fi
 
-run_legacy_saf_import
+if [[ "$acceptance_suite" == "all" || "$acceptance_suite" == "lifecycle" ]]; then
+  run_legacy_saf_import
 
 # Exercise actual simulation transitions, repeated procedural presentation,
 # twelve jumps, hostile engagement, and the post-warmup PSS growth rule.
@@ -1601,5 +1681,6 @@ fi
 adb shell ls -l "$persistent_data_directory/Saves" \
   >"$results_directory/force-stop-save-files.txt"
 assert_no_app_failures "lifecycle-force-stop-continue"
+fi
 
 echo "Android emulator acceptance evidence: $results_directory"
