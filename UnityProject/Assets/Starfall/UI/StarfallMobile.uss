@@ -239,6 +239,17 @@
     margin-bottom: 4px;
 }
 
+/* The 84px center hinge leaves about 428dp for all four Station actions at
+   420dpi. Override the desktop 104px + 7px rhythm so UNDOCK cannot be clipped
+   by the safe root while every action retains the global 48dp minimum. */
+.mobile.hinge-vertical .station-header-actions Button {
+    width: auto;
+    min-width: 48px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-left: 4px;
+}
+
 /* Dynamic dialogs live inside a single vertical pane. Account for their own
    padding so controls never spill into the 84px occluding hinge. */
 .mobile.hinge-vertical .settings-card {

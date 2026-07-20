@@ -421,6 +421,9 @@ namespace Starfall.Tests.PlayMode
                     button.worldBound.height + Epsilon >= MobileUiCoordinator.MinimumTouchTargetDp,
                     Is.True,
                     $"{profile.Name}/{scene}: {name} rendered below 48dp.");
+                Assert.That(RectContains(root.worldBound, button.worldBound), Is.True,
+                    $"{profile.Name}/{scene}: {name} is clipped by the mobile safe root; " +
+                    $"button={button.worldBound}, root={root.worldBound}.");
             }
         }
 
