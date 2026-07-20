@@ -1173,7 +1173,7 @@ PY
     exit 1
   fi
 
-  adb shell "input tap $target_x $target_y; input tap $target_x $target_y"
+  starfall_adb_double_tap "$target_x" "$target_y"
   local approached_by_double_tap=false
   for _ in $(seq 1 40); do
     dispatch_ci_command "status" "$scenario_directory/Touch.DoubleTap.command.json"

@@ -26,6 +26,21 @@ if adb get-state; then
 fi
 [[ "$timeout_wrapper_calls" == "1" ]]
 
+double_tap_trace="$(
+  adb() {
+    printf 'adb:%s\n' "$*"
+  }
+  sleep() {
+    printf 'sleep:%s\n' "$*"
+  }
+  starfall_adb_double_tap 120 340
+)"
+[[ "$double_tap_trace" == $'adb:shell input tap 120 340\nsleep:0.12\nadb:shell input tap 120 340' ]]
+if starfall_adb_double_tap invalid 340 >/dev/null 2>&1; then
+  echo 'The shared double-tap helper accepted a non-numeric coordinate.' >&2
+  exit 1
+fi
+
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 apk="$temporary_directory/smoke.apk"

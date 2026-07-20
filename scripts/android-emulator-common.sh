@@ -43,6 +43,22 @@ starfall_adb_broadcast_string_extra() {
   adb shell "am broadcast -a $action --es $key '$escaped_value'"
 }
 
+# Two taps issued inside one device-side shell command can be sampled in the
+# same Unity frame, hiding one Input System edge. Keep the physical events in
+# separate ADB calls while remaining comfortably inside the 300 ms recognizer
+# window.
+starfall_adb_double_tap() {
+  local x="${1:?double-tap x coordinate is required}"
+  local y="${2:?double-tap y coordinate is required}"
+  if [[ ! "$x" =~ ^[0-9]+$ || ! "$y" =~ ^[0-9]+$ ]]; then
+    echo "Invalid double-tap coordinates: $x $y" >&2
+    return 2
+  fi
+  adb shell input tap "$x" "$y"
+  sleep 0.12
+  adb shell input tap "$x" "$y"
+}
+
 starfall_android_app_files_directory() {
   local package_name="${1:?package name is required}"
   if [[ ! "$package_name" =~ ^[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+$ ]]; then
