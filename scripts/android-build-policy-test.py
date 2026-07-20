@@ -80,6 +80,21 @@ if r"\( -type f -o -type l \) -name llvm-readelf" not in validation_script:
     )
     raise SystemExit(1)
 
+if ".*icon.*" in validation_script:
+    print(
+        "Release icon validation must not depend on resource filenames after AAPT optimization.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+for fragment in (
+    'starfall_badging_density_icon "$badging" "$density"',
+    'dump xmltree "$apk" --file "$actual_icon_path"',
+    "E: adaptive-icon",
+):
+    if fragment not in validation_script:
+        print(f"Missing optimized launcher icon validation: {fragment}", file=sys.stderr)
+        raise SystemExit(1)
+
 subprocess.run(
     ["bash", str(repository_root / "scripts/test-android-release-badging.sh")],
     cwd=repository_root,

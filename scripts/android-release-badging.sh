@@ -20,3 +20,15 @@ starfall_badging_sdk_value() {
       ;;
   esac
 }
+
+starfall_badging_application_icon() {
+  local badging_path="${1:?missing aapt2 badging path}"
+  sed -n "s/^application:.* icon='\([^']*\)'.*/\1/p" "$badging_path" | head -n 1
+}
+
+starfall_badging_density_icon() {
+  local badging_path="${1:?missing aapt2 badging path}"
+  local density="${2:?missing icon density}"
+  awk -F"'" -v prefix="application-icon-${density}:" \
+    '$1 == prefix { print $2; exit }' "$badging_path"
+}

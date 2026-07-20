@@ -55,6 +55,7 @@ universal_apks="$output_directory/bundletool-universal.apks"
 universal_apk="$output_directory/bundletool-universal.apk"
 universal_badging="$output_directory/bundletool-universal-aapt2-badging.txt"
 universal_signature="$output_directory/bundletool-universal-apksigner.txt"
+apk_icon_xmltree="$output_directory/aapt2-application-icon-xmltree.txt"
 validation_log="$output_directory/release-validation.txt"
 
 "$aapt2" dump badging "$apk" | tee "$badging"
@@ -65,6 +66,7 @@ actual_version_name="$(sed -n "s/^package:.* versionName='\([^']*\)'.*/\1/p" "$b
 actual_min_sdk="$(starfall_badging_sdk_value "$badging" min)"
 actual_target_sdk="$(starfall_badging_sdk_value "$badging" target)"
 actual_launch_activity="$(sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" "$badging")"
+actual_icon_path="$(starfall_badging_application_icon "$badging")"
 
 [[ "$actual_package" == "$expected_package" ]] || {
   echo "APK package mismatch: $actual_package" >&2
@@ -106,14 +108,22 @@ if [[ "${aab_abis[*]}" != "arm64-v8a" ]]; then
   exit 1
 fi
 
-if ! unzip -Z1 "$apk" | grep -Eq '^res/mipmap-.+/.*icon.*\.png$'; then
-  echo "APK does not contain density-specific launcher icon textures." >&2
+for density in 120 160 240 320 480 640; do
+  density_icon="$(starfall_badging_density_icon "$badging" "$density")"
+  if [[ -z "$density_icon" ]]; then
+    echo "APK has no launcher icon for density $density." >&2
+    exit 1
+  fi
+done
+if [[ ! "$actual_icon_path" =~ ^res/.+\.xml$ ]]; then
+  echo "APK application icon is not an adaptive XML resource: $actual_icon_path" >&2
   exit 1
 fi
-if ! unzip -Z1 "$apk" | grep -Eq '^res/mipmap-anydpi-v26/.*icon.*\.xml$'; then
-  echo "APK does not contain an API 26 adaptive launcher icon." >&2
+"$aapt2" dump xmltree "$apk" --file "$actual_icon_path" >"$apk_icon_xmltree"
+grep -Eq '^[[:space:]]*E: adaptive-icon([[:space:]]|$)' "$apk_icon_xmltree" || {
+  echo "APK application icon XML is not rooted at adaptive-icon." >&2
   exit 1
-fi
+}
 
 "$apksigner" verify --verbose --print-certs "$apk" | tee "$apk_signature"
 "$zipalign" -c -P 16 -v 4 "$apk" >>"$validation_log"
