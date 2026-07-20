@@ -30,6 +30,6 @@
             <ui:VisualElement name="panel-ships" class="service-panel"><ui:Label text="ACTIVE SHIPS" class="eyebrow" /><ui:ScrollView name="ships-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-lp" class="service-panel"><ui:Label text="LOYALTY STORE" class="eyebrow" /><ui:Label name="lp-summary" text="Available loyalty points: 0" /><ui:Button name="lp-exchange" text="EXCHANGE 100 LP FOR DAMAGE AMP" /></ui:VisualElement>
         </ui:VisualElement>
-        <ui:Label text="STATION SERVICES ONLINE · PRESS UNDOCK TO RETURN TO SPACE" class="station-footer muted panel" />
+        <ui:Label name="station-footer" text="STATION SERVICES ONLINE · PRESS UNDOCK TO RETURN TO SPACE" class="station-footer muted panel" />
     </ui:VisualElement>
 </ui:UXML>

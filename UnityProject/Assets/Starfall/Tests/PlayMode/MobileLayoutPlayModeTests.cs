@@ -444,6 +444,20 @@ namespace Starfall.Tests.PlayMode
                 AssertVisibleControlAvoidsFolding(profile, root, slider, layout.FoldingBoundsDp, scene);
             foreach (var toggle in root.Query<Toggle>().ToList())
                 AssertVisibleControlAvoidsFolding(profile, root, toggle, layout.FoldingBoundsDp, scene);
+
+            if (scene == "Station" &&
+                layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
+            {
+                var footer = root.Q<Label>("station-footer");
+                Assert.That(footer, Is.Not.Null,
+                    $"{profile.Name}/Station: missing named station footer.");
+                Assert.That(TryGetVisibleBoundsInContent(footer, root, out var footerBounds), Is.True,
+                    $"{profile.Name}/Station: station footer is not visible.");
+                Assert.That(footerBounds.Overlaps(layout.FoldingBoundsDp), Is.False,
+                    $"{profile.Name}/Station: footer {footerBounds} crosses fold {layout.FoldingBoundsDp}.");
+                Assert.That(RectContains(layout.PrimaryPaneDp, footerBounds), Is.True,
+                    $"{profile.Name}/Station: footer {footerBounds} is not contained by the primary pane.");
+            }
         }
 
         private static void AssertVisibleControlAvoidsFolding(

@@ -524,6 +524,9 @@ namespace Starfall.UI
             if (layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
             {
                 SetAbsoluteRect(services, InsetTopBottom(secondary, 8f, 88f, 46f));
+                SetAbsoluteRect(contentRoot.Q<VisualElement>("station-footer"),
+                    new Rect(primary.xMin + 8f, primary.yMax - 46f,
+                        Mathf.Max(0f, primary.width - 16f), 34f));
                 var info = contentRoot.Q<VisualElement>("station-header-info");
                 var actions = contentRoot.Q<VisualElement>("station-header-actions");
                 var spacer = contentRoot.Q<VisualElement>("station-header-spacer");
@@ -616,7 +619,7 @@ namespace Starfall.UI
             foreach (var name in new[]
                      {
                          "menu-card", "station-services", "overview-panel", "target-panel",
-                         "ship-status", "module-rack", "combat-log-scroll", "settings-overlay",
+                         "station-footer", "ship-status", "module-rack", "combat-log-scroll", "settings-overlay",
                          "mobile-confirmation", "map-overlay", "journal-overlay", "death-overlay"
                      })
                 ResetAbsoluteRect(contentRoot.Q<VisualElement>(name));
