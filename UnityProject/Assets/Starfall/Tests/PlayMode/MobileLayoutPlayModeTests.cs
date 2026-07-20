@@ -143,7 +143,7 @@ namespace Starfall.Tests.PlayMode
                 Assert.That(content, Is.Not.Null, $"{profile.Name}: {scene} has no mobile content root.");
                 if (scene == "MainMenu") ShowLegacyImportError(content);
 
-                ApplyDeterministicPanelGeometry(document, content, layout);
+                ApplyDeterministicPanelGeometry(document, layout);
                 yield return WaitForFinalGeometry(content, layout.SafeInsetsDp.Left);
                 AssertDocumentMode(profile, document, content, layout, scene);
                 AssertInteractiveControlsAvoidFolding(profile, content, layout, scene);
@@ -236,7 +236,6 @@ namespace Starfall.Tests.PlayMode
 
         private static void ApplyDeterministicPanelGeometry(
             UIDocument document,
-            VisualElement content,
             MobileLayout layout)
         {
             var documentRoot = document.rootVisualElement;
@@ -245,8 +244,8 @@ namespace Starfall.Tests.PlayMode
                 "UIDocument must be attached to a real panel before mobile geometry is fixed.");
 
             FixRect(panelRoot, layout.ScreenBoundsDp);
-            FixRect(documentRoot, layout.ScreenBoundsDp);
-            FixRect(content, layout.SafeBoundsDp);
+            // Production MobileUiCoordinator owns document/content geometry.
+            // Do not mask a detached or NaN UIDocument root by fixing it here.
         }
 
         private static void FixRect(VisualElement element, Rect rect)
@@ -344,6 +343,8 @@ namespace Starfall.Tests.PlayMode
                 $"{profile.Name}/{scene}: document and panel roots use different panels.");
             Assert.That(content.panel, Is.SameAs(panelRoot.panel),
                 $"{profile.Name}/{scene}: content root is detached from the tested panel.");
+            Assert.That(documentRoot.resolvedStyle.position, Is.EqualTo(Position.Absolute),
+                $"{profile.Name}/{scene}: mobile document root is not explicitly anchored.");
 
             AssertRectApproximately(panelRoot.worldBound, layout.ScreenBoundsDp,
                 $"{profile.Name}/{scene}: real panel root does not match target dp bounds.");

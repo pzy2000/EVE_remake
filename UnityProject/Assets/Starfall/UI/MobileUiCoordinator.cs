@@ -112,6 +112,12 @@ namespace Starfall.UI
                 contentRoot.style.right = StyleKeyword.Null;
                 contentRoot.style.bottom = StyleKeyword.Null;
             }
+            ResetAbsoluteRect(documentRoot);
+            if (documentRoot != null)
+            {
+                documentRoot.style.flexGrow = StyleKeyword.Null;
+                documentRoot.style.flexShrink = StyleKeyword.Null;
+            }
             if (document != null) document.panelSettings = originalPanelSettings;
         }
 
@@ -151,6 +157,15 @@ namespace Starfall.UI
 
         private void ApplyLayout(MobileLayout layout)
         {
+            // UIDocument normally inherits its panel size. During an Android
+            // single-scene transition the new document can attach while the
+            // shared PanelSettings target texture is being replaced, leaving
+            // its Yoga root at NaN even though the panel already has valid dp
+            // bounds. Anchor it explicitly so the first Space layout is usable.
+            SetAbsoluteRect(documentRoot, layout.ScreenBoundsDp);
+            documentRoot.style.flexGrow = 0f;
+            documentRoot.style.flexShrink = 0f;
+
             contentRoot.AddToClassList("mobile");
             contentRoot.EnableInClassList("compact-landscape",
                 layout.Mode == MobileLayoutMode.CompactLandscape);
