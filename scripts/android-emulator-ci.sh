@@ -13,6 +13,7 @@ debug_layout_action="com.pzy.starfall.mobile.DEBUG_WINDOW_LAYOUT"
 debug_command_action="com.pzy.starfall.mobile.DEBUG_COMMAND"
 expected_architecture="${STARFALL_EMULATOR_ARCH:-x86_64}"
 command_request_id=500000
+world_swipe_duration_ms=1500
 persistent_data_directory="$(starfall_android_app_files_directory "$package_name")"
 
 if [[ "$expected_architecture" != "x86_64" && "$expected_architecture" != "arm64-v8a" ]]; then
@@ -1272,7 +1273,8 @@ PY
   fi
 
   adb shell input swipe \
-    "$drag_start_x" "$drag_start_y" "$drag_end_x" "$drag_end_y" 500
+    "$drag_start_x" "$drag_start_y" "$drag_end_x" "$drag_end_y" \
+    "$world_swipe_duration_ms"
   local rotated_by_drag=false
   for _ in $(seq 1 40); do
     dispatch_ci_command "status" "$scenario_directory/Touch.Drag.command.json"

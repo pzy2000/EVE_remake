@@ -251,6 +251,15 @@ grep -Fq 'touchGestures.End(pointerId, position, tapTime), tapTime' \
   echo 'Touch End must pass device timing to the recognizer and CI evidence.' >&2
   exit 1
 }
+grep -Fq 'world_swipe_duration_ms=1500' "$emulator_entry" || {
+  echo 'The real ADB drag must span multiple frames on the slow square software renderer.' >&2
+  exit 1
+}
+grep -A2 'adb shell input swipe' "$emulator_entry" | \
+  grep -Fq '"$world_swipe_duration_ms"' || {
+  echo 'The real ADB drag must use the multi-frame swipe duration.' >&2
+  exit 1
+}
 grep -Fq 'and not str(item.get("name") or "").startswith("unity-")' \
   "$emulator_entry" || {
   echo 'Unity internal controls must not masquerade as application touch targets.' >&2
