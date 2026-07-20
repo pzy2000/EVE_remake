@@ -26,21 +26,6 @@ if adb get-state; then
 fi
 [[ "$timeout_wrapper_calls" == "1" ]]
 
-double_tap_trace="$(
-  adb() {
-    printf 'adb:%s\n' "$*"
-  }
-  sleep() {
-    printf 'sleep:%s\n' "$*"
-  }
-  starfall_adb_double_tap 120 340
-)"
-[[ "$double_tap_trace" == $'adb:shell input tap 120 340\nsleep:0.12\nadb:shell input tap 120 340' ]]
-if starfall_adb_double_tap invalid 340 >/dev/null 2>&1; then
-  echo 'The shared double-tap helper accepted a non-numeric coordinate.' >&2
-  exit 1
-fi
-
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 apk="$temporary_directory/smoke.apk"
@@ -75,6 +60,7 @@ emulator_entry="$script_directory/android-emulator-ci.sh"
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 procedural_ship_factory="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralShipFactory.cs"
 procedural_space_materials="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralSpaceMaterials.cs"
+space_world_presenter="$script_directory/../UnityProject/Assets/Starfall/Presentation/SpaceWorldPresenter.cs"
 ci_minimal_shader="$script_directory/../UnityProject/Assets/Starfall/Shaders/StarfallCiMinimalUnlit.shader"
 android_panel_settings="$script_directory/../UnityProject/Assets/Resources/StarfallAndroidPanelSettings.asset"
 android_scene_processor="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidSceneProcessor.cs"
@@ -213,6 +199,25 @@ grep -Fq 'starfall_wait_for_unity_render_ready' "$back_compat_entry" || {
 }
 grep -A17 '^tap_coordinate()' "$emulator_entry" | grep -Fq 'sleep 1' || {
   echo 'Sequential ADB UI taps must settle on distinct Unity player frames.' >&2
+  exit 1
+}
+grep -Fq 'wait_for_gesture_evidence' "$emulator_entry" || {
+  echo 'The real Android double-tap gate must synchronize against Unity gesture frames.' >&2
+  exit 1
+}
+grep -Fq '"$gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"' \
+  "$emulator_entry" || {
+  echo 'The double-tap gate must observe the first tap before sending the second.' >&2
+  exit 1
+}
+grep -Fq '"$gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"' \
+  "$emulator_entry" || {
+  echo 'The double-tap gate must retain recognizer evidence for the completed pair.' >&2
+  exit 1
+}
+grep -Fq 'AndroidCiGestureEvidenceFile = "starfall-ci-gesture.json"' \
+  "$space_world_presenter" || {
+  echo 'The smoke presenter must publish gesture-frame evidence for real ADB input.' >&2
   exit 1
 }
 grep -Fq 'and not str(item.get("name") or "").startswith("unity-")' \

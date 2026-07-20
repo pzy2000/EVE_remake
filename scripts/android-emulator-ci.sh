@@ -674,6 +674,34 @@ wait_for_ui_surface_absent() {
   return 1
 }
 
+wait_for_gesture_evidence() {
+  local remote_path="$1"
+  local destination="$2"
+  local expected_generation="$3"
+  local expected_gesture="$4"
+  for _ in $(seq 1 80); do
+    if adb exec-out cat "$remote_path" >"$destination" 2>/dev/null && \
+      python3 - "$destination" "$expected_generation" "$expected_gesture" <<'PY'
+import json
+import sys
+
+try:
+    payload = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+generation = int(payload.get("generation", -1))
+gesture = str(payload.get("gesture", ""))
+raise SystemExit(0 if generation >= int(sys.argv[2]) and gesture == sys.argv[3] else 1)
+PY
+    then
+      return 0
+    fi
+    sleep 0.025
+  done
+  echo "Timed out waiting for gesture $expected_gesture generation $expected_generation." >&2
+  return 1
+}
+
 dispatch_ci_command() {
   local command="$1"
   local evidence="$2"
@@ -1173,7 +1201,35 @@ PY
     exit 1
   fi
 
-  starfall_adb_double_tap "$target_x" "$target_y"
+  # Synchronize the pair to Unity input frames instead of wall-clock sleeps.
+  # A hosted software renderer can consume two 120 ms-spaced `input tap` calls
+  # in one Input System update, in which case no second tap is observable. The
+  # smoke-only gesture marker is written by the real recognizer after it consumes
+  # pointer-up; the next system tap can then be queued for the following frame.
+  sleep 0.35
+  local gesture_remote_path
+  gesture_remote_path="$(starfall_android_app_file_path \
+    "$package_name" "starfall-ci-gesture.json")"
+  local first_gesture="$scenario_directory/Touch.DoubleTap.First.gesture.json"
+  local second_gesture="$scenario_directory/Touch.DoubleTap.Second.gesture.json"
+  local gesture_generation
+  pull_app_file "starfall-ci-gesture.json" \
+    "$scenario_directory/Touch.Selected.gesture.json"
+  gesture_generation="$(python3 - \
+    "$scenario_directory/Touch.Selected.gesture.json" <<'PY'
+import json
+import sys
+
+print(int(json.load(open(sys.argv[1], encoding="utf-8"))["generation"]))
+PY
+)"
+
+  adb shell input tap "$target_x" "$target_y"
+  wait_for_gesture_evidence \
+    "$gesture_remote_path" "$first_gesture" "$((gesture_generation + 1))" "Tap"
+  adb shell input tap "$target_x" "$target_y"
+  wait_for_gesture_evidence \
+    "$gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"
   local approached_by_double_tap=false
   for _ in $(seq 1 40); do
     dispatch_ci_command "status" "$scenario_directory/Touch.DoubleTap.command.json"

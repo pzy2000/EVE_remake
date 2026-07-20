@@ -27,8 +27,10 @@ namespace Starfall.Presentation
         private Vector2 lastClickPosition;
         private bool touchInputActive;
 #if STARFALL_ANDROID_CI
+        private const string AndroidCiGestureEvidenceFile = "starfall-ci-gesture.json";
         private GameObject androidCiTouchProxy;
         private string androidCiTouchProxyId = string.Empty;
+        private int androidCiGestureGeneration;
 #endif
 
         public event Action<string> SelectionChanged;
@@ -490,6 +492,9 @@ namespace Starfall.Presentation
         {
             if (!gesture.HasValue || !cameraController || !cameraController.Camera) return;
             var value = gesture.Value;
+#if STARFALL_ANDROID_CI
+            WriteAndroidCiGestureEvidence(value.Type);
+#endif
             switch (value.Type)
             {
                 case WorldGestureType.Tap:
@@ -509,6 +514,30 @@ namespace Starfall.Presentation
                     break;
             }
         }
+
+#if STARFALL_ANDROID_CI
+        private void WriteAndroidCiGestureEvidence(WorldGestureType gestureType)
+        {
+            try
+            {
+                androidCiGestureGeneration++;
+                var payload = "{\"generation\":" + androidCiGestureGeneration +
+                              ",\"gesture\":\"" + gestureType +
+                              "\",\"frameCount\":" + Time.frameCount +
+                              ",\"unscaledTime\":" +
+                              Time.unscaledTimeAsDouble.ToString(
+                                  "R", System.Globalization.CultureInfo.InvariantCulture) + "}";
+                System.IO.File.WriteAllText(
+                    System.IO.Path.Combine(Application.persistentDataPath,
+                        AndroidCiGestureEvidenceFile),
+                    payload);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("STARFALL_ANDROID_CI_GESTURE_ERR=" + exception.Message);
+            }
+        }
+#endif
 
         private void SelectAt(Vector2 screenPosition, bool requestContext)
         {
