@@ -690,6 +690,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           STARFALL_VERSION_CODE: ${{ needs.android-release.outputs.version_code }}
           STARFALL_VERSION_NAME: ${{ needs.android-release.outputs.version_name }}
         run: |
@@ -836,6 +837,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           STARFALL_VERSION_NAME: ${{ needs.android-release.outputs.version_name }}
           STARFALL_VERSION_CODE: ${{ needs.android-release.outputs.version_code }}
         run: |

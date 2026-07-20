@@ -63,6 +63,13 @@ for fragment in workflow_requirements:
         print(f"Missing pinned release-build policy: {fragment}", file=sys.stderr)
         raise SystemExit(1)
 
+if workflow.count("GH_REPO: ${{ github.repository }}") != 2:
+    print(
+        "Both GitHub release jobs must declare repository context without checkout.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 if "-name gradlew" in workflow or "./gradlew" in release_script:
     print(
         "Release builds must not assume Unity exported a Gradle wrapper.",
