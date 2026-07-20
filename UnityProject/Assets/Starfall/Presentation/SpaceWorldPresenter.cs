@@ -482,18 +482,28 @@ namespace Starfall.Presentation
                         DispatchGesture(touchGestures.Move(pointerId, position, Time.unscaledTimeAsDouble));
                 }
                 if (phase == UnityEngine.InputSystem.TouchPhase.Ended && touch.press.wasReleasedThisFrame)
-                    DispatchGesture(touchGestures.End(pointerId, position, Time.unscaledTimeAsDouble));
+                {
+                    // Input System preserves the physical touch start on the same
+                    // timeline as realtimeSinceStartup. Use it for tap cadence so
+                    // a slow render frame does not turn a valid 300 ms double tap
+                    // into two ordinary taps merely because End was sampled late.
+                    var touchStartTime = touch.startTime.ReadValue();
+                    var tapTime = double.IsNaN(touchStartTime) || double.IsInfinity(touchStartTime)
+                        ? Time.unscaledTimeAsDouble
+                        : touchStartTime;
+                    DispatchGesture(touchGestures.End(pointerId, position, tapTime), tapTime);
+                }
             }
             DispatchGesture(touchGestures.Tick(Time.unscaledTimeAsDouble));
             touchInputActive = anyPressed || touchGestures.ActivePointerCount > 0;
         }
 
-        private void DispatchGesture(WorldGestureEvent? gesture)
+        private void DispatchGesture(WorldGestureEvent? gesture, double? inputStartTime = null)
         {
             if (!gesture.HasValue || !cameraController || !cameraController.Camera) return;
             var value = gesture.Value;
 #if STARFALL_ANDROID_CI
-            WriteAndroidCiGestureEvidence(value.Type);
+            WriteAndroidCiGestureEvidence(value.Type, inputStartTime);
 #endif
             switch (value.Type)
             {
@@ -516,14 +526,23 @@ namespace Starfall.Presentation
         }
 
 #if STARFALL_ANDROID_CI
-        private void WriteAndroidCiGestureEvidence(WorldGestureType gestureType)
+        private void WriteAndroidCiGestureEvidence(
+            WorldGestureType gestureType,
+            double? inputStartTime)
         {
             try
             {
                 androidCiGestureGeneration++;
+                var inputStartTimeJson = inputStartTime.HasValue &&
+                                         !double.IsNaN(inputStartTime.Value) &&
+                                         !double.IsInfinity(inputStartTime.Value)
+                    ? inputStartTime.Value.ToString(
+                        "R", System.Globalization.CultureInfo.InvariantCulture)
+                    : "null";
                 var payload = "{\"generation\":" + androidCiGestureGeneration +
                               ",\"gesture\":\"" + gestureType +
                               "\",\"frameCount\":" + Time.frameCount +
+                              ",\"inputStartTime\":" + inputStartTimeJson +
                               ",\"unscaledTime\":" +
                               Time.unscaledTimeAsDouble.ToString(
                                   "R", System.Globalization.CultureInfo.InvariantCulture) + "}";

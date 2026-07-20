@@ -230,6 +230,16 @@ grep -Fq 'AndroidCiGestureEvidenceFile = "starfall-ci-gesture.json"' \
   echo 'The smoke presenter must publish gesture-frame evidence for real ADB input.' >&2
   exit 1
 }
+grep -Fq 'var touchStartTime = touch.startTime.ReadValue();' \
+  "$space_world_presenter" || {
+  echo 'Double-tap cadence must use the physical Input System touch timestamp.' >&2
+  exit 1
+}
+grep -Fq 'touchGestures.End(pointerId, position, tapTime), tapTime' \
+  "$space_world_presenter" || {
+  echo 'Touch End must pass device timing to the recognizer and CI evidence.' >&2
+  exit 1
+}
 grep -Fq 'and not str(item.get("name") or "").startswith("unity-")' \
   "$emulator_entry" || {
   echo 'Unity internal controls must not masquerade as application touch targets.' >&2

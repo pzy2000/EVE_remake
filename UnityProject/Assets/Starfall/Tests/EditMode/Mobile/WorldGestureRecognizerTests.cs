@@ -128,6 +128,10 @@ namespace Starfall.Tests.EditMode.Mobile
             "Awake", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo CameraDistanceField = typeof(EveCameraController).GetField(
             "distance", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo TouchGesturesField = typeof(SpaceWorldPresenter).GetField(
+            "touchGestures", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo LastTapTimeField = typeof(WorldGestureRecognizer).GetField(
+            "lastTapTime", BindingFlags.Instance | BindingFlags.NonPublic);
 
         private Touchscreen touchscreen;
         private GameObject presenterObject;
@@ -143,6 +147,8 @@ namespace Starfall.Tests.EditMode.Mobile
             Assert.That(PresenterAwakeMethod, Is.Not.Null);
             Assert.That(CameraAwakeMethod, Is.Not.Null);
             Assert.That(CameraDistanceField, Is.Not.Null);
+            Assert.That(TouchGesturesField, Is.Not.Null);
+            Assert.That(LastTapTimeField, Is.Not.Null);
             PresenterAwakeMethod.Invoke(presenter, null);
             var cameraController = presenterObject.GetComponentInChildren<EveCameraController>(true);
             Assert.That(cameraController, Is.Not.Null);
@@ -158,6 +164,24 @@ namespace Starfall.Tests.EditMode.Mobile
             presenterObject = null;
             touchscreen = null;
             base.TearDown();
+        }
+
+        [Test]
+        public void InputSystemTapCadenceUsesPhysicalTouchStartTime()
+        {
+            var center = ScreenCenter();
+            BeginTouch(3, center, queueEventOnly: true, screen: touchscreen, time: 12d);
+            InputSystem.Update();
+            InvokeTouchUpdate();
+
+            EndTouch(3, center, queueEventOnly: true, screen: touchscreen, time: 12.05d);
+            InputSystem.Update();
+            InvokeTouchUpdate();
+
+            var recognizer = (WorldGestureRecognizer)TouchGesturesField.GetValue(presenter);
+            var recordedTapTime = (double)LastTapTimeField.GetValue(recognizer);
+            Assert.That(recordedTapTime, Is.EqualTo(12d).Within(0.0001d),
+                "Double-tap cadence must use the device event timestamp, not render-frame time.");
         }
 
         [Test]
