@@ -31,6 +31,20 @@ trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 apk="$temporary_directory/smoke.apk"
 : >"$apk"
 
+capture_calls=0
+adb() {
+  capture_calls=$((capture_calls + 1))
+  if (( capture_calls < 3 )); then
+    return 124
+  fi
+  printf '%s\n' 'complete evidence'
+}
+capture_evidence="$temporary_directory/retried-evidence.txt"
+starfall_adb_capture_file "$capture_evidence" exec-out screencap -p
+[[ "$capture_calls" == "3" ]]
+grep -Fqx 'complete evidence' "$capture_evidence"
+test ! -e "$capture_evidence.adb-partial"
+
 expected_files_directory="/storage/emulated/0/Android/data/com.pzy.starfallodyssey/files"
 [[ "$(starfall_android_app_files_directory com.pzy.starfallodyssey)" == \
   "$expected_files_directory" ]]

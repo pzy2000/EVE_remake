@@ -11,11 +11,72 @@
 starfall_adb_executable="${STARFALL_ADB_EXECUTABLE:-$(type -P adb || true)}"
 adb() {
   local timeout_seconds="${STARFALL_ADB_COMMAND_TIMEOUT_SECONDS:-30}"
+  local status
   if [[ -z "$starfall_adb_executable" ]]; then
     echo 'adb executable was not found on PATH.' >&2
     return 127
   fi
-  timeout "${timeout_seconds}s" "$starfall_adb_executable" "$@"
+  if timeout "${timeout_seconds}s" "$starfall_adb_executable" "$@"; then
+    return 0
+  else
+    status=$?
+  fi
+  if (( status == 124 )); then
+    printf 'ADB command timed out after %ss: adb %q %q\n' \
+      "$timeout_seconds" "${1:-}" "${2:-}" >&2
+  fi
+  return "$status"
+}
+
+# Evidence reads are idempotent, so a transient hosted-runner transport stall
+# can be retried without repeating a tap, Back event, broadcast, or any other
+# state-changing operation. Keep the partial file out of the final artifact.
+starfall_adb_capture_file() {
+  local destination="${1:?capture destination is required}"
+  shift
+  local attempts="${STARFALL_ADB_READ_ATTEMPTS:-3}"
+  local attempt
+  local partial="${destination}.adb-partial"
+  local status=1
+
+  mkdir -p "$(dirname "$destination")"
+  for attempt in $(seq 1 "$attempts"); do
+    rm -f -- "$partial"
+    if adb "$@" >"$partial"; then
+      mv -f -- "$partial" "$destination"
+      return 0
+    else
+      status=$?
+    fi
+    if (( attempt < attempts )); then
+      printf 'Retrying idempotent ADB evidence read (%s/%s): adb %q %q\n' \
+        "$attempt" "$attempts" "${1:-}" "${2:-}" >&2
+      sleep 1
+    fi
+  done
+
+  rm -f -- "$partial"
+  return "$status"
+}
+
+starfall_adb_retry_read() {
+  local attempts="${STARFALL_ADB_READ_ATTEMPTS:-3}"
+  local attempt
+  local status=1
+
+  for attempt in $(seq 1 "$attempts"); do
+    if adb "$@"; then
+      return 0
+    else
+      status=$?
+    fi
+    if (( attempt < attempts )); then
+      printf 'Retrying idempotent ADB evidence command (%s/%s): adb %q %q\n' \
+        "$attempt" "$attempts" "${1:-}" "${2:-}" >&2
+      sleep 1
+    fi
+  done
+  return "$status"
 }
 
 # `adb shell` joins ordinary argv into an unquoted device-side command. JSON

@@ -375,12 +375,15 @@ capture_screen() {
   local layout_json="${4:-}"
   local png="$results_directory/$label.png"
   local hierarchy="$results_directory/$label.uiautomator.xml"
-  adb exec-out screencap -p >"$png"
+  starfall_adb_capture_file "$png" exec-out screencap -p
   assert_png_dimensions "$png" "$width" "$height"
-  if adb shell uiautomator dump /sdcard/starfall-window.xml >/dev/null 2>&1; then
-    adb pull /sdcard/starfall-window.xml "$hierarchy" >/dev/null
+  if starfall_adb_retry_read \
+    shell uiautomator dump /sdcard/starfall-window.xml >/dev/null 2>&1; then
+    starfall_adb_retry_read \
+      pull /sdcard/starfall-window.xml "$hierarchy" >/dev/null
   fi
-  adb shell dumpsys window displays >"$results_directory/$label.window.txt"
+  starfall_adb_capture_file \
+    "$results_directory/$label.window.txt" shell dumpsys window displays
   if [[ -n "$layout_json" ]]; then
     python3 scripts/assert-png-color.py "$png" "$layout_json"
   fi
