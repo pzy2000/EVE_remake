@@ -1206,9 +1206,6 @@ PY
   # records every state change, so both taps remain observable even when the
   # software renderer consumes down/up/down/up in one slow Unity update.
   sleep 0.35
-  local gesture_remote_path
-  gesture_remote_path="$(starfall_android_app_file_path \
-    "$package_name" "starfall-ci-gesture.json")"
   local first_gesture="$scenario_directory/Touch.DoubleTap.First.gesture.json"
   local second_gesture="$scenario_directory/Touch.DoubleTap.Second.gesture.json"
   local gesture_generation
