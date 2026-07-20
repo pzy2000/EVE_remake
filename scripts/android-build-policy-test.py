@@ -100,6 +100,8 @@ for fragment in (
     'starfall_badging_density_icon "$badging" "$density"',
     'dump xmltree "$apk" --file "$actual_icon_path"',
     "E: adaptive-icon",
+    'apk="$(cd "$(dirname "$apk")" && pwd -P)/$(basename "$apk")"',
+    'aab="$(cd "$(dirname "$aab")" && pwd -P)/$(basename "$aab")"',
 ):
     if fragment not in validation_script:
         print(f"Missing optimized launcher icon validation: {fragment}", file=sys.stderr)

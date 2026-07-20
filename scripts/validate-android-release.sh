@@ -29,6 +29,9 @@ for artifact in "$apk" "$aab" "$BUNDLETOOL_JAR"; do
 done
 
 mkdir -p "$output_directory"
+apk="$(cd "$(dirname "$apk")" && pwd -P)/$(basename "$apk")"
+aab="$(cd "$(dirname "$aab")" && pwd -P)/$(basename "$aab")"
+output_directory="$(cd "$output_directory" && pwd -P)"
 temporary_root="$(mktemp -d "${RUNNER_TEMP:-/tmp}/starfall-android-validation.XXXXXX")"
 cleanup() {
   rm -rf -- "$temporary_root"
