@@ -153,8 +153,12 @@ grep -Fq 'tap_control_until_surface' "$emulator_entry" || {
   echo 'Overlay taps must retry bounded physical input before failing a shard.' >&2
   exit 1
 }
+grep -Fq 'wait_for_expected_ui_layout' "$emulator_entry" || {
+  echo 'Scene transitions must wait for settled page metrics and controls.' >&2
+  exit 1
+}
 grep -A95 '^run_legacy_saf_import()' "$emulator_entry" \
-  | grep -Fq 'pull_expected_layout_json' || {
+  | grep -Fq 'wait_for_expected_ui_layout' || {
   echo 'Legacy SAF must wait for injected window metrics before reading MainMenu.' >&2
   exit 1
 }
@@ -333,6 +337,16 @@ grep -Fq 'local expected_control="${4:-}"' "$emulator_entry" || {
 }
 grep -A3 'Starmap.layout.json' "$emulator_entry" | grep -Fq '"starmap-card" "map-close"' || {
   echo 'Starmap validation must wait until its close control has settled.' >&2
+  exit 1
+}
+grep -B3 '"starmap-card" "map-close"' "$emulator_entry" \
+  | grep -Fq 'tap_control_until_surface' || {
+  echo 'Starmap must retry bounded physical taps before failing.' >&2
+  exit 1
+}
+grep -B2 '"starfall-ci-layout-Space.json" "$scenario_directory/Space.layout.json"' \
+  "$emulator_entry" | grep -Fq 'wait_for_expected_ui_layout' || {
+  echo 'Undock must wait for a fully laid out Space page before validation.' >&2
   exit 1
 }
 grep -A2 'adb shell input swipe' "$emulator_entry" | \

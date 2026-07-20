@@ -716,6 +716,76 @@ PY
   return 1
 }
 
+wait_for_expected_ui_layout() {
+  local remote_name="$1"
+  local destination="$2"
+  local expected_mode="$3"
+  local expected_source_json="$4"
+  local expected_control="$5"
+  local remote_path
+  remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
+  for _ in $(seq 1 80); do
+    if adb exec-out cat "$remote_path" \
+      >"$destination" 2>/dev/null && \
+      python3 - "$destination" "$expected_mode" "$expected_source_json" "$expected_control" <<'PY'
+import json
+import math
+import sys
+
+try:
+    payload = json.load(open(sys.argv[1], encoding="utf-8"))
+    source = json.load(open(sys.argv[3], encoding="utf-8"))
+except (OSError, ValueError):
+    raise SystemExit(1)
+
+if payload.get("mode") != sys.argv[2]:
+    raise SystemExit(1)
+density = float(payload.get("density") or 0)
+expected_density = float(source.get("densityDpi") or 0) / 160.0
+if not math.isfinite(density) or density <= 0 or abs(density - expected_density) > 0.01:
+    raise SystemExit(1)
+
+safe = source.get("safeArea") or {}
+expected_safe = {
+    key: float(safe.get(key) or 0) / density
+    for key in ("x", "y", "width", "height")
+}
+if source.get("safeAreaOrigin") == "bottom-left":
+    expected_safe["y"] = (
+        float(source.get("heightPx") or 0)
+        - float(safe.get("y") or 0)
+        - float(safe.get("height") or 0)
+    ) / density
+actual_safe = payload.get("safeBoundsDp") or {}
+for key, expected in expected_safe.items():
+    actual = float(actual_safe.get(key) or 0)
+    if not math.isfinite(actual) or abs(actual - expected) > 0.51:
+        raise SystemExit(1)
+
+for control in payload.get("controls", []):
+    if control.get("name") != sys.argv[4]:
+        continue
+    bounds = control.get("visibleBoundsDp") or {}
+    values = [float(bounds.get(key) or 0) for key in ("x", "y", "width", "height")]
+    ready = (
+        control.get("visible", False)
+        and control.get("fullyVisible", False)
+        and all(math.isfinite(value) for value in values)
+        and values[2] > 0
+        and values[3] > 0
+    )
+    raise SystemExit(0 if ready else 1)
+raise SystemExit(1)
+PY
+    then
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "Timed out waiting for settled $expected_mode UI layout $remote_name ($expected_control)." >&2
+  return 1
+}
+
 wait_for_ui_surface_absent() {
   local remote_name="$1"
   local expected_surface="$2"
@@ -1023,7 +1093,9 @@ PY
   pull_expected_layout_json \
     "starfall-ci-layout.json" "$legacy_directory/mobile-layout.json" \
     CompactLandscape false "$legacy_directory/injected-window.json"
-  pull_app_file "starfall-ci-layout-MainMenu.json" "$legacy_directory/MainMenu.layout.json"
+  wait_for_expected_ui_layout \
+    "starfall-ci-layout-MainMenu.json" "$legacy_directory/MainMenu.layout.json" \
+    CompactLandscape "$legacy_directory/injected-window.json" import
   validate_ui_layout_json "$legacy_directory/MainMenu.layout.json" CompactLandscape false
   tap_control "$legacy_directory/MainMenu.layout.json" import
 
@@ -1160,7 +1232,9 @@ run_scenario() {
     "starfall-ci-layout.json" "$scenario_directory/mobile-layout.json" \
     "$expected_mode" "$require_hinge" "$scenario_directory/injected-window.json"
 
-  pull_app_file "starfall-ci-layout-MainMenu.json" "$scenario_directory/MainMenu.layout.json"
+  wait_for_expected_ui_layout \
+    "starfall-ci-layout-MainMenu.json" "$scenario_directory/MainMenu.layout.json" \
+    "$expected_mode" "$scenario_directory/injected-window.json" launch
   validate_ui_layout_json "$scenario_directory/MainMenu.layout.json" "$expected_mode" "$require_hinge"
   capture_screen "$label-MainMenu" "$width" "$height" "$scenario_directory/MainMenu.layout.json"
   record_scenario_stage "$stage_file" "MainMenu layout and PNG"
@@ -1176,7 +1250,9 @@ run_scenario() {
   wait_for_ui_surface_absent "starfall-ci-layout-MainMenu.json" "confirmation-card"
 
   tap_control "$scenario_directory/MainMenu.layout.json" "launch"
-  pull_app_file "starfall-ci-layout-Station.json" "$scenario_directory/Station.layout.json"
+  wait_for_expected_ui_layout \
+    "starfall-ci-layout-Station.json" "$scenario_directory/Station.layout.json" \
+    "$expected_mode" "$scenario_directory/injected-window.json" undock
   validate_ui_layout_json "$scenario_directory/Station.layout.json" "$expected_mode" "$require_hinge"
   capture_screen "$label-Station" "$width" "$height" "$scenario_directory/Station.layout.json"
   record_scenario_stage "$stage_file" "Station layout and PNG"
@@ -1204,8 +1280,9 @@ run_scenario() {
   wait_for_ui_surface_absent "starfall-ci-layout-Station.json" "confirmation-card"
 
   tap_control "$scenario_directory/Station.layout.json" "undock"
-
-  pull_app_file "starfall-ci-layout-Space.json" "$scenario_directory/Space.layout.json"
+  wait_for_expected_ui_layout \
+    "starfall-ci-layout-Space.json" "$scenario_directory/Space.layout.json" \
+    "$expected_mode" "$scenario_directory/injected-window.json" map
   validate_ui_layout_json "$scenario_directory/Space.layout.json" "$expected_mode" "$require_hinge"
   capture_screen "$label-Space" "$width" "$height" "$scenario_directory/Space.layout.json"
   record_scenario_stage "$stage_file" "Space layout and PNG"
@@ -1456,8 +1533,8 @@ PY
   adb shell input keyevent KEYCODE_BACK
   wait_for_ui_surface_absent "starfall-ci-layout-Space.json" "settings-card"
 
-  tap_control "$scenario_directory/Space.layout.json" "map"
-  wait_for_ui_surface \
+  tap_control_until_surface \
+    "$scenario_directory/Space.layout.json" "map" \
     "starfall-ci-layout-Space.json" "$scenario_directory/Starmap.layout.json" \
     "starmap-card" "map-close"
   validate_ui_layout_json \
