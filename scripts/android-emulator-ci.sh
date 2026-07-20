@@ -1237,9 +1237,9 @@ PY
   generation_pattern="\"generation\":$((gesture_generation + 1))"
   local queued_tap_log="$scenario_directory/Touch.DoubleTap.QueuedTap.txt"
   adb shell "rm -f '$first_gesture_remote_path'; \
-    until grep -Fq '$generation_pattern' '$gesture_remote_path'; do sleep 0.01; done; \
-    cp '$gesture_remote_path' '$first_gesture_remote_path'; \
-    input tap '$target_x' '$target_y'" >"$queued_tap_log" 2>&1 &
+    until grep -Fq '$generation_pattern' '$gesture_remote_path'; do :; done; \
+    input tap '$target_x' '$target_y'; \
+    cp '$gesture_remote_path' '$first_gesture_remote_path'" >"$queued_tap_log" 2>&1 &
   local queued_tap_pid=$!
   adb shell input tap "$target_x" "$target_y"
   if ! wait "$queued_tap_pid"; then

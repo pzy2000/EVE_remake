@@ -217,9 +217,20 @@ grep -Fq "until grep -Fq '\$generation_pattern' '\$gesture_remote_path'" \
 }
 grep -Fq "cp '\$gesture_remote_path' '\$first_gesture_remote_path'" \
   "$emulator_entry" || {
-  echo 'The device-side watcher must preserve first-tap evidence before reinjection.' >&2
+  echo 'The device-side watcher must preserve first-tap evidence after immediate reinjection.' >&2
   exit 1
 }
+python3 - "$emulator_entry" <<'PY'
+import sys
+
+source = open(sys.argv[1], encoding="utf-8").read()
+watcher = source[source.index('local queued_tap_log='):source.index('local queued_tap_pid=')]
+if watcher.index("input tap '$target_x' '$target_y'") > watcher.index(
+        "cp '$gesture_remote_path' '$first_gesture_remote_path'"):
+    raise SystemExit("Second-tap injection must precede evidence copying to stay within 300 ms.")
+if "do sleep" in watcher:
+    raise SystemExit("The one-frame device watcher must not add polling sleep jitter.")
+PY
 grep -Fq '"$gesture_remote_path" "$second_gesture" "$((gesture_generation + 2))" "DoubleTap"' \
   "$emulator_entry" || {
   echo 'The double-tap gate must retain recognizer evidence for the completed pair.' >&2
