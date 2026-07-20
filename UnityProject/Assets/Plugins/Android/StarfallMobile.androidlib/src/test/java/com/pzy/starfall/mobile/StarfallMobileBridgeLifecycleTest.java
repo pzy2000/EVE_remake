@@ -98,6 +98,8 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "getDecorView().postDelayed");
         assertContains(source, "!sourceActivity.hasWindowFocus()");
         assertContains(source, "public static void acknowledgeLegacyDocument");
+        assertContains(source, "public static String getPendingLegacyDocumentPath()");
+        assertContains(source, "return validateLegacyImportPath(currentActivity, json.getPath(), true)");
         assertContains(source, "consumeRestoredLegacyImportAcknowledgement");
     }
 

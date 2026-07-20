@@ -93,6 +93,28 @@ namespace Starfall.App
 #endif
         }
 
+        public static bool TryGetPendingLegacyDocument(out string absoluteCachePath, out string error)
+        {
+            absoluteCachePath = string.Empty;
+            error = string.Empty;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var bridge = new AndroidJavaClass(JavaClassName);
+                absoluteCachePath = bridge.CallStatic<string>("getPendingLegacyDocumentPath") ?? string.Empty;
+                return !string.IsNullOrWhiteSpace(absoluteCachePath);
+            }
+            catch (Exception exception)
+            {
+                error = exception.Message;
+                Debug.LogWarning("Android pending legacy import lookup failed: " + exception.Message);
+                return false;
+            }
+#else
+            return false;
+#endif
+        }
+
         public static void AcknowledgeLegacyDocument(string absoluteCachePath)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR

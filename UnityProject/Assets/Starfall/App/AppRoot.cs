@@ -32,6 +32,7 @@ namespace Starfall.App
         private const string QualityPreferenceKey = "starfall.quality";
         private const string LegacyImportCacheDirectory = "legacy-import";
         private const string LegacyImportCachePrefix = "legacy-v1-";
+        private const float AndroidLegacyImportPollInterval = 0.25f;
         private static AppRoot instance;
         private readonly UiSnapshot snapshot = new UiSnapshot();
         private readonly List<string> log = new List<string>();
@@ -65,6 +66,7 @@ namespace Starfall.App
         private string presentedStationShipInstanceId = string.Empty;
         private string legacyImportStatus = string.Empty;
         private bool legacyImportStatusIsError;
+        private float nextAndroidLegacyImportPollTime;
 
         public UiSnapshot Snapshot => snapshot;
         public float MusicVolume => musicDirector ? musicDirector.MusicVolume : MusicDirector.DefaultMusicVolume;
@@ -141,6 +143,7 @@ namespace Starfall.App
 
         private void Update()
         {
+            PollPendingAndroidLegacyDocument();
             HandleKeyboard();
             if (session == null) return;
             var simulationTimeBeforeFrame = session.State.SimulationTime;
@@ -516,6 +519,16 @@ namespace Starfall.App
             {
                 AndroidPlatformBridge.AcknowledgeLegacyDocument(absoluteCachePath);
             }
+        }
+
+        private void PollPendingAndroidLegacyDocument()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (Time.unscaledTime < nextAndroidLegacyImportPollTime) return;
+            nextAndroidLegacyImportPollTime = Time.unscaledTime + AndroidLegacyImportPollInterval;
+            if (AndroidPlatformBridge.TryGetPendingLegacyDocument(out var path, out _))
+                OnAndroidLegacyDocumentPicked(path);
+#endif
         }
 
         internal static byte[] ReadAndDeleteLegacyImportCache(

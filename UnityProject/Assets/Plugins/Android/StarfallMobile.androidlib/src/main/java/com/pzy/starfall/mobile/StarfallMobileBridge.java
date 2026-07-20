@@ -185,6 +185,39 @@ public final class StarfallMobileBridge {
         return cacheDirectory.getAbsolutePath();
     }
 
+    /**
+     * Lets the resumed Unity player pull a durable picker result from its normal
+     * update loop. UnitySendMessage is still used as a low-latency notification,
+     * but GameActivity can drop that one-shot message while restoring its player
+     * loop after ACTION_OPEN_DOCUMENT. The ready marker remains authoritative
+     * until C# acknowledges the import.
+     */
+    public static String getPendingLegacyDocumentPath() {
+        Activity currentActivity = findUnityActivity();
+        if (currentActivity == null) {
+            return "";
+        }
+        synchronized (LOCK) {
+            File importDirectory = new File(currentActivity.getCacheDir(), "legacy-import");
+            File[] candidates = importDirectory.listFiles();
+            if (candidates == null) {
+                return "";
+            }
+            for (File marker : candidates) {
+                String name = marker.getName();
+                if (!marker.isFile() || !name.startsWith("legacy-v1-")
+                        || !name.endsWith(".ready")) {
+                    continue;
+                }
+                File json = legacyJsonForReadyMarker(marker);
+                if (json.isFile()) {
+                    return validateLegacyImportPath(currentActivity, json.getPath(), true);
+                }
+            }
+            return "";
+        }
+    }
+
     /** Removes only incomplete/orphaned files; validated .ready/.json pairs are resumable. */
     private static void cleanupLegacyImportCacheOnce(Activity currentActivity) {
         synchronized (LOCK) {

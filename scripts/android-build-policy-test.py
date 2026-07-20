@@ -15,6 +15,9 @@ app_root = (repository_root / "UnityProject/Assets/Starfall/App/AppRoot.cs").rea
 android_ci_automation = (
     repository_root / "UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 ).read_text(encoding="utf-8")
+android_platform_bridge = (
+    repository_root / "UnityProject/Assets/Starfall/App/AndroidPlatformBridge.cs"
+).read_text(encoding="utf-8")
 space_presenter = (
     repository_root / "UnityProject/Assets/Starfall/Presentation/SpaceWorldPresenter.cs"
 ).read_text(encoding="utf-8")
@@ -139,6 +142,17 @@ if android_back_guard not in app_root:
         "Android player keyboard Back must remain exclusively owned by the native bridge.",
         file=sys.stderr,
     )
+    raise SystemExit(1)
+
+for fragment in (
+    "PollPendingAndroidLegacyDocument();",
+    "AndroidPlatformBridge.TryGetPendingLegacyDocument(out var path, out _)",
+):
+    if fragment not in app_root:
+        print(f"Missing durable Android legacy import polling: {fragment}", file=sys.stderr)
+        raise SystemExit(1)
+if 'bridge.CallStatic<string>("getPendingLegacyDocumentPath")' not in android_platform_bridge:
+    print("Managed Android bridge must pull durable legacy import results.", file=sys.stderr)
     raise SystemExit(1)
 
 for fragment in (
