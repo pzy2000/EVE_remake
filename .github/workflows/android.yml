@@ -693,12 +693,12 @@ jobs:
           STARFALL_VERSION_CODE: ${{ needs.android-release.outputs.version_code }}
           STARFALL_VERSION_NAME: ${{ needs.android-release.outputs.version_name }}
         run: |
-          mapfile -t apks < <(find downloaded-release -type f -name '*.apk' -print)
-          mapfile -t aabs < <(find downloaded-release -type f -name '*.aab' -print)
-          mapfile -t symbols < <(find downloaded-release -type f -name '*-il2cpp-symbols.zip' -print)
-          mapfile -t symbol_manifests < <(find downloaded-release -type f -name '*-il2cpp-symbols.manifest.txt' -print)
-          mapfile -t reports < <(find downloaded-release -type f -name BuildReport.json -print)
-          mapfile -t checksums < <(find downloaded-release -type f -name SHA256SUMS -print)
+          mapfile -t apks < <(find downloaded-release -maxdepth 1 -type f -name '*.apk' -print)
+          mapfile -t aabs < <(find downloaded-release -maxdepth 1 -type f -name '*.aab' -print)
+          mapfile -t symbols < <(find downloaded-release -maxdepth 1 -type f -name '*-il2cpp-symbols.zip' -print)
+          mapfile -t symbol_manifests < <(find downloaded-release -maxdepth 1 -type f -name '*-il2cpp-symbols.manifest.txt' -print)
+          mapfile -t reports < <(find downloaded-release -maxdepth 1 -type f -name BuildReport.json -print)
+          mapfile -t checksums < <(find downloaded-release -maxdepth 1 -type f -name SHA256SUMS -print)
           [[ ${#apks[@]} -eq 1 ]] || {
             echo "Expected exactly one signed APK, found ${#apks[@]}" >&2
             exit 1

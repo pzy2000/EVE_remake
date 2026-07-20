@@ -55,6 +55,8 @@ workflow_requirements = (
     'echo "GRADLE_EXECUTABLE=$gradle_home/bin/gradle" >>"$GITHUB_ENV"',
     "-type f -name settings.gradle",
     'sudo chown -R "$(id -u):$(id -g)" "$gradle_root"',
+    "find downloaded-release -maxdepth 1 -type f -name '*.apk' -print",
+    "find downloaded-release -maxdepth 1 -type f -name '*.aab' -print",
 )
 for fragment in workflow_requirements:
     if fragment not in workflow:
