@@ -71,6 +71,11 @@
 .mobile.compact-landscape .primary { height: 48px; }
 .mobile.compact-landscape .footer { display: none; }
 
+.mobile.square-expanded .menu-card {
+    width: 96%;
+    max-width: 720px;
+}
+
 .mobile.compact-landscape .station-header {
     left: 4px;
     right: 4px;

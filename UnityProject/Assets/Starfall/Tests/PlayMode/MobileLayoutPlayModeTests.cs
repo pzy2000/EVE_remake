@@ -72,6 +72,13 @@ namespace Starfall.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Square2480x2200At560Dpi_StaysInsideSafeBounds()
+        {
+            yield return RunProfile(Profile.FullScreen(
+                "2480x2200-560dpi", 2480, 2200, MobileLayoutMode.SquareExpanded, 560f));
+        }
+
+        [UnityTest]
         public IEnumerator Square2480x2200_With84PixelVerticalHinge_UsesSeparatedPanes()
         {
             const int hingeWidth = 84;
@@ -1151,9 +1158,14 @@ namespace Starfall.Tests.PlayMode
                 string name,
                 int width,
                 int height,
-                MobileLayoutMode mode) => new Profile(
+                MobileLayoutMode mode,
+                float densityDpi = Dpi) => new Profile(
                 name,
-                new MobileWindowMetrics(width, height, Dpi, new RectInt(0, 0, width, height)),
+                new MobileWindowMetrics(
+                    width,
+                    height,
+                    densityDpi,
+                    new RectInt(0, 0, width, height)),
                 mode,
                 FoldingFeatureOrientation.Unknown);
         }
