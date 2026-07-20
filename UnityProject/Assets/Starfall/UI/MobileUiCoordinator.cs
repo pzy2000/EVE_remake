@@ -552,10 +552,10 @@ namespace Starfall.UI
             {
                 var top = 70f;
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("overview-panel"),
-                    InsetTopBottom(primary, 8f, top, 144f));
+                    InsetTopBottom(primary, 8f, top, 164f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("ship-status"),
-                    new Rect(primary.xMin + 8f, primary.yMax - 126f,
-                        Mathf.Min(220f, primary.width - 16f), 118f));
+                    new Rect(primary.xMin + 8f, primary.yMax - 156f,
+                        Mathf.Min(220f, primary.width - 16f), 148f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(primary.xMin + Mathf.Min(236f, primary.width * 0.52f), primary.yMax - 126f,
                         Mathf.Max(0f, primary.width - Mathf.Min(244f, primary.width * 0.54f)), 120f));

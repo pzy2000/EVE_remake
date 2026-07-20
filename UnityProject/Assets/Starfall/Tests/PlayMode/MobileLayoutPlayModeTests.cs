@@ -460,6 +460,24 @@ namespace Starfall.Tests.PlayMode
                 Assert.That(RectContains(layout.PrimaryPaneDp, footerBounds), Is.True,
                     $"{profile.Name}/Station: footer {footerBounds} is not contained by the primary pane.");
             }
+
+            if (scene == "Space" &&
+                layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
+            {
+                var shipStatus = root.Q<VisualElement>("ship-status");
+                var speed = root.Q<Label>("speed");
+                Assert.That(shipStatus, Is.Not.Null,
+                    $"{profile.Name}/Space: missing ship status panel.");
+                Assert.That(speed, Is.Not.Null,
+                    $"{profile.Name}/Space: missing speed telemetry.");
+                Assert.That(TryGetVisibleBoundsInContent(speed, root, out var speedBounds), Is.True,
+                    $"{profile.Name}/Space: speed telemetry is not visible.");
+                AssertRectApproximately(speedBounds, speed.worldBound,
+                    $"{profile.Name}/Space: speed telemetry is partially clipped");
+                Assert.That(RectContains(shipStatus.worldBound, speed.worldBound), Is.True,
+                    $"{profile.Name}/Space: speed telemetry {speed.worldBound} is clipped by " +
+                    $"ship status {shipStatus.worldBound}.");
+            }
         }
 
         private static void AssertVisibleElementAvoidsFolding(
