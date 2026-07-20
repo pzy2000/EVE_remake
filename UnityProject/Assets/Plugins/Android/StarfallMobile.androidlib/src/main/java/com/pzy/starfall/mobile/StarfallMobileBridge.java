@@ -182,7 +182,15 @@ public final class StarfallMobileBridge {
         if (cacheDirectory == null) {
             throw new IllegalStateException("Android app cache directory is unavailable");
         }
-        return cacheDirectory.getAbsolutePath();
+        try {
+            // Picker results are canonicalized before crossing the JNI boundary.
+            // Return the root in the same form so C# does not reject Android's
+            // /data/data and /data/user/0 aliases as different directories.
+            return cacheDirectory.getCanonicalPath();
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "Android app cache directory could not be canonicalized", exception);
+        }
     }
 
     /**

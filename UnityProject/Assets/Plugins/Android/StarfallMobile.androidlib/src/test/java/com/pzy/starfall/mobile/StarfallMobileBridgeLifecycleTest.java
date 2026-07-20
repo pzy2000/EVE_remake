@@ -100,6 +100,9 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "public static void acknowledgeLegacyDocument");
         assertContains(source, "public static String getPendingLegacyDocumentPath()");
         assertContains(source, "return validateLegacyImportPath(currentActivity, json.getPath(), true)");
+        assertContains(source, "return cacheDirectory.getCanonicalPath()");
+        assertFalse(source.contains("return cacheDirectory.getAbsolutePath();"),
+                "managed and native legacy import roots must use the same canonical path form");
         assertContains(source, "consumeRestoredLegacyImportAcknowledgement");
     }
 
