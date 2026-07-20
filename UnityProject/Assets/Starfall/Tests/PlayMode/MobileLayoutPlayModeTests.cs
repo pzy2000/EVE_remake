@@ -560,7 +560,7 @@ namespace Starfall.Tests.PlayMode
                 $"raw={offscreen.worldBound}, fold={fold}.");
             Assert.That(TryGetVisibleBoundsInContent(offscreen, root, out _), Is.False,
                 $"{profile.Name}/Station: control fully clipped by its ScrollView viewport was considered visible.");
-            AssertVisibleControlAvoidsFolding(profile, root, offscreen, fold, "Station");
+            AssertVisibleElementAvoidsFolding(profile, root, offscreen, fold, "Station");
 
             offscreen.RemoveFromHierarchy();
             yield return null;
