@@ -166,6 +166,10 @@ grep -Fq 'candidates.append((priority, index' "$emulator_entry" || {
   echo 'Legacy SAF picker matching must prefer visible text over preview descriptions.' >&2
   exit 1
 }
+grep -Fq 'import-cache-on-timeout.txt' "$emulator_entry" || {
+  echo 'Legacy SAF timeouts must retain the durable import-cache state.' >&2
+  exit 1
+}
 grep -Fq 'fail-fast: false' "$replay_workflow_entry" || {
   echo 'Replay scenario shards must continue after another scenario fails.' >&2
   exit 1

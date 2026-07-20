@@ -1137,6 +1137,13 @@ PY
   done
   if ! adb shell test -s \
     "$persistent_data_directory/Saves/slot1.json" >/dev/null 2>&1; then
+    adb shell run-as "$package_name" find cache/legacy-import -type f -print \
+      >"$legacy_directory/import-cache-on-timeout.txt" 2>/dev/null || true
+    pull_app_file \
+      "starfall-ci-layout-MainMenu.json" \
+      "$legacy_directory/MainMenu.on-timeout.layout.json" || true
+    starfall_adb_capture_file \
+      "$legacy_directory/activity-on-timeout.txt" shell dumpsys activity activities || true
     echo "SAF import did not create Slot 1." >&2
     return 1
   fi

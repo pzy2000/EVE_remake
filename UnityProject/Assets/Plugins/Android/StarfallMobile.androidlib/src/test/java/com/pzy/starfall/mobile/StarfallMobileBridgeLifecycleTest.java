@@ -95,6 +95,8 @@ public final class StarfallMobileBridgeLifecycleTest {
         assertContains(source, "drainReadyLegacyImportsLocked(currentActivity)");
         assertContains(source, "onUnityActivityWindowFocusChanged(");
         assertContains(source, "!activity.hasWindowFocus()");
+        assertContains(source, "getDecorView().postDelayed");
+        assertContains(source, "!sourceActivity.hasWindowFocus()");
         assertContains(source, "public static void acknowledgeLegacyDocument");
         assertContains(source, "consumeRestoredLegacyImportAcknowledgement");
     }

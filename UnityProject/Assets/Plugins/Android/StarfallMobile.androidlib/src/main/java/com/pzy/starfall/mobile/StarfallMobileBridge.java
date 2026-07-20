@@ -257,20 +257,32 @@ public final class StarfallMobileBridge {
         if (!hasFocus) {
             return;
         }
-        synchronized (LOCK) {
-            if (!initialized || activity != sourceActivity) {
-                return;
+        // UnityPlayerGameActivity.onWindowFocusChanged queues APP_CMD_GAINED_FOCUS
+        // before returning. Wait for that native command and the resumed player loop
+        // to settle; UnitySendMessage issued synchronously here can otherwise vanish.
+        sourceActivity.getWindow().getDecorView().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                synchronized (LOCK) {
+                    if (!initialized || activity != sourceActivity
+                            || !sourceActivity.hasWindowFocus()) {
+                        return;
+                    }
+                    boolean resumedImport = drainReadyLegacyImportsLocked(sourceActivity);
+                    if (resumedImport) {
+                        Log.i(TAG, "Dispatched durable legacy import after Unity focus resumed.");
+                    }
+                    if (!resumedImport && pendingLegacyErrorPayload != null) {
+                        sendUnityTo(
+                                pendingLegacyErrorTarget,
+                                CALLBACK_DOCUMENT_ERROR,
+                                pendingLegacyErrorPayload);
+                    }
+                    pendingLegacyErrorTarget = null;
+                    pendingLegacyErrorPayload = null;
+                }
             }
-            boolean resumedImport = drainReadyLegacyImportsLocked(sourceActivity);
-            if (!resumedImport && pendingLegacyErrorPayload != null) {
-                sendUnityTo(
-                        pendingLegacyErrorTarget,
-                        CALLBACK_DOCUMENT_ERROR,
-                        pendingLegacyErrorPayload);
-            }
-            pendingLegacyErrorTarget = null;
-            pendingLegacyErrorPayload = null;
-        }
+        }, 500L);
     }
 
     /** Called by C# after it has consumed/deleted the validated cache JSON. */
