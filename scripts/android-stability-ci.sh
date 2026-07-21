@@ -242,13 +242,20 @@ try:
     payload = json.load(open(sys.argv[1], encoding="utf-8"))
 except (OSError, json.JSONDecodeError):
     raise SystemExit(1)
-player = payload.get("player") or {}
-runtime = player.get("runtime") if isinstance(player, dict) else None
+player = payload.get("player") or payload.get("Player") or {}
+runtime = (
+    player.get("runtime") or player.get("Runtime")
+    if isinstance(player, dict)
+    else None
+)
 stats_owner = runtime if isinstance(runtime, dict) else player
-stats = stats_owner.get("stats") or {}
+stats = stats_owner.get("stats") or stats_owner.get("Stats") or {}
+jumps = stats.get("jumps")
+if jumps is None:
+    jumps = stats.get("Jumps")
 ok = (
     payload.get("schemaVersion") == 2
-    and int(stats.get("jumps") or 0) >= int(sys.argv[2])
+    and int(jumps or 0) >= int(sys.argv[2])
 )
 raise SystemExit(0 if ok else 1)
 PY

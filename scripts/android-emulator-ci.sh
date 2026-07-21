@@ -1710,10 +1710,18 @@ after = json.load(open(sys.argv[2], encoding="utf-8"))
 for label, payload in (("before", before), ("after", after)):
     if payload.get("schemaVersion") != 2:
         raise SystemExit(f"Lifecycle auto save {label} has an invalid schema")
-    player = payload.get("player") or {}
-    runtime = player.get("runtime") if isinstance(player, dict) else None
+    player = payload.get("player") or payload.get("Player") or {}
+    runtime = (
+        player.get("runtime") or player.get("Runtime")
+        if isinstance(player, dict)
+        else None
+    )
     stats_owner = runtime if isinstance(runtime, dict) else player
-    jumps = int((stats_owner.get("stats") or {}).get("jumps") or 0)
+    stats = stats_owner.get("stats") or stats_owner.get("Stats") or {}
+    jumps_value = stats.get("jumps")
+    if jumps_value is None:
+        jumps_value = stats.get("Jumps")
+    jumps = int(jumps_value or 0)
     if jumps < 12:
         raise SystemExit(f"Lifecycle auto save {label} lost jump progress: {jumps}")
 if float(after.get("simulationTime") or 0) < float(before.get("simulationTime") or 0):

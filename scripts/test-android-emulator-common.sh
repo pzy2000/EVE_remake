@@ -71,6 +71,7 @@ graphics_settings="$script_directory/../UnityProject/ProjectSettings/GraphicsSet
 android_build_entry="$script_directory/../UnityProject/Assets/Editor/Android/StarfallAndroidBuild.cs"
 back_compat_entry="$script_directory/android-back-compat-ci.sh"
 emulator_entry="$script_directory/android-emulator-ci.sh"
+stability_entry="$script_directory/android-stability-ci.sh"
 android_ci_automation="$script_directory/../UnityProject/Assets/Starfall/App/AndroidCiAutomation.cs"
 procedural_ship_factory="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralShipFactory.cs"
 procedural_space_materials="$script_directory/../UnityProject/Assets/Starfall/Presentation/ProceduralSpaceMaterials.cs"
@@ -170,6 +171,16 @@ grep -Fq 'import-cache-on-timeout.txt' "$emulator_entry" || {
   echo 'Legacy SAF timeouts must retain the durable import-cache state.' >&2
   exit 1
 }
+for save_validation_entry in "$stability_entry" "$emulator_entry"; do
+  grep -Fq 'stats_owner.get("Stats")' "$save_validation_entry" || {
+    echo "Saved-game validation must accept Newtonsoft PascalCase stats: $save_validation_entry" >&2
+    exit 1
+  }
+  grep -Fq 'stats.get("Jumps")' "$save_validation_entry" || {
+    echo "Saved-game validation must accept Newtonsoft PascalCase jumps: $save_validation_entry" >&2
+    exit 1
+  }
+done
 grep -Fq 'fail-fast: false' "$replay_workflow_entry" || {
   echo 'Replay scenario shards must continue after another scenario fails.' >&2
   exit 1
