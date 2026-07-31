@@ -167,6 +167,15 @@ namespace Starfall.Tests.PlayMode
             }
             yield return null;
             Assert.That(overlay.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            var close = root.Q<Button>("settings-close");
+            Assert.That(close, Is.Not.Null);
+            using (var submit = NavigationSubmitEvent.GetPooled())
+            {
+                submit.target = close;
+                close.SendEvent(submit);
+            }
+            yield return null;
+            Assert.That(overlay.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
         }
 
         private void CapturePreference(string key, bool isFloat)

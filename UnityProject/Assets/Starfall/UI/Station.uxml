@@ -24,11 +24,13 @@
                 <ui:Button name="tab-ships" text="SHIPS" />
                 <ui:Button name="tab-lp" text="LP STORE" />
             </ui:VisualElement>
+            <ui:Label name="progression-summary" text="NEXT HULL" class="progression-summary" />
             <ui:VisualElement name="panel-agents" class="service-panel"><ui:Label text="AVAILABLE AGENTS" class="eyebrow" /><ui:ScrollView name="agents-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-market" class="service-panel"><ui:Label text="REGIONAL MARKET" class="eyebrow" /><ui:ScrollView name="market-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-fitting" class="service-panel"><ui:Label text="FITTING &amp; HANGAR INVENTORY" class="eyebrow" /><ui:ScrollView name="fitting-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-ships" class="service-panel"><ui:Label text="ACTIVE SHIPS" class="eyebrow" /><ui:ScrollView name="ships-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-lp" class="service-panel"><ui:Label text="LOYALTY STORE" class="eyebrow" /><ui:Label name="lp-summary" text="Available loyalty points: 0" /><ui:Button name="lp-exchange" text="EXCHANGE 100 LP FOR DAMAGE AMP" /></ui:VisualElement>
+            <ui:Label name="station-status" text="Station services ready." class="station-status" />
         </ui:VisualElement>
         <ui:Label name="station-footer" text="STATION SERVICES ONLINE · PRESS UNDOCK TO RETURN TO SPACE" class="station-footer muted panel" />
     </ui:VisualElement>

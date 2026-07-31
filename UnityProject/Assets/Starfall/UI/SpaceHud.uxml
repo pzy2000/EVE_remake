@@ -8,12 +8,13 @@
                 <ui:Label name="system-name" text="HELIOS PRIME" class="title system-title" />
                 <ui:Label name="security" text="SEC 1.0" class="security" />
                 <ui:Label name="mission" text="No active mission" class="mission muted" />
+                <ui:Label name="route" text="NO ROUTE SET" class="route" />
             </ui:VisualElement>
             <ui:VisualElement name="topbar-gap" class="topbar-gap" />
             <ui:VisualElement name="topbar-right" class="topbar-right">
-                <ui:Button name="map" text="MAP [M]" />
-                <ui:Button name="journal" text="JOURNAL [J]" />
-                <ui:Button name="pilot" text="PILOT [C]" />
+                <ui:Button name="map" text="MAP" />
+                <ui:Button name="journal" text="JOURNAL" />
+                <ui:Button name="pilot" text="PILOT" />
                 <ui:Button name="save" text="SAVE" />
                 <ui:Button name="settings" text="⚙" />
             </ui:VisualElement>
@@ -49,14 +50,19 @@
             <ui:Label text="SELECTED OBJECT" class="eyebrow" />
             <ui:Label name="target-name" text="No target" class="target-name" />
             <ui:Label name="target-detail" text="Select an object in space" class="muted" />
+            <ui:VisualElement name="target-health" class="target-health">
+                <ui:VisualElement class="target-health-row"><ui:Label name="target-shield-text" text="SHIELD 100%" /><ui:VisualElement class="bar-track"><ui:VisualElement name="target-shield" class="bar-fill shield" /></ui:VisualElement></ui:VisualElement>
+                <ui:VisualElement class="target-health-row"><ui:Label name="target-armor-text" text="ARMOR 100%" /><ui:VisualElement class="bar-track"><ui:VisualElement name="target-armor" class="bar-fill armor" /></ui:VisualElement></ui:VisualElement>
+                <ui:VisualElement class="target-health-row"><ui:Label name="target-hull-text" text="HULL 100%" /><ui:VisualElement class="bar-track"><ui:VisualElement name="target-hull" class="bar-fill hull" /></ui:VisualElement></ui:VisualElement>
+            </ui:VisualElement>
             <ui:VisualElement class="button-row">
                 <ui:Button name="approach" text="APPROACH" />
                 <ui:Button name="orbit" text="ORBIT" />
-                <ui:Button name="warp" text="WARP [W]" />
+                <ui:Button name="warp" text="WARP" />
             </ui:VisualElement>
             <ui:VisualElement class="button-row">
-                <ui:Button name="lock" text="LOCK [L]" />
-                <ui:Button name="dock" text="DOCK/JUMP [D]" />
+                <ui:Button name="lock" text="LOCK" />
+                <ui:Button name="dock" text="DOCK/JUMP" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="ship-status" class="ship-status panel">
@@ -64,6 +70,7 @@
             <ui:Label name="ship-name" text="Acolyte · Frigate" />
             <ui:Label name="credits" text="50,000 ISK" class="muted" />
             <ui:Label name="speed" text="0 m/s" class="muted" />
+            <ui:Label name="cargo" text="CARGO 0 / 160 m3" class="cargo" />
             <ui:VisualElement class="bar-track"><ui:VisualElement name="shield" class="bar-fill shield" /></ui:VisualElement>
             <ui:VisualElement class="bar-track"><ui:VisualElement name="armor" class="bar-fill armor" /></ui:VisualElement>
             <ui:VisualElement class="bar-track"><ui:VisualElement name="hull" class="bar-fill hull" /></ui:VisualElement>
@@ -86,9 +93,9 @@
             <ui:VisualElement name="starmap-card" class="panel modal-card starmap-card">
                 <ui:VisualElement class="modal-header">
                     <ui:Label text="GALACTIC STARMAP" class="title modal-title" />
-                    <ui:Button name="map-close" text="CLOSE [M]" />
+                    <ui:Button name="map-close" text="CLOSE" />
                 </ui:VisualElement>
-                <ui:Label text="48 deterministic systems · click a system to set the shortest route" class="muted" />
+                <ui:Label text="Tap a system to set the shortest route. The next gate is marked ROUTE." class="muted" />
                 <ui:ScrollView name="starmap-list" class="modal-list" />
             </ui:VisualElement>
         </ui:VisualElement>
@@ -96,7 +103,7 @@
             <ui:VisualElement name="journal-card" class="panel modal-card">
                 <ui:VisualElement class="modal-header">
                     <ui:Label text="MISSION JOURNAL" class="title modal-title" />
-                    <ui:Button name="journal-close" text="CLOSE [J]" />
+                    <ui:Button name="journal-close" text="CLOSE" />
                 </ui:VisualElement>
                 <ui:Label text="Security · Distribution · Mining · Storyline" class="muted" />
                 <ui:ScrollView name="journal-list" class="modal-list" />
@@ -105,7 +112,7 @@
         <ui:VisualElement name="death-overlay" class="screen death-overlay">
             <ui:VisualElement name="death-card" class="panel death-card">
                 <ui:Label text="VESSEL DESTROYED" class="title danger" />
-                <ui:Label text="Your clone contract is active at your home station." />
+                <ui:Label name="death-summary" text="Your clone contract is active at your home station." />
                 <ui:Button name="respawn" text="ACTIVATE CLONE" />
             </ui:VisualElement>
         </ui:VisualElement>

@@ -11,10 +11,13 @@ namespace Starfall.UI
         private readonly Label message;
         private readonly Button confirm;
         private readonly Button cancel;
+        private readonly Action<bool> openChanged;
         private Action confirmed;
+        private bool isOpen;
 
-        public ConfirmationOverlay(VisualElement documentRoot)
+        public ConfirmationOverlay(VisualElement documentRoot, Action<bool> openChanged = null)
         {
+            this.openChanged = openChanged;
             overlay = new VisualElement { name = "mobile-confirmation", pickingMode = PickingMode.Position };
             overlay.AddToClassList("screen");
             overlay.AddToClassList("confirmation-overlay");
@@ -66,7 +69,7 @@ namespace Starfall.UI
             Close();
         }
 
-        public bool IsOpen => overlay.style.display.value == DisplayStyle.Flex;
+        public bool IsOpen => isOpen;
 
         public void Show(string heading, string body, string confirmLabel, Action onConfirmed)
         {
@@ -76,6 +79,11 @@ namespace Starfall.UI
             confirmed = onConfirmed;
             overlay.BringToFront();
             overlay.style.display = DisplayStyle.Flex;
+            if (!isOpen)
+            {
+                isOpen = true;
+                openChanged?.Invoke(true);
+            }
             cancel.Focus();
         }
 
@@ -83,10 +91,16 @@ namespace Starfall.UI
         {
             confirmed = null;
             overlay.style.display = DisplayStyle.None;
+            if (isOpen)
+            {
+                isOpen = false;
+                openChanged?.Invoke(false);
+            }
         }
 
         public void Dispose()
         {
+            Close();
             confirmed = null;
             overlay.RemoveFromHierarchy();
         }

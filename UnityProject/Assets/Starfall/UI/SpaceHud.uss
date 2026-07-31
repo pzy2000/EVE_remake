@@ -2,6 +2,7 @@
 .system-title { font-size: 19px; width: 250px; -unity-text-align: middle-left; }
 .security { color: rgb(89, 238, 133); width: 72px; }
 .mission { flex-grow: 1; }
+.route { color: rgb(255, 196, 82); font-size: 12px; margin-top: 2px; }
 .topbar Button { margin-left: 5px; min-width: 82px; }
 .overview {
     position: absolute;
@@ -112,7 +113,8 @@
     border-right-color: rgb(70, 220, 255);
 }
 .overview-row.mission { border-bottom-color: rgba(255, 184, 66, 0.55); }
-.overview-row.stale { opacity: 0.4; }
+.overview-row.route-next { background-color: rgba(91, 63, 9, 0.78); border-left-width: 2px; border-left-color: rgb(255, 196, 82); }
+.overview-row.stale { opacity: 0.8; }
 .overview-cell {
     height: 30px;
     padding-left: 4px;
@@ -136,7 +138,7 @@
     left: 8px;
     right: 8px;
     top: 118px;
-    color: rgb(88, 124, 144);
+    color: var(--muted);
     font-size: 13px;
     letter-spacing: 1px;
     -unity-text-align: middle-center;
@@ -144,12 +146,18 @@
 .modal-list-row { -unity-text-align: middle-left; margin-bottom: 3px; }
 .target { position: absolute; right: 16px; top: 78px; width: 315px; }
 .target-name { color: var(--cyan); font-size: 21px; margin-top: 5px; }
+.target-health { display: none; margin-top: 7px; }
+.target-health-row { flex-direction: row; align-items: center; height: 21px; }
+.target-health-row Label { width: 88px; font-size: 11px; color: var(--muted); }
+.target-health-row .bar-track { flex-grow: 1; margin-top: 0; }
 .button-row { flex-direction: row; margin-top: 7px; }
 .button-row Button { flex-grow: 1; margin-right: 4px; }
 .ship-status { position: absolute; left: 16px; bottom: 16px; width: 250px; }
 .module-rack { position: absolute; left: 285px; right: 370px; bottom: 16px; height: 83px; }
 .module-rack Button { width: 78px; flex-shrink: 0; margin-right: 4px; white-space: normal; font-size: 13px; }
 .module-rack Button.active { background-color: rgb(144, 73, 27); border-top-color: rgb(255, 181, 72); }
+.module-rack Button.cooldown { background-color: rgb(38, 54, 70); color: rgb(173, 207, 220); }
+.cargo { color: rgb(184, 218, 231); font-size: 12px; margin-top: 2px; }
 .combat-log { position: absolute; right: 16px; bottom: 16px; width: 335px; min-height: 112px; color: rgb(170, 211, 229); font-size: 14px; }
 .combat-log #combat-log { flex-shrink: 0; white-space: normal; }
 .modal-overlay { display: none; background-color: rgba(0, 3, 12, 0.78); align-items: center; justify-content: center; }

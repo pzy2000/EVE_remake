@@ -8,4 +8,9 @@
 .tabbar Button { flex-grow: 1; font-size: 14px; margin-right: 3px; }
 .service-panel { flex-grow: 1; margin-top: 12px; }
 .service-panel ScrollView { flex-grow: 1; margin-top: 8px; }
+.progression-summary { color: rgb(255, 196, 82); font-size: 13px; margin-top: 8px; }
+.station-status { min-height: 30px; margin-top: 6px; color: rgb(179, 219, 233); white-space: normal; }
+.service-copy { flex-grow: 1; padding-top: 5px; padding-bottom: 5px; }
+.service-title { color: rgb(220, 238, 246); }
+.service-detail { color: var(--muted); font-size: 12px; white-space: normal; }
 .station-footer { position: absolute; left: 18px; right: 18px; bottom: 12px; height: 34px; -unity-text-align: middle-center; font-size: 13px; }

@@ -69,6 +69,26 @@ Button:hover, Button.active, Button.chosen {
     color: white;
 }
 
+.unity-base-text-field__input {
+    background-color: var(--bg);
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+    color: var(--text);
+    --unity-cursor-color: var(--cyan);
+    --unity-selection-color: rgba(26, 116, 151, 0.9);
+}
+
+.unity-base-text-field__input:focus {
+    border-left-color: var(--cyan);
+    border-right-color: var(--cyan);
+    border-top-color: var(--cyan);
+    border-bottom-color: var(--cyan);
+}
+
+.unity-base-text-field__input--placeholder { color: var(--muted); }
+
 .muted { color: var(--muted); }
 .danger { color: var(--danger); }
 .hidden { display: none; }
@@ -97,7 +117,6 @@ Button:hover, Button.active, Button.chosen {
     border-bottom-color: rgba(72, 156, 190, 0.23);
 }
 
-.service-row Label { flex-grow: 1; }
 .service-row Button { width: 92px; }
 
 .settings-overlay {

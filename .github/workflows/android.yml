@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: unity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   UNITY_VERSION: 6000.1.10f1
   UNITY_ANDROID_IMAGE: unityci/editor:6000.1.10f1-android-3@sha256:ed46b4a1ad2b6c30d752bf2c988b00038ab84551a07625875a34d0d81be71c42
@@ -213,9 +217,6 @@ jobs:
       github.actor != 'dependabot[bot]')
     runs-on: ubuntu-24.04
     timeout-minutes: 150
-    concurrency:
-      group: unity-personal-${{ github.repository }}
-      cancel-in-progress: false
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
       UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -575,9 +576,6 @@ jobs:
       needs.unity-android.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
-    concurrency:
-      group: unity-personal-${{ github.repository }}
-      cancel-in-progress: false
     outputs:
       artifact_name: ${{ steps.release_metadata.outputs.artifact_name }}
       version_code: ${{ steps.version.outputs.version_code }}

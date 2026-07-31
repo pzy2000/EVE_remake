@@ -303,6 +303,11 @@ namespace Starfall.Tests.EditMode.Gameplay
             var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
             var agent = new AgentDefinition("agent_test_" + division, "Test Agent", division, 2, station.Id);
             station.Agents.Add(agent);
+            var rejected = Execute(session, new GameCommand(GameCommandType.TalkToAgent, agent.Id));
+            Assert.That(session.State.Player.Missions, Is.Empty);
+            Assert.That(rejected.Any(value => value.Type == SimulationEventType.Log &&
+                                              value.Message.Contains("requires 1.5 standing")), Is.True);
+            session.State.Player.Standings[station.FactionId] = 2d;
 
             var batch = Execute(session, new GameCommand(GameCommandType.TalkToAgent, agent.Id));
             var mission = session.State.Player.Missions.Single();
@@ -312,6 +317,10 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(mission.Type, Is.EqualTo(expectedType));
             Assert.That(mission.Status, Is.EqualTo(MissionStatus.Active));
             Assert.That(mission.RewardCredits, Is.GreaterThan(0));
+            Assert.That(session.State.Player.DestinationSystemId,
+                Is.EqualTo(string.IsNullOrEmpty(mission.DestinationSystemId)
+                    ? mission.TargetSystemId
+                    : mission.DestinationSystemId));
             Assert.That(batch.Count(value => value.Type == SimulationEventType.Mission), Is.EqualTo(2));
             if (expectedType == MissionType.Distribution)
                 Assert.That(session.State.Player.Cargo[ItemIds.SealedCargo], Is.EqualTo(mission.Quantity));
@@ -373,7 +382,9 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(session.State.Player.CurrentSystemId, Is.EqualTo(session.State.Player.HomeSystemId));
             Assert.That(session.State.Player.DockedAtStationId, Is.EqualTo(session.State.Player.HomeStationId));
             Assert.That(replacement.ShipId, Is.EqualTo(ShipIds.Acolyte));
-            Assert.That(replacement.InstanceId, Is.Not.EqualTo("ship_start"));
+            Assert.That(replacement.InstanceId, Is.EqualTo("ship_start"));
+            Assert.That(session.State.Player.Stats.InsuranceClaims, Is.EqualTo(1));
+            Assert.That(replacement.Fitting.High.Count(value => value == ModuleIds.PulseLaser), Is.EqualTo(2));
             Assert.That(respawnBatch.Any(value => value.Type == SimulationEventType.SaveRequested && value.Detail == "auto"), Is.True);
         }
 

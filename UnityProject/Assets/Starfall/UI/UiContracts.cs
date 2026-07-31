@@ -10,6 +10,7 @@ namespace Starfall.UI
         public string Title = string.Empty;
         public string Detail = string.Empty;
         public string Accent = "#4edbff";
+        public bool Enabled = true;
     }
 
     [Serializable]
@@ -20,6 +21,7 @@ namespace Starfall.UI
         public string Slot = string.Empty;
         public bool Active;
         public float Cooldown01;
+        public float CooldownSeconds;
     }
 
     [Serializable]
@@ -36,12 +38,23 @@ namespace Starfall.UI
         public string SelectedName = "No target";
         public string SelectedDetail = "Select an object in space";
         public string MissionSummary = "No active mission";
+        public string RouteSummary = "NO ROUTE SET";
+        public string NextRouteGateId = string.Empty;
+        public string ProgressionSummary = string.Empty;
+        public string DeathSummary = "Your clone contract is active at your home station.";
         public long Credits = 50000;
         public int LoyaltyPoints;
         public float Shield01 = 1f;
         public float Armor01 = 1f;
         public float Hull01 = 1f;
         public float Speed;
+        public float CargoUsed;
+        public float CargoCapacity;
+        public bool SelectedHasHealth;
+        public float SelectedShield01;
+        public float SelectedArmor01;
+        public float SelectedHull01;
+        public bool MiningMissionActive;
         public bool Docked;
         public bool PlayerDead;
         public bool MapVisible;
@@ -75,6 +88,7 @@ namespace Starfall.UI
         void SetMusicVolume(float value);
         void SetMusicMuted(bool value);
         void CycleQuality();
+        void SetGameplayOverlayOpen(bool open);
         void ReturnToMainMenu();
         void QuitGame();
     }

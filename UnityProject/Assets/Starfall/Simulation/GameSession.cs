@@ -128,6 +128,18 @@ namespace Starfall.Simulation
 
         public GameState State { get; }
 
+        public double CargoUsedVolume => CargoUsed();
+        public double CargoCapacityVolume => CargoCapacity();
+        public long PriceAtCurrentStation(string itemId) => State.Docked ? StationPrice(itemId) : 0L;
+
+        public double RequiredAgentStanding(int level) => Math.Max(0d, (Math.Max(1, level) - 1) * 1.5d);
+
+        public double PlayerStanding(string factionId)
+        {
+            State.Player.Standings.TryGetValue(factionId ?? string.Empty, out var standing);
+            return standing;
+        }
+
         public void Enqueue(GameCommand command)
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
@@ -457,6 +469,7 @@ namespace Starfall.Simulation
             {
                 SyncPlayerShip();
                 State.PlayerDead = true;
+                State.Player.Stats.Deaths++;
                 Log($"Your {catalog.Ships[target.ShipId].Name} was destroyed!");
                 return;
             }
@@ -942,6 +955,15 @@ namespace Starfall.Simulation
             for (var i = 0; i < CurrentSystem().Stations.Count && agent == null; i++)
                 agent = CurrentSystem().Stations[i].Agents.Find(value => value.Id == agentId);
             if (agent == null) return;
+            var station = CurrentSystem().Stations.Find(value => value.Id == agent.StationId);
+            var factionId = station != null ? station.FactionId : CurrentSystem().FactionId;
+            var requiredStanding = RequiredAgentStanding(agent.Level);
+            var playerStanding = PlayerStanding(factionId);
+            if (playerStanding + 1e-9d < requiredStanding)
+            {
+                Log($"{agent.Name} requires {requiredStanding:0.0} standing. Current standing: {playerStanding:0.0}.");
+                return;
+            }
             var existing = State.Player.Missions.Find(value => value.AgentId == agent.Id && value.Status != MissionStatus.Done);
             if (existing != null)
             {
@@ -981,7 +1003,7 @@ namespace Starfall.Simulation
                 mission.DestinationSystemId = destination.Id;
                 mission.DestinationStationId = destinationStation.Id;
                 mission.Quantity = 8d + mission.Level * 4d;
-                mission.RewardCredits = 18000L * mission.Level;
+                mission.RewardCredits = 45000L * mission.Level;
                 mission.RewardLoyaltyPoints = 35 * mission.Level;
             }
             else if (division.Contains("mining"))
@@ -989,9 +1011,10 @@ namespace Starfall.Simulation
                 mission.Type = MissionType.Mining;
                 mission.Title = "Industrial: Ore Requisition";
                 mission.Description = "Mine ore and return it to the agent's station.";
+                mission.TargetSystemId = system.Id;
                 mission.OreId = system.Security >= 0.5d ? ItemIds.Ferrite : system.Security >= 0d ? ItemIds.Novacite : ItemIds.Crystalline;
                 mission.Quantity = 20d + mission.Level * 10d;
-                mission.RewardCredits = 15000L * mission.Level;
+                mission.RewardCredits = 50000L * mission.Level;
                 mission.RewardLoyaltyPoints = 30 * mission.Level;
             }
             else
@@ -1003,7 +1026,7 @@ namespace Starfall.Simulation
                 var faction = catalog.Factions[mission.FactionId];
                 mission.TargetFactionId = string.IsNullOrEmpty(faction.HomePirateId) ? FactionIds.BloodReavers : faction.HomePirateId;
                 mission.KillsRequired = 2 + mission.Level;
-                mission.RewardCredits = 30000L * mission.Level;
+                mission.RewardCredits = 60000L * mission.Level;
                 mission.RewardLoyaltyPoints = 50 * mission.Level;
             }
             return mission;
@@ -1019,6 +1042,11 @@ namespace Starfall.Simulation
                 return;
             }
             mission.Status = MissionStatus.Active;
+            var objectiveSystemId = !string.IsNullOrEmpty(mission.DestinationSystemId)
+                ? mission.DestinationSystemId
+                : mission.TargetSystemId;
+            if (!string.IsNullOrEmpty(objectiveSystemId) && State.Universe.Systems.ContainsKey(objectiveSystemId))
+                State.Player.DestinationSystemId = objectiveSystemId;
             Emit(SimulationEventType.Mission, mission.AgentId, mission.Id, "Mission accepted: " + mission.Title, detail: "active");
             if (!State.Docked) PopulateSystem();
         }
@@ -1099,10 +1127,10 @@ namespace Starfall.Simulation
                 Description = kill ? "Eliminate an elite blockade squad." : "Deliver a dignitary under absolute secrecy.",
                 FactionId = factionId,
                 AgentName = catalog.Factions[factionId].Name + " Command",
-                Level = 3,
-                RewardCredits = kill ? 1500000L : 1200000L,
-                RewardLoyaltyPoints = kill ? 2500 : 2000,
-                RewardStanding = 1.5d,
+                Level = 2,
+                RewardCredits = kill ? 350000L : 300000L,
+                RewardLoyaltyPoints = kill ? 500 : 400,
+                RewardStanding = 0.75d,
             };
             if (kill)
             {
@@ -1110,7 +1138,7 @@ namespace Starfall.Simulation
                 foreach (var system in State.Universe.OrderedSystems) if (system.Security < 0.5d) candidates.Add(system);
                 var target = candidates.Count > 0 ? candidates[random.RangeInclusive(0, candidates.Count - 1)] : State.Universe.OrderedSystems[0];
                 mission.TargetSystemId = target.Id;
-                mission.KillsRequired = 6;
+                mission.KillsRequired = 3;
                 mission.TargetFactionId = catalog.Factions[factionId].HomePirateId ?? FactionIds.BloodReavers;
             }
             else
@@ -1171,11 +1199,31 @@ namespace Starfall.Simulation
         {
             if (!State.PlayerDead) return;
             var lost = State.Player.ActiveShip();
-            if (lost != null) State.Player.Ships.Remove(lost);
+            var protectedByStarterInsurance = lost != null && State.Player.Stats.InsuranceClaims == 0;
+            if (protectedByStarterInsurance)
+            {
+                var definition = catalog.Ships[lost.ShipId];
+                var shieldBonus = 0d;
+                var armorBonus = 0d;
+                foreach (var moduleId in lost.Fitting.All())
+                {
+                    if (!catalog.Modules.TryGetValue(moduleId, out var fitted)) continue;
+                    shieldBonus += fitted.ShieldBonus;
+                    armorBonus += fitted.ArmorBonus;
+                }
+                lost.Shield = definition.HitPoints.Shield + shieldBonus;
+                lost.Armor = definition.HitPoints.Armor + armorBonus;
+                lost.Hull = definition.HitPoints.Hull;
+                State.Player.Stats.InsuranceClaims++;
+                Log("Starter insurance restored your ship and fitted modules. Future losses are permanent.");
+            }
+            else if (lost != null) State.Player.Ships.Remove(lost);
             if (State.Player.Ships.Count == 0)
             {
                 var rookie = CreateShipInstance(EmpireStarterShips[State.Player.EmpireId], NextId("shipinst"));
                 rookie.Fitting.High[0] = FactionWeapons[State.Player.EmpireId];
+                if (rookie.Fitting.High.Count > 1) rookie.Fitting.High[1] = FactionWeapons[State.Player.EmpireId];
+                if (rookie.Fitting.Mid.Count > 0) rookie.Fitting.Mid[0] = ModuleIds.ShieldBooster;
                 State.Player.Ships.Add(rookie);
                 Log("The Directorate issued you a rookie frigate.");
             }

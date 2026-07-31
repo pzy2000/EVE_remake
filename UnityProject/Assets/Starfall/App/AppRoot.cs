@@ -57,6 +57,7 @@ namespace Starfall.App
         private bool sceneTransitionQueued;
         private bool mapVisible;
         private bool journalVisible;
+        private int gameplayOverlayCount;
         private bool worldDirty = true;
         private bool uiDirty = true;
         private bool uiListsDirty = true;
@@ -146,9 +147,14 @@ namespace Starfall.App
             PollPendingAndroidLegacyDocument();
             HandleKeyboard();
             if (session == null) return;
-            var simulationTimeBeforeFrame = session.State.SimulationTime;
-            var batch = session.AdvanceFrame(Time.unscaledDeltaTime);
-            var simulationAdvanced = session.State.SimulationTime > simulationTimeBeforeFrame;
+            var batch = SimulationEventBatch.Empty;
+            var simulationAdvanced = false;
+            if (!SimulationPaused)
+            {
+                var simulationTimeBeforeFrame = session.State.SimulationTime;
+                batch = session.AdvanceFrame(Time.unscaledDeltaTime);
+                simulationAdvanced = session.State.SimulationTime > simulationTimeBeforeFrame;
+            }
             if (simulationAdvanced && !session.State.Docked && !session.State.PlayerDead)
             {
                 worldDirty = true;
@@ -190,6 +196,7 @@ namespace Starfall.App
 
         public void StartNewGame(string pilotName, string empireId)
         {
+            gameplayOverlayCount = 0;
             session = new GameSession(generator.Generate(DefaultSeed), catalog, pilotName, empireId);
             log.Clear();
             AddLog($"Welcome to the stars, {session.State.Player.Name}.");
@@ -202,6 +209,7 @@ namespace Starfall.App
 
         public void ContinueGame()
         {
+            gameplayOverlayCount = 0;
             SaveEnvelopeV2 envelope = null;
             foreach (var slot in new[] { SaveSlot.Auto, SaveSlot.Slot1, SaveSlot.Slot2, SaveSlot.Slot3 })
             {
@@ -344,6 +352,13 @@ namespace Starfall.App
             if (musicDirector) musicDirector.SetMuted(value);
         }
 
+        public void SetGameplayOverlayOpen(bool open)
+        {
+            gameplayOverlayCount = Math.Max(0, gameplayOverlayCount + (open ? 1 : -1));
+        }
+
+        private bool SimulationPaused => mapVisible || journalVisible || gameplayOverlayCount > 0;
+
         public void CycleQuality()
         {
             var next = NextQualityLevel();
@@ -382,6 +397,7 @@ namespace Starfall.App
             session = null;
             mapVisible = false;
             journalVisible = false;
+            gameplayOverlayCount = 0;
             loadedGameplayScene = string.Empty;
             RequestScene("MainMenu");
         }
@@ -881,6 +897,16 @@ namespace Starfall.App
             snapshot.Hull01 = entity != null
                 ? (float)(entity.Hull / Math.Max(1d, entity.MaxHull))
                 : shipDefinition != null ? (float)(ship.Hull / shipDefinition.HitPoints.Hull) : 0f;
+            var selectedEntity = state.FindEntity(state.SelectedId);
+            snapshot.SelectedHasHealth = selectedEntity != null;
+            snapshot.SelectedShield01 = selectedEntity != null
+                ? (float)(selectedEntity.Shield / Math.Max(1d, selectedEntity.MaxShield)) : 0f;
+            snapshot.SelectedArmor01 = selectedEntity != null
+                ? (float)(selectedEntity.Armor / Math.Max(1d, selectedEntity.MaxArmor)) : 0f;
+            snapshot.SelectedHull01 = selectedEntity != null
+                ? (float)(selectedEntity.Hull / Math.Max(1d, selectedEntity.MaxHull)) : 0f;
+            snapshot.CargoUsed = (float)session.CargoUsedVolume;
+            snapshot.CargoCapacity = (float)session.CargoCapacityVolume;
 
             if (entity != null && snapshot.Modules.Count != entity.Modules.Count)
             {
@@ -898,6 +924,7 @@ namespace Starfall.App
                     module.Cooldown01 = definition.CycleTime > 0d
                         ? (float)(runtime.Cooldown / definition.CycleTime)
                         : 0f;
+                    module.CooldownSeconds = (float)runtime.Cooldown;
                 }
             }
 
@@ -941,6 +968,20 @@ namespace Starfall.App
             snapshot.Armor01 = entity != null ? (float)(entity.Armor / Math.Max(1d, entity.MaxArmor)) : shipDefinition != null ? (float)(ship.Armor / shipDefinition.HitPoints.Armor) : 0f;
             snapshot.Hull01 = entity != null ? (float)(entity.Hull / Math.Max(1d, entity.MaxHull)) : shipDefinition != null ? (float)(ship.Hull / shipDefinition.HitPoints.Hull) : 0f;
             snapshot.MissionSummary = ActiveMissionSummary();
+            snapshot.RouteSummary = RouteSummary(out snapshot.NextRouteGateId);
+            snapshot.ProgressionSummary = ProgressionSummary();
+            snapshot.DeathSummary = player.Stats.InsuranceClaims == 0
+                ? "Starter insurance will restore this ship and all fitted modules."
+                : "Your active ship and its fitted modules will be lost.";
+            snapshot.CargoUsed = (float)session.CargoUsedVolume;
+            snapshot.CargoCapacity = (float)session.CargoCapacityVolume;
+            var selectedEntity = state.FindEntity(state.SelectedId);
+            snapshot.SelectedHasHealth = selectedEntity != null;
+            snapshot.SelectedShield01 = selectedEntity != null ? (float)(selectedEntity.Shield / Math.Max(1d, selectedEntity.MaxShield)) : 0f;
+            snapshot.SelectedArmor01 = selectedEntity != null ? (float)(selectedEntity.Armor / Math.Max(1d, selectedEntity.MaxArmor)) : 0f;
+            snapshot.SelectedHull01 = selectedEntity != null ? (float)(selectedEntity.Hull / Math.Max(1d, selectedEntity.MaxHull)) : 0f;
+            snapshot.MiningMissionActive = player.Missions.Any(value =>
+                value.Type == MissionType.Mining && value.Status == MissionStatus.Active);
             if (rebuildLists) RebuildLists();
             else OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
             snapshot.Log.Clear();
@@ -958,6 +999,7 @@ namespace Starfall.App
                         Slot = definition.Slot.ToString(),
                         Active = module.Active,
                         Cooldown01 = definition.CycleTime > 0d ? (float)(module.Cooldown / definition.CycleTime) : 0f,
+                        CooldownSeconds = (float)module.Cooldown,
                     });
                 }
             }
@@ -985,24 +1027,35 @@ namespace Starfall.App
             snapshot.Agents.Clear();
             var dockedStation = system.Stations.Find(value => value.Id == player.DockedAtStationId);
             if (dockedStation != null)
-                foreach (var agent in dockedStation.Agents) snapshot.Agents.Add(Item(agent.Id, agent.Name + " · L" + agent.Level, agent.Division));
+                foreach (var agent in dockedStation.Agents)
+                {
+                    var required = session.RequiredAgentStanding(agent.Level);
+                    var standing = session.PlayerStanding(dockedStation.FactionId);
+                    var enabled = standing + 1e-9d >= required;
+                    snapshot.Agents.Add(Item(agent.Id,
+                        agent.Name + " · L" + agent.Level + " " + agent.Division,
+                        enabled
+                            ? $"Available · standing {standing:0.0}"
+                            : $"Locked · requires {required:0.0} standing · current {standing:0.0}",
+                        enabled));
+                }
 
             snapshot.Market.Clear();
             foreach (var module in catalog.Modules.Values) snapshot.Market.Add(Item(module.Id, module.Name + " · " + PriceText(module.Id), module.Description));
-            foreach (var ship in catalog.Ships.Values) if (!ship.NpcOnly) snapshot.Market.Add(Item(ship.Id, ship.Name + " · " + PriceText(ship.Id), ship.Description));
+            foreach (var marketShip in catalog.Ships.Values) if (!marketShip.NpcOnly) snapshot.Market.Add(Item(marketShip.Id, marketShip.Name + " · " + PriceText(marketShip.Id), marketShip.Description));
             foreach (var pair in player.Cargo)
             {
                 if (pair.Value <= 0d || pair.Key == ItemIds.SealedCargo || !catalog.Items.TryGetValue(pair.Key, out var item)) continue;
                 snapshot.Market.Add(Item(SellItemActionPrefix + pair.Key,
                     "SELL CARGO · " + item.Name + " ×" + pair.Value.ToString("0"),
-                    "Sell the full stack · " + PriceText(pair.Key) + " per unit base"));
+                    $"Sell the full stack · {SellPriceText(pair.Key)} per unit"));
             }
             foreach (var pair in player.Hangar)
             {
                 if (pair.Value <= 0 || !catalog.Modules.TryGetValue(pair.Key, out var module)) continue;
                 snapshot.Market.Add(Item(SellModuleActionPrefix + pair.Key,
                     "SELL HANGAR · " + module.Name + " ×" + pair.Value,
-                    "Sell one module · " + PriceText(pair.Key)));
+                    "Sell one module · " + SellPriceText(pair.Key)));
             }
 
             snapshot.Ships.Clear();
@@ -1026,17 +1079,16 @@ namespace Starfall.App
 
             snapshot.Missions.Clear();
             foreach (var mission in player.Missions.Where(value => value.Status != MissionStatus.Done))
-                snapshot.Missions.Add(Item(mission.Id, mission.Title, mission.Status + " · " + mission.ProgressText()));
+                snapshot.Missions.Add(Item(mission.Id, mission.Title, MissionDetail(mission)));
         }
 
         private string PriceText(string itemId)
         {
-            // The authoritative transaction price remains in GameSession. This deterministic preview mirrors its broad range.
-            long basePrice = catalog.Modules.TryGetValue(itemId, out var module) ? module.Price :
-                catalog.Ships.TryGetValue(itemId, out var ship) ? ship.Price :
-                catalog.Items.TryGetValue(itemId, out var item) ? item.BasePrice : 0;
-            return basePrice.ToString("N0") + " ISK base";
+            return session.PriceAtCurrentStation(itemId).ToString("N0") + " ISK";
         }
+
+        private string SellPriceText(string itemId) =>
+            Math.Max(1L, (long)JsMath.Round(session.PriceAtCurrentStation(itemId) * 0.85d)).ToString("N0") + " ISK";
 
         private void MarketAction(string actionId)
         {
@@ -1081,7 +1133,15 @@ namespace Starfall.App
             var slots = module.Slot == SlotType.High ? ship.Fitting.High : module.Slot == SlotType.Mid ? ship.Fitting.Mid : ship.Fitting.Low;
             var index = slots.FindIndex(string.IsNullOrEmpty);
             if (index >= 0) Queue(GameCommandType.Fit, ship.InstanceId + "|" + slotName + "|" + index + "|" + moduleId);
-            else AddLog("No compatible free slot.");
+            else if (moduleId == ModuleIds.MiningLaser && module.Slot == SlotType.High && slots.Count > 0)
+            {
+                var swapIndex = slots.Count - 1;
+                session.Enqueue(new GameCommand(GameCommandType.Unfit, ship.InstanceId + "|high|" + swapIndex));
+                session.Enqueue(new GameCommand(GameCommandType.Fit,
+                    ship.InstanceId + "|high|" + swapIndex + "|" + moduleId));
+                AddLog("Mining laser will replace the weapon in the last high slot.");
+            }
+            else AddLog("No compatible free slot. Unfit a module first.");
         }
 
         private void AddFittedModules(ShipInstanceState ship, IReadOnlyList<string> slots, string slotName)
@@ -1156,12 +1216,40 @@ namespace Starfall.App
             player.DockedAtStationId = envelope.PlayerLocation.DockedAt ?? string.Empty;
             player.X = envelope.PlayerLocation.X;
             player.Z = envelope.PlayerLocation.Z;
+            NormalizeLoadedMissions(player, universe);
             session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState, envelope.NextEntityId);
             log.Clear();
             AddLog("Save loaded.");
             MarkAllDirty();
             RefreshUiSnapshot(true);
             RequestScene(session.State.Docked ? "Station" : "Space");
+        }
+
+        private static void NormalizeLoadedMissions(PlayerState player, GeneratedUniverse universe)
+        {
+            MissionState routeMission = null;
+            for (var i = 0; i < player.Missions.Count; i++)
+            {
+                var mission = player.Missions[i];
+                if (mission.Type == MissionType.Mining && string.IsNullOrEmpty(mission.TargetSystemId))
+                {
+                    foreach (var system in universe.OrderedSystems)
+                    {
+                        if (!system.Stations.Any(value => value.Id == mission.StationId)) continue;
+                        mission.TargetSystemId = system.Id;
+                        break;
+                    }
+                }
+                if (routeMission == null && mission.Status == MissionStatus.Active)
+                    routeMission = mission;
+            }
+
+            if (!string.IsNullOrEmpty(player.DestinationSystemId) || routeMission == null) return;
+            var objectiveSystemId = !string.IsNullOrEmpty(routeMission.DestinationSystemId)
+                ? routeMission.DestinationSystemId
+                : routeMission.TargetSystemId;
+            if (!string.IsNullOrEmpty(objectiveSystemId) && universe.Systems.ContainsKey(objectiveSystemId))
+                player.DestinationSystemId = objectiveSystemId;
         }
 
         private PlayerState ConvertLegacyPlayer(JObject source, PlayerLocationV2 location)
@@ -1274,7 +1362,84 @@ namespace Starfall.App
         private string ActiveMissionSummary()
         {
             var mission = session.State.Player.Missions.Find(value => value.Status == MissionStatus.Active || value.Status == MissionStatus.ObjectivesMet);
-            return mission == null ? "No active mission" : mission.Title + " · " + mission.ProgressText();
+            return mission == null ? "No active mission" : mission.Title + " · " + MissionObjective(mission);
+        }
+
+        private string MissionDetail(MissionState mission)
+        {
+            return $"{mission.Status} · {MissionObjective(mission)} · Reward {mission.RewardCredits:N0} ISK + {mission.RewardLoyaltyPoints:N0} LP";
+        }
+
+        private string MissionObjective(MissionState mission)
+        {
+            var state = session.State;
+            if (mission.Type == MissionType.Security || mission.Type == MissionType.StorylineKill)
+                return $"Destroy {mission.KillsRequired - mission.Kills} hostiles in {SystemName(mission.TargetSystemId)} ({mission.Kills}/{mission.KillsRequired})";
+            if (mission.Type == MissionType.Distribution || mission.Type == MissionType.StorylineHaul)
+                return $"Deliver {mission.Quantity:0} m3 to {StationName(mission.DestinationSystemId, mission.DestinationStationId)}, {SystemName(mission.DestinationSystemId)}";
+            if (mission.Type == MissionType.Mining)
+            {
+                var ore = catalog.Items.TryGetValue(mission.OreId, out var item) ? item.Name : mission.OreId;
+                return $"Deliver {mission.Quantity:0} {ore} to {StationName(mission.TargetSystemId, mission.StationId)}, {SystemName(mission.TargetSystemId)}";
+            }
+            return mission.ProgressText();
+        }
+
+        private string SystemName(string systemId) =>
+            !string.IsNullOrEmpty(systemId) && session.State.Universe.Systems.TryGetValue(systemId, out var system)
+                ? system.Name
+                : "unknown system";
+
+        private string StationName(string systemId, string stationId)
+        {
+            if (!string.IsNullOrEmpty(systemId) && session.State.Universe.Systems.TryGetValue(systemId, out var system))
+            {
+                var station = system.Stations.Find(value => value.Id == stationId);
+                if (station != null) return station.Name;
+            }
+            foreach (var candidate in session.State.Universe.OrderedSystems)
+            {
+                var station = candidate.Stations.Find(value => value.Id == stationId);
+                if (station != null) return station.Name;
+            }
+            return "destination station";
+        }
+
+        private string RouteSummary(out string nextGateId)
+        {
+            nextGateId = string.Empty;
+            var state = session.State;
+            var destinationId = state.Player.DestinationSystemId;
+            if (string.IsNullOrEmpty(destinationId) || !state.Universe.Systems.ContainsKey(destinationId))
+                return "NO ROUTE SET";
+            if (string.Equals(destinationId, state.Player.CurrentSystemId, StringComparison.Ordinal))
+                return "DESTINATION REACHED · " + SystemName(destinationId);
+            var route = UniverseRoutes.FindRoute(state.Universe, state.Player.CurrentSystemId, destinationId);
+            if (route == null || route.Count < 2) return "NO ROUTE AVAILABLE";
+            var nextSystem = state.Universe.Systems[route[1]];
+            var gate = state.Universe.Systems[state.Player.CurrentSystemId].Gates.Find(value =>
+                string.Equals(value.DestinationSystemId, nextSystem.Id, StringComparison.Ordinal));
+            nextGateId = gate?.Id ?? string.Empty;
+            return $"NEXT JUMP · {nextSystem.Name} · {route.Count - 1} remaining";
+        }
+
+        private string ProgressionSummary()
+        {
+            if (!session.State.Docked) return string.Empty;
+            var active = session.State.Player.ActiveShip();
+            if (active == null || !catalog.Ships.TryGetValue(active.ShipId, out var current)) return string.Empty;
+            var next = catalog.Ships.Values
+                .Where(value => !value.NpcOnly && value.FactionId == session.State.Player.EmpireId &&
+                                (int)value.Class > (int)current.Class)
+                .OrderBy(value => value.Class)
+                .ThenBy(value => value.Price)
+                .FirstOrDefault();
+            if (next == null) return "MAXIMUM HULL CLASS REACHED";
+            var price = session.PriceAtCurrentStation(next.Id);
+            var remaining = Math.Max(0L, price - session.State.Player.Credits);
+            return remaining == 0
+                ? $"NEXT HULL · {next.Name} · READY TO BUY"
+                : $"NEXT HULL · {next.Name} · {remaining:N0} ISK TO GO";
         }
 
         private string SelectedName(string id)
@@ -1348,9 +1513,9 @@ namespace Starfall.App
             return new WorldObjectViewData { Id = id, Name = name, Kind = kind, Position = new Vector3((float)position.X, 0f, (float)position.Z), Radius = radius, Color = color };
         }
 
-        private static UiListItem Item(string id, string title, string detail)
+        private static UiListItem Item(string id, string title, string detail, bool enabled = true)
         {
-            return new UiListItem { Id = id, Title = title, Detail = detail };
+            return new UiListItem { Id = id, Title = title, Detail = detail, Enabled = enabled };
         }
 
         private void AddLog(string message)

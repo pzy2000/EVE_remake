@@ -35,8 +35,8 @@ namespace Starfall.UI
             BindHost();
             ShowTab("agents");
             var safeRoot = root.Q<VisualElement>("station-ui") ?? root;
-            settingsPanel = new StarfallSettingsPanel(safeRoot);
-            confirmation = new ConfirmationOverlay(safeRoot);
+            settingsPanel = new StarfallSettingsPanel(safeRoot, open => host?.SetGameplayOverlayOpen(open));
+            confirmation = new ConfirmationOverlay(safeRoot, open => host?.SetGameplayOverlayOpen(open));
             mobileUi?.ReapplyLayout();
             MobileBackNavigation.Current = this;
         }
@@ -96,11 +96,14 @@ namespace Starfall.UI
             var s = host.Snapshot;
             root.Q<Label>("station-title").text = $"{s.SystemName} ORBITAL";
             root.Q<Label>("pilot-summary").text = $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP";
+            root.Q<Label>("progression-summary").text = s.ProgressionSummary;
             Fill("agents-list", s.Agents, "agent");
             Fill("market-list", s.Market, "market");
             Fill("ships-list", s.Ships, "ship");
             Fill("fitting-list", s.Inventory, "fit");
             root.Q<Label>("lp-summary").text = $"Available loyalty points: {s.LoyaltyPoints:N0}";
+            var status = root.Q<Label>("station-status");
+            if (status != null) status.text = s.Log.Count > 0 ? s.Log[s.Log.Count - 1] : "Station services ready.";
         }
 
         private void Fill(string elementName, IReadOnlyList<UiListItem> items, string command)
@@ -113,8 +116,21 @@ namespace Starfall.UI
                 var row = new VisualElement();
                 row.AddToClassList("service-row");
                 var copy = item;
-                row.Add(new Label(item.Title) { tooltip = item.Detail });
-                row.Add(new Button(() => host.Execute(command, copy.Id)) { text = ActionLabel(command, copy.Id) });
+                var copyBlock = new VisualElement();
+                copyBlock.AddToClassList("service-copy");
+                var title = new Label(item.Title);
+                title.AddToClassList("service-title");
+                var detail = new Label(item.Detail);
+                detail.AddToClassList("service-detail");
+                copyBlock.Add(title);
+                copyBlock.Add(detail);
+                row.Add(copyBlock);
+                var action = new Button(() => host.Execute(command, copy.Id))
+                {
+                    text = item.Enabled ? ActionLabel(command, copy.Id) : "LOCKED",
+                };
+                action.SetEnabled(item.Enabled);
+                row.Add(action);
                 list.Add(row);
             }
         }

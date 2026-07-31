@@ -67,7 +67,7 @@ namespace Starfall.Tests.EditMode.Core
             Assert.That(_catalog.Modules[ModuleIds.CargoExpander].CargoBonus, Is.EqualTo(250));
 
             Assert.That(_catalog.Items[ItemIds.Novacite].Volume, Is.EqualTo(1.5));
-            Assert.That(_catalog.Items[ItemIds.Crystalline].BasePrice, Is.EqualTo(140));
+            Assert.That(_catalog.Items[ItemIds.Crystalline].BasePrice, Is.EqualTo(260));
             Assert.That(_catalog.Items[ItemIds.SealedCargo].NoMarket, Is.True);
         }
 

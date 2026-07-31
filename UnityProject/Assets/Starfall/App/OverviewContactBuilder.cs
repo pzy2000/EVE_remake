@@ -127,6 +127,7 @@ namespace Starfall.App
             var playerPosition = playerEntity != null
                 ? playerEntity.Position
                 : new SimVec2(state.Player.X, state.Player.Z);
+            var nextRouteGateId = NextRouteGateId(state);
 
             for (var i = 0; i < contacts.Count; i++)
             {
@@ -134,6 +135,10 @@ namespace Starfall.App
                 var states = string.Equals(contact.Id, state.SelectedId, StringComparison.Ordinal)
                     ? OverviewStateFlags.Selected
                     : OverviewStateFlags.None;
+
+                if (contact.Kind == OverviewKind.Stargate &&
+                    string.Equals(contact.Id, nextRouteGateId, StringComparison.Ordinal))
+                    states |= OverviewStateFlags.RouteNext;
 
                 contact.VelocityMetersPerSecond = 0d;
                 contact.Disposition = OverviewDisposition.None;
@@ -198,6 +203,19 @@ namespace Starfall.App
 
         private static StarSystemDefinition CurrentSystem(GameState state) =>
             state.Universe.Systems[state.Player.CurrentSystemId];
+
+        private static string NextRouteGateId(GameState state)
+        {
+            if (string.IsNullOrEmpty(state.Player.DestinationSystemId) ||
+                string.Equals(state.Player.CurrentSystemId, state.Player.DestinationSystemId, StringComparison.Ordinal))
+                return string.Empty;
+            var route = UniverseRoutes.FindRoute(state.Universe, state.Player.CurrentSystemId,
+                state.Player.DestinationSystemId);
+            if (route == null || route.Count < 2) return string.Empty;
+            var gate = CurrentSystem(state).Gates.Find(value =>
+                string.Equals(value.DestinationSystemId, route[1], StringComparison.Ordinal));
+            return gate?.Id ?? string.Empty;
+        }
 
         private static string FactionAccent(IContentCatalog catalog, string factionId) =>
             catalog.Factions.TryGetValue(factionId ?? string.Empty, out var faction)

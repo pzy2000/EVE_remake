@@ -38,6 +38,8 @@ namespace Starfall.Simulation
         public int MissionsDone;
         public double OreMined;
         public int Jumps;
+        public int Deaths;
+        public int InsuranceClaims;
     }
 
     public enum MissionType

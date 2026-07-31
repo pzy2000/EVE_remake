@@ -86,6 +86,19 @@ namespace Starfall.Tests.PlayMode
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainMenu"));
             AssertUiDocument<MainMenuUiController>("MainMenu");
             yield return null;
+
+            var controller = Object.FindFirstObjectByType<MainMenuUiController>();
+            var root = controller.GetComponent<UIDocument>().rootVisualElement;
+            var pilotInput = root.Q<TextField>("pilot-name")
+                .Q<VisualElement>(className: "unity-base-text-field__input");
+            Assert.That(pilotInput, Is.Not.Null, "Pilot callsign must expose a styled text input.");
+            AssertReadableText(pilotInput, "MainMenu/Pilot callsign");
+            Assert.That(RelativeLuminance(EffectiveBackground(pilotInput)), Is.LessThan(0.08f),
+                "Pilot callsign input must use the dark game theme instead of Unity's light default.");
+
+            AssertReadableText(root.Q<Label>("empire-description"), "MainMenu/Muted description");
+            AssertReadableText(root.Q<Button>("launch"), "MainMenu/Primary button");
+            AssertReadableText(root.Q<Button>("empire-aurelian"), "MainMenu/Chosen empire");
         }
 
         [UnityTest]
@@ -152,6 +165,8 @@ namespace Starfall.Tests.PlayMode
                 "The station Agents service must expose at least one agent.");
             Assert.That(app.Snapshot.Market.Count, Is.GreaterThan(0),
                 "The station Market service must expose tradable inventory.");
+            Assert.That(app.Snapshot.Market.All(item => !item.Title.Contains(" ISK base")), Is.True,
+                "Market rows must expose authoritative station prices, not hidden base prices.");
             Assert.That(app.Snapshot.Inventory.Count, Is.GreaterThan(0),
                 "The station Fitting service must expose hangar inventory.");
             Assert.That(app.Snapshot.Ships.Count, Is.GreaterThan(0),
@@ -169,6 +184,17 @@ namespace Starfall.Tests.PlayMode
                 "Hangar modules must be exposed as explicit Fitting actions.");
             Assert.That(app.Snapshot.Inventory.Any(item => item.Id.StartsWith("unfit|", StringComparison.Ordinal)), Is.True,
                 "Installed modules must be exposed as explicit Unfit actions.");
+
+            app.Execute("fit", "fit-module|" + ModuleIds.MiningLaser);
+            yield return WaitForCondition(
+                () => ship.Fitting.High.Contains(ModuleIds.MiningLaser) &&
+                      !player.Hangar.ContainsKey(ModuleIds.MiningLaser),
+                "One-tap mining setup did not swap the laser into a full high-slot rack.");
+            var miningSlot = ship.Fitting.High.FindIndex(value => value == ModuleIds.MiningLaser);
+            app.Execute("fit", $"unfit|{ship.InstanceId}|high|{miningSlot}");
+            yield return WaitForCondition(
+                () => player.Hangar.TryGetValue(ModuleIds.MiningLaser, out var count) && count == 1,
+                "Mining laser did not return to the hangar after the swap test.");
 
             player.Cargo[ItemIds.Ferrite] = 5d;
             player.LoyaltyPoints[player.EmpireId] = 100;
@@ -278,10 +304,17 @@ namespace Starfall.Tests.PlayMode
 
             app.Execute("map");
             yield return WaitForCondition(() => app.Snapshot.MapVisible, "Starmap did not open.");
+            var pausedAt = GetSession().State.SimulationTime;
+            yield return new WaitForSecondsRealtime(0.15f);
+            Assert.That(GetSession().State.SimulationTime, Is.EqualTo(pausedAt),
+                "Opening the starmap must pause the single-player simulation.");
             app.Execute("journal");
             yield return WaitForCondition(
                 () => app.Snapshot.JournalVisible && !app.Snapshot.MapVisible,
                 "Journal did not replace the starmap as the topmost full-screen overlay.");
+            app.Execute("journal");
+            yield return WaitForCondition(() => !app.Snapshot.JournalVisible,
+                "Journal did not close before gameplay commands resumed.");
 
             var session = GetSession();
             var player = session.State.PlayerEntity();
@@ -322,6 +355,9 @@ namespace Starfall.Tests.PlayMode
                       player.Movement == MovementMode.WarpDecelerate,
                 "Warp command did not enter a warp movement phase.");
 
+            app.Execute("journal");
+            yield return WaitForCondition(() => app.Snapshot.JournalVisible,
+                "Journal did not reopen after gameplay commands.");
             app.Execute("journal");
             yield return WaitForCondition(
                 () => !app.Snapshot.MapVisible && !app.Snapshot.JournalVisible,
@@ -384,6 +420,14 @@ namespace Starfall.Tests.PlayMode
                 }
             }
 
+            var routeSystemId = state.Universe.Adjacency[state.Player.CurrentSystemId].First();
+            app.Execute("destination", routeSystemId);
+            yield return WaitForCondition(
+                () => app.Snapshot.Overview.Any(contact =>
+                    (contact.States & OverviewStateFlags.RouteNext) != 0),
+                "Setting a destination did not mark the next stargate in Overview.");
+            Assert.That(app.Snapshot.RouteSummary, Does.Contain("NEXT JUMP"));
+
             var target = state.Entities.FirstOrDefault(entity => entity.Kind == EntityKind.Npc && !entity.Dead);
             Assert.That(target, Is.Not.Null, "The generated system must contain a live NPC ship.");
             target.Position = player.Position + new SimVec2(10d, 0d);
@@ -392,6 +436,10 @@ namespace Starfall.Tests.PlayMode
             yield return WaitForCondition(
                 () => HasOverviewState(target.Id, OverviewStateFlags.Selected),
                 "Selecting an Overview ship did not set its Selected presentation flag.");
+            Assert.That(app.Snapshot.SelectedHasHealth, Is.True,
+                "Selecting a ship must expose target health telemetry.");
+            Assert.That(app.Snapshot.CargoCapacity, Is.GreaterThan(0f),
+                "The space HUD must expose cargo capacity.");
 
             app.Execute("lock", target.Id);
             yield return WaitForCondition(
@@ -410,6 +458,7 @@ namespace Starfall.Tests.PlayMode
                 "Overview ListView never received its typed itemsSource.");
             Assert.That(overviewList.itemsSource.Cast<object>().All(item => item is UiOverviewContact), Is.True,
                 "Overview ListView itemsSource must contain only typed UiOverviewContact rows.");
+            yield return AssertOverviewTextContrast(root);
 
             Assert.That(root.Q<Button>("approach").enabledSelf, Is.True);
             Assert.That(root.Q<Button>("orbit").enabledSelf, Is.True);
@@ -425,7 +474,7 @@ namespace Starfall.Tests.PlayMode
             yield return WaitForCondition(
                 () => app.Snapshot.SelectedId == stationContact.Id && !dockButton.enabledSelf,
                 "A station outside docking range incorrectly exposed Dock as executable.");
-            Assert.That(dockButton.text, Is.EqualTo("DOCK/JUMP [D]"));
+            Assert.That(dockButton.text, Is.EqualTo("DOCK/JUMP"));
             Assert.That(root.Q<Button>("orbit").enabledSelf, Is.False);
             Assert.That(root.Q<Button>("lock").enabledSelf, Is.False);
 
@@ -763,6 +812,98 @@ namespace Starfall.Tests.PlayMode
                 $"{sceneName} UIDocument must create a visual tree.");
             Assert.That(document.rootVisualElement.childCount, Is.GreaterThan(0),
                 $"{sceneName} visual tree must not be empty.");
+        }
+
+        private static IEnumerator AssertOverviewTextContrast(VisualElement root)
+        {
+            var empty = root.Q<Label>("overview-empty");
+            Assert.That(empty, Is.Not.Null, "Space Overview must expose its empty-state label.");
+            AssertReadableText(empty, "Space/Overview empty state");
+
+            var overview = root.Q<VisualElement>(className: "overview");
+            Assert.That(overview, Is.Not.Null, "Space must expose the Overview panel.");
+            var staleRow = new VisualElement();
+            staleRow.AddToClassList("overview-row");
+            staleRow.AddToClassList("stale");
+            var staleType = new Label("STALE CONTACT");
+            staleType.AddToClassList("overview-cell");
+            staleType.AddToClassList("overview-type");
+            staleRow.Add(staleType);
+            overview.Add(staleRow);
+
+            yield return null;
+            AssertReadableText(staleType, "Space/Overview stale contact");
+            staleRow.RemoveFromHierarchy();
+        }
+
+        private static void AssertReadableText(VisualElement element, string context)
+        {
+            Assert.That(element, Is.Not.Null, $"{context}: element is missing.");
+            var background = EffectiveBackground(element);
+            var foreground = element.resolvedStyle.color;
+            foreground.a *= EffectiveOpacity(element);
+            var paintedForeground = Composite(foreground, background);
+            var ratio = ContrastRatio(paintedForeground, background);
+            Assert.That(ratio, Is.GreaterThanOrEqualTo(4.5f),
+                $"{context}: text contrast {ratio:F2}:1 is below WCAG AA 4.5:1 " +
+                $"(foreground {paintedForeground}, background {background}).");
+        }
+
+        private static Color EffectiveBackground(VisualElement element)
+        {
+            var ancestors = new Stack<VisualElement>();
+            for (var current = element; current != null; current = current.parent)
+                ancestors.Push(current);
+
+            var result = Color.black;
+            while (ancestors.Count > 0)
+            {
+                var current = ancestors.Pop();
+                var layer = current.resolvedStyle.backgroundColor;
+                layer.a *= current.resolvedStyle.opacity;
+                result = Composite(layer, result);
+            }
+            return result;
+        }
+
+        private static float EffectiveOpacity(VisualElement element)
+        {
+            var opacity = 1f;
+            for (var current = element; current != null; current = current.parent)
+                opacity *= current.resolvedStyle.opacity;
+            return opacity;
+        }
+
+        private static Color Composite(Color foreground, Color background)
+        {
+            var alpha = foreground.a + background.a * (1f - foreground.a);
+            if (alpha <= 0f) return Color.clear;
+            return new Color(
+                (foreground.r * foreground.a + background.r * background.a * (1f - foreground.a)) / alpha,
+                (foreground.g * foreground.a + background.g * background.a * (1f - foreground.a)) / alpha,
+                (foreground.b * foreground.a + background.b * background.a * (1f - foreground.a)) / alpha,
+                alpha);
+        }
+
+        private static float ContrastRatio(Color first, Color second)
+        {
+            var lighter = Mathf.Max(RelativeLuminance(first), RelativeLuminance(second));
+            var darker = Mathf.Min(RelativeLuminance(first), RelativeLuminance(second));
+            return (lighter + 0.05f) / (darker + 0.05f);
+        }
+
+        private static float RelativeLuminance(Color color)
+        {
+            return 0.2126f * LinearChannel(color.r) +
+                   0.7152f * LinearChannel(color.g) +
+                   0.0722f * LinearChannel(color.b);
+        }
+
+        private static float LinearChannel(float channel)
+        {
+            return channel <= 0.04045f
+                ? channel / 12.92f
+                : Mathf.Pow((channel + 0.055f) / 1.055f, 2.4f);
         }
 
         private static IEnumerator WaitForScene(string sceneName)

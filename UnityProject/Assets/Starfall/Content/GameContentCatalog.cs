@@ -127,9 +127,9 @@ namespace Starfall.Content
         {
             return new Dictionary<string, ItemDefinition>
             {
-                { ItemIds.Ferrite, new ItemDefinition(ItemIds.Ferrite, "Ferrite Ore", 1, 12, "Common high-security ore.") },
-                { ItemIds.Novacite, new ItemDefinition(ItemIds.Novacite, "Novacite Ore", 1.5, 45, "Uncommon low-security ore.") },
-                { ItemIds.Crystalline, new ItemDefinition(ItemIds.Crystalline, "Crystalline Ore", 2, 140, "Rare null-security ore.") },
+                { ItemIds.Ferrite, new ItemDefinition(ItemIds.Ferrite, "Ferrite Ore", 1, 40, "Common high-security ore.") },
+                { ItemIds.Novacite, new ItemDefinition(ItemIds.Novacite, "Novacite Ore", 1.5, 100, "Uncommon low-security ore.") },
+                { ItemIds.Crystalline, new ItemDefinition(ItemIds.Crystalline, "Crystalline Ore", 2, 260, "Rare null-security ore.") },
                 { ItemIds.SealedCargo, new ItemDefinition(ItemIds.SealedCargo, "Sealed Cargo", 1, 0, "Mission cargo. Handle with care.", true) },
             };
         }

@@ -40,7 +40,8 @@ namespace Starfall.UI
         MissionObjective = 1 << 2,
         Selected = 1 << 3,
         Elite = 1 << 4,
-        LawEnforcement = 1 << 5
+        LawEnforcement = 1 << 5,
+        RouteNext = 1 << 6
     }
 
     [Flags]
@@ -187,8 +188,13 @@ namespace Starfall.UI
 
         public static OverviewVisibility EvaluateVisibility(OverviewPresetId preset, UiOverviewContact contact)
         {
-            if (contact == null || !AllowsKind(preset, contact.Kind))
+            if (contact == null)
                 return OverviewVisibility.FilterOut;
+
+            if ((contact.States & OverviewStateFlags.RouteNext) != 0)
+                return OverviewVisibility.AlwaysShow;
+
+            if (!AllowsKind(preset, contact.Kind)) return OverviewVisibility.FilterOut;
 
             if (preset == OverviewPresetId.All || preset == OverviewPresetId.General ||
                 contact.Kind != OverviewKind.Ship)

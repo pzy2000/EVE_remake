@@ -12,11 +12,14 @@ namespace Starfall.UI
         private readonly Slider volumeSlider;
         private readonly Label volumeValue;
         private readonly Toggle muteToggle;
+        private readonly Action<bool> openChanged;
         private IStarfallUiHost host;
         private bool refreshing;
+        private bool isOpen;
 
-        public StarfallSettingsPanel(VisualElement documentRoot)
+        public StarfallSettingsPanel(VisualElement documentRoot, Action<bool> openChanged = null)
         {
+            this.openChanged = openChanged;
             overlay = new VisualElement { name = "settings-overlay", pickingMode = PickingMode.Position };
             overlay.AddToClassList("screen");
             overlay.AddToClassList("settings-overlay");
@@ -65,10 +68,11 @@ namespace Starfall.UI
             Close();
         }
 
-        public bool IsOpen => overlay.style.display.value == DisplayStyle.Flex;
+        public bool IsOpen => isOpen;
 
         public void Dispose()
         {
+            SetOpen(false);
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null) host.SettingsChanged -= Refresh;
             if (openButton != null) openButton.clicked -= Open;
@@ -81,12 +85,20 @@ namespace Starfall.UI
         public void Open()
         {
             Refresh();
-            overlay.style.display = DisplayStyle.Flex;
+            SetOpen(true);
         }
 
         public void Close()
         {
-            overlay.style.display = DisplayStyle.None;
+            SetOpen(false);
+        }
+
+        private void SetOpen(bool value)
+        {
+            overlay.style.display = value ? DisplayStyle.Flex : DisplayStyle.None;
+            if (isOpen == value) return;
+            isOpen = value;
+            openChanged?.Invoke(value);
         }
 
         private void BindHost()

@@ -29,6 +29,12 @@
 .mobile .overview-empty,
 .mobile .module-rack Button,
 .mobile .legacy-import-status,
+.mobile .route,
+.mobile .cargo,
+.mobile .target-health-row Label,
+.mobile .progression-summary,
+.mobile .service-detail,
+.mobile .station-status,
 .mobile #settings-display-heading,
 .mobile #settings-audio-heading,
 .mobile #settings-footer {

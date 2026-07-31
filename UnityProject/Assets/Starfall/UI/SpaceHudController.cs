@@ -55,6 +55,8 @@ namespace Starfall.UI
         private bool journalCacheValid;
         private ulong starmapFingerprint;
         private ulong journalFingerprint;
+        private string lastSelectedId = string.Empty;
+        private bool miningMissionWasActive;
 
         private void OnEnable()
         {
@@ -89,8 +91,8 @@ namespace Starfall.UI
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             var safeRoot = root.Q<VisualElement>("space-hud") ?? root;
-            settingsPanel = new StarfallSettingsPanel(safeRoot);
-            confirmation = new ConfirmationOverlay(safeRoot);
+            settingsPanel = new StarfallSettingsPanel(safeRoot, open => host?.SetGameplayOverlayOpen(open));
+            confirmation = new ConfirmationOverlay(safeRoot, open => host?.SetGameplayOverlayOpen(open));
             mobileUi?.ReapplyLayout();
             MobileBackNavigation.Current = this;
             WorldPointerBlocker.Current = this;
@@ -312,9 +314,23 @@ namespace Starfall.UI
             SetText("target-name", snapshot.SelectedName);
             SetText("target-detail", snapshot.SelectedDetail);
             SetText("mission", snapshot.MissionSummary);
+            SetText("route", snapshot.RouteSummary);
+            SetText("cargo", $"CARGO {snapshot.CargoUsed:0} / {snapshot.CargoCapacity:0} m3");
+            SetText("death-summary", snapshot.DeathSummary);
             SetBar("shield", snapshot.Shield01);
             SetBar("armor", snapshot.Armor01);
             SetBar("hull", snapshot.Hull01);
+            RefreshTargetHealth(snapshot);
+
+            var hud = root.Q<VisualElement>("space-hud") ?? root;
+            if (!string.IsNullOrEmpty(snapshot.SelectedId) &&
+                !string.Equals(lastSelectedId, snapshot.SelectedId, StringComparison.Ordinal) &&
+                hud.ClassListContains("mobile"))
+                SetMobilePanel("target");
+            lastSelectedId = snapshot.SelectedId ?? string.Empty;
+            if (snapshot.MiningMissionActive && !miningMissionWasActive)
+                SetActivePreset(OverviewPresetId.Mining);
+            miningMissionWasActive = snapshot.MiningMissionActive;
             RefreshOverview(snapshot);
             RefreshSelectedActions(snapshot);
             RefreshCachedList(starmapList, snapshot.Starmap, "destination",
@@ -335,8 +351,7 @@ namespace Starfall.UI
                 if (i < snapshot.Modules.Count)
                 {
                     var module = snapshot.Modules[i];
-                    button.text = $"{i + 1}\n{module.Name}";
-                    button.EnableInClassList("active", module.Active);
+                    RefreshModuleButton(button, i, module);
                     button.SetEnabled(true);
                 }
                 else
@@ -361,12 +376,36 @@ namespace Starfall.UI
             SetBar("shield", snapshot.Shield01);
             SetBar("armor", snapshot.Armor01);
             SetBar("hull", snapshot.Hull01);
+            SetText("cargo", $"CARGO {snapshot.CargoUsed:0} / {snapshot.CargoCapacity:0} m3");
+            RefreshTargetHealth(snapshot);
             RefreshOverview(snapshot);
             RefreshSelectedActions(snapshot);
 
             var count = Math.Min(9, snapshot.Modules.Count);
             for (var i = 0; i < count; i++)
-                moduleButtons[i]?.EnableInClassList("active", snapshot.Modules[i].Active);
+                if (moduleButtons[i] != null) RefreshModuleButton(moduleButtons[i], i, snapshot.Modules[i]);
+        }
+
+        private void RefreshTargetHealth(UiSnapshot snapshot)
+        {
+            if (root.Q<VisualElement>("target-health") is { } health)
+                health.style.display = snapshot.SelectedHasHealth ? DisplayStyle.Flex : DisplayStyle.None;
+            SetBar("target-shield", snapshot.SelectedShield01);
+            SetBar("target-armor", snapshot.SelectedArmor01);
+            SetBar("target-hull", snapshot.SelectedHull01);
+            SetText("target-shield-text", $"SHIELD {snapshot.SelectedShield01 * 100f:0}%");
+            SetText("target-armor-text", $"ARMOR {snapshot.SelectedArmor01 * 100f:0}%");
+            SetText("target-hull-text", $"HULL {snapshot.SelectedHull01 * 100f:0}%");
+        }
+
+        private static void RefreshModuleButton(Button button, int index, UiModuleState module)
+        {
+            var state = module.CooldownSeconds > 0.05f
+                ? $"{module.CooldownSeconds:0.0}s"
+                : module.Active ? "ARMED" : "READY";
+            button.text = $"{index + 1} · {module.Name}\n{state}";
+            button.EnableInClassList("active", module.Active);
+            button.EnableInClassList("cooldown", module.CooldownSeconds > 0.05f);
         }
 
         private void RefreshOverview(UiSnapshot snapshot)
@@ -423,7 +462,7 @@ namespace Starfall.UI
                           distance <= JumpInteractionDistance &&
                           (actions & OverviewActionFlags.Jump) != 0;
             dockButton.SetEnabled(canDock || canJump);
-            dockButton.text = "DOCK/JUMP [D]";
+            dockButton.text = canDock ? "DOCK" : canJump ? "JUMP" : "DOCK/JUMP";
         }
 
         private void ReplaceVisibleOverview()
@@ -763,7 +802,7 @@ namespace Starfall.UI
                 Add(contactType);
                 Add(velocity);
 
-                RegisterCallback<PointerDownEvent>(OnPointerDown);
+                RegisterCallback<ClickEvent>(OnClick);
             }
 
             public void Bind(UiOverviewContact value, bool selected, bool stale)
@@ -781,12 +820,13 @@ namespace Starfall.UI
                 var locked = (value.States & OverviewStateFlags.LockedByPlayer) != 0;
                 var elite = (value.States & OverviewStateFlags.Elite) != 0;
                 var lawEnforcement = (value.States & OverviewStateFlags.LawEnforcement) != 0;
+                var routeNext = (value.States & OverviewStateFlags.RouteNext) != 0;
 
                 icon.Bind(value);
-                badges.text = BadgeText(attacking, mission, locked, elite, lawEnforcement);
+                badges.text = BadgeText(attacking, mission, locked, elite, lawEnforcement, routeNext);
                 distance.text = FormatDistance(value.DistanceMeters);
                 contactName.text = string.IsNullOrEmpty(value.Name) ? value.Id : value.Name;
-                contactType.text = value.Type ?? string.Empty;
+                contactType.text = routeNext ? "NEXT JUMP" : value.Type ?? string.Empty;
                 velocity.text = FormatVelocity(value.VelocityMetersPerSecond);
                 tooltip = string.IsNullOrEmpty(value.Detail) ? value.Type : value.Detail;
 
@@ -796,6 +836,7 @@ namespace Starfall.UI
                 EnableInClassList("attacking", attacking);
                 EnableInClassList("mission", mission);
                 EnableInClassList("locked", locked);
+                EnableInClassList("route-next", routeNext);
                 EnableInClassList("selected", selected || (value.States & OverviewStateFlags.Selected) != 0);
                 EnableInClassList("stale", stale);
             }
@@ -817,13 +858,14 @@ namespace Starfall.UI
                 EnableInClassList("attacking", false);
                 EnableInClassList("mission", false);
                 EnableInClassList("locked", false);
+                EnableInClassList("route-next", false);
                 EnableInClassList("selected", false);
                 EnableInClassList("stale", false);
             }
 
-            private void OnPointerDown(PointerDownEvent evt)
+            private void OnClick(ClickEvent evt)
             {
-                if (evt.button == 0 && contact != null && !stale) selectRequested?.Invoke(contact.Id);
+                if (contact != null && !stale) selectRequested?.Invoke(contact.Id);
             }
 
             private static Label CreateLabel(string className)
@@ -839,8 +881,10 @@ namespace Starfall.UI
                 bool mission,
                 bool locked,
                 bool elite,
-                bool lawEnforcement)
+                bool lawEnforcement,
+                bool routeNext)
             {
+                if (routeNext) return "R";
                 var key = (attacking ? 1 : 0) | (mission ? 2 : 0) | (locked ? 4 : 0);
                 switch (key)
                 {
