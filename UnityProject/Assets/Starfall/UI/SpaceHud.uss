@@ -4,6 +4,10 @@
 .mission { flex-grow: 1; }
 .route { color: rgb(255, 196, 82); font-size: 12px; margin-top: 2px; }
 .topbar Button { margin-left: 5px; min-width: 82px; }
+.objective-tracker { position: absolute; top: 76px; left: 36%; right: 36%; min-height: 48px; padding: 7px; }
+.objective-tracker .onboarding-summary { color: rgb(174, 229, 246); white-space: normal; -unity-text-align: middle-center; }
+.danger-summary { display: none; margin-top: 3px; -unity-text-align: middle-center; }
+.action-toast { position: absolute; left: 34%; right: 34%; bottom: 112px; min-height: 36px; color: rgb(220, 244, 251); white-space: normal; -unity-text-align: middle-center; }
 .overview {
     position: absolute;
     left: 16px;
@@ -168,6 +172,11 @@
 .modal-title { flex-grow: 1; font-size: 23px; -unity-text-align: middle-left; }
 .modal-list { flex-grow: 1; margin-top: 12px; }
 .modal-list Button { min-height: 36px; margin-bottom: 3px; -unity-text-align: middle-left; }
+.mission-list-row { margin-bottom: 8px; padding: 8px; border-bottom-width: 1px; border-bottom-color: rgba(72, 173, 211, 0.34); }
+.mission-list-title { color: var(--cyan); font-size: 17px; }
+.mission-list-detail { color: rgb(187, 220, 233); white-space: normal; margin-top: 4px; }
+.mission-list-actions { flex-direction: row; margin-top: 7px; }
+.mission-list-actions Button { min-width: 130px; margin-right: 6px; }
 .death-overlay { display: none; background-color: rgba(20, 0, 3, 0.78); align-items: center; justify-content: center; }
 .death-card { width: 470px; align-items: center; }
 .death-card Button { width: 220px; margin-top: 16px; }

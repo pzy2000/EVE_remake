@@ -187,7 +187,7 @@ namespace Starfall.Persistence
                     ReadNullableInt64(envelope.Player["credits"]),
                     envelope.PlayerLocation.SystemId,
                     envelope.SimulationTime,
-                    File.GetLastWriteTimeUtc(sourcePath));
+                    ReadSavedAtUtc(envelope) ?? File.GetLastWriteTimeUtc(sourcePath));
             }
             catch (Exception exception) when (IsSaveReadFailure(exception))
             {
@@ -210,6 +210,15 @@ namespace Starfall.Persistence
             {
                 return null;
             }
+        }
+
+        private static DateTime? ReadSavedAtUtc(SaveEnvelopeV2 envelope)
+        {
+            if (string.IsNullOrEmpty(envelope?.SavedAtUtc)) return null;
+            return DateTime.TryParse(envelope.SavedAtUtc, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var savedAt)
+                ? savedAt
+                : (DateTime?)null;
         }
 
         private bool CanRead(string path)

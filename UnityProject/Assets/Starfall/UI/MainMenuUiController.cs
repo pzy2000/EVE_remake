@@ -10,6 +10,8 @@ namespace Starfall.UI
         private TextField pilotName;
         private Label empireDescription;
         private Label legacyImportStatus;
+        private Label continueSummary;
+        private Button continueButton;
         private IStarfallUiHost host;
         private StarfallSettingsPanel settingsPanel;
         private MobileUiCoordinator mobileUi;
@@ -24,13 +26,14 @@ namespace Starfall.UI
             pilotName = root.Q<TextField>("pilot-name");
             empireDescription = root.Q<Label>("empire-description");
             legacyImportStatus = root.Q<Label>("legacy-import-status");
+            continueSummary = root.Q<Label>("continue-summary");
+            continueButton = root.Q<Button>("continue");
             BindEmpire(root, "empire-aurelian", "aurelian", "Golden laser specialists with resilient armor.");
             BindEmpire(root, "empire-kaldari", "kaldari", "Missile and railgun doctrine backed by massive shields.");
             BindEmpire(root, "empire-meridian", "meridian", "Fast close-range blaster ships built for decisive brawls.");
             BindEmpire(root, "empire-varkhald", "varkhald", "Rugged projectile vessels with unmatched sublight speed.");
-            root.Q<Button>("launch")?.RegisterCallback<ClickEvent>(_ =>
-                StarfallUiBridge.Host?.StartNewGame(string.IsNullOrWhiteSpace(pilotName?.value) ? "Pilot" : pilotName.value.Trim(), empireId));
-            root.Q<Button>("continue")?.RegisterCallback<ClickEvent>(_ => host?.ContinueGame());
+            root.Q<Button>("launch")?.RegisterCallback<ClickEvent>(_ => LaunchNewPilot());
+            continueButton?.RegisterCallback<ClickEvent>(_ => host?.ContinueGame());
             root.Q<Button>("import")?.RegisterCallback<ClickEvent>(_ => host?.ImportLegacy());
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
@@ -72,6 +75,8 @@ namespace Starfall.UI
                 ? DisplayStyle.None
                 : DisplayStyle.Flex;
             legacyImportStatus.EnableInClassList("danger", host?.LegacyImportStatusIsError == true);
+            if (continueSummary != null) continueSummary.text = host?.Snapshot?.ContinueSummary ?? "No valid save found";
+            continueButton?.SetEnabled(host?.Snapshot?.CanContinue == true);
         }
 
         public bool HandleMobileBack()
@@ -103,6 +108,19 @@ namespace Starfall.UI
                 button.AddToClassList("chosen");
                 if (empireDescription != null) empireDescription.text = description;
             };
+        }
+
+        private void LaunchNewPilot()
+        {
+            var name = string.IsNullOrWhiteSpace(pilotName?.value) ? "Pilot" : pilotName.value.Trim();
+            if (host?.Snapshot?.CanContinue != true)
+            {
+                host?.StartNewGame(name, empireId);
+                return;
+            }
+            confirmation?.Show("START A NEW PILOT?",
+                "This replaces the current autosave. Manual saves remain available.",
+                "START NEW", () => host?.StartNewGame(name, empireId));
         }
     }
 }

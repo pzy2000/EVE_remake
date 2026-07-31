@@ -35,6 +35,9 @@
 .mobile .progression-summary,
 .mobile .service-detail,
 .mobile .station-status,
+.mobile .onboarding-summary,
+.mobile .mission-offer-detail,
+.mobile .mission-list-detail,
 .mobile #settings-display-heading,
 .mobile #settings-audio-heading,
 .mobile #settings-footer {
@@ -131,6 +134,18 @@
 
 .mobile.compact-landscape .system-title { width: 190px; font-size: 17px; }
 .mobile.compact-landscape .mission { display: none; }
+.mobile.compact-landscape .objective-tracker {
+    left: 8px;
+    right: auto;
+    top: 64px;
+    width: 440px;
+    min-height: 48px;
+}
+.mobile.compact-landscape .action-toast {
+    left: 236px;
+    right: 8px;
+    bottom: 112px;
+}
 .mobile.compact-landscape .topbar Button { min-width: 66px; margin-left: 3px; }
 .mobile.compact-landscape .mobile-panel-controls {
     display: flex;
@@ -243,6 +258,8 @@
 }
 
 .mobile.square-expanded .combat-log { right: 10px; bottom: 10px; width: 330px; height: 120px; }
+.mobile.square-expanded .objective-tracker { top: 78px; left: 430px; right: 340px; }
+.mobile.square-expanded .action-toast { left: 250px; right: 352px; bottom: 136px; }
 .mobile.square-expanded .modal-card { width: 86%; height: 78%; }
 .mobile.square-expanded .starmap-card { width: 92%; }
 
@@ -276,6 +293,12 @@
 /* The left Space topbar pane cannot also fit the desktop mission summary.
    The full mission remains available in Journal without crossing the hinge. */
 .mobile.hinge-vertical .mission { display: none; }
+.mobile.hinge-vertical .objective-tracker {
+    left: 10px;
+    right: auto;
+    width: 410px;
+}
+.mobile.hinge-vertical .overview { top: 144px; }
 
 /* Dynamic dialogs live inside a single vertical pane. Account for their own
    padding so controls never spill into the 84px occluding hinge. */
@@ -305,5 +328,6 @@
 .mobile.hinge-horizontal .description { min-height: 22px; margin-top: 0; }
 .mobile.hinge-horizontal .primary { height: 48px; }
 .mobile.hinge-horizontal .button-row { margin-top: 4px; }
+.mobile.hinge-horizontal .continue-summary { display: none; }
 .mobile.hinge-horizontal .legacy-import-status { margin-top: 0; }
 .mobile.hinge-horizontal .footer { display: none; }

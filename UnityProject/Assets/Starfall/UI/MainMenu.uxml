@@ -23,6 +23,7 @@
                 <ui:Button name="import" text="IMPORT LEGACY V1" />
                 <ui:Button name="settings" text="SETTINGS" />
             </ui:VisualElement>
+            <ui:Label name="continue-summary" text="No valid save found" class="muted continue-summary" />
             <ui:Label name="legacy-import-status" class="legacy-import-status muted" style="display: none;" />
             <ui:Label text="UNITY 6 · 3D REMASTER · v1.0" class="muted footer" />
         </ui:VisualElement>

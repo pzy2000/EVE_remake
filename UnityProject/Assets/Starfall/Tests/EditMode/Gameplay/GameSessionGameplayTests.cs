@@ -70,6 +70,9 @@ namespace Starfall.Tests.EditMode.Gameplay
             var start = player.Position;
             var target = start + new SimVec2(500d, 0d);
 
+            Assert.That(player.InvulnerableUntil, Is.GreaterThan(session.State.SimulationTime),
+                "A pilot's first undock must grant launch protection.");
+
             session.Enqueue(new GameCommand(GameCommandType.Approach, position: target));
             session.AdvanceFrame(GameSession.FixedStepSeconds);
 
@@ -315,13 +318,17 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(mission.Id, Is.EqualTo("mis_1"));
             Assert.That(mission.AgentId, Is.EqualTo(agent.Id));
             Assert.That(mission.Type, Is.EqualTo(expectedType));
-            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Active));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Offered));
             Assert.That(mission.RewardCredits, Is.GreaterThan(0));
+            Assert.That(batch.Count(value => value.Type == SimulationEventType.Mission), Is.EqualTo(1));
+
+            var accepted = Execute(session, new GameCommand(GameCommandType.AcceptMission, mission.Id));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Active));
             Assert.That(session.State.Player.DestinationSystemId,
                 Is.EqualTo(string.IsNullOrEmpty(mission.DestinationSystemId)
                     ? mission.TargetSystemId
                     : mission.DestinationSystemId));
-            Assert.That(batch.Count(value => value.Type == SimulationEventType.Mission), Is.EqualTo(2));
+            Assert.That(accepted.Count(value => value.Type == SimulationEventType.Mission), Is.EqualTo(1));
             if (expectedType == MissionType.Distribution)
                 Assert.That(session.State.Player.Cargo[ItemIds.SealedCargo], Is.EqualTo(mission.Quantity));
         }
@@ -361,6 +368,7 @@ namespace Starfall.Tests.EditMode.Gameplay
             var session = CreateSession();
             Undock(session);
             var player = session.State.PlayerEntity();
+            player.InvulnerableUntil = 0d;
             var attacker = session.State.Entities.First(value => value.Kind == EntityKind.Npc);
             attacker.AiBehavior = "police";
             attacker.AggroRange = 99999d;

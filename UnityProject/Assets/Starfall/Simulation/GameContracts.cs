@@ -22,6 +22,7 @@ namespace Starfall.Simulation
         SwitchShip,
         TalkToAgent,
         AcceptMission,
+        DeclineMission,
         CompleteMission,
         AbandonMission,
         SetDestination,
@@ -41,10 +42,10 @@ namespace Starfall.Simulation
             Position = position;
         }
 
-        public GameCommandType Type { get; }
-        public string Argument { get; }
-        public int Index { get; }
-        public SimVec2? Position { get; }
+        public GameCommandType Type { get; set; }
+        public string Argument { get; set; }
+        public int Index { get; set; }
+        public SimVec2? Position { get; set; }
     }
 
     public enum SimulationEventType

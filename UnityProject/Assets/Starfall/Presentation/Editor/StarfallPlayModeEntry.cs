@@ -21,6 +21,8 @@ namespace Starfall.Presentation.Editor
 
         private static void ConfigurePlayModeEntry()
         {
+            // The Test Runner owns its temporary PlayMode entry scene in batch mode.
+            if (Application.isBatchMode) return;
             var bootstrap = AssetDatabase.LoadAssetAtPath<SceneAsset>(BootstrapScenePath);
             if (bootstrap == null)
             {

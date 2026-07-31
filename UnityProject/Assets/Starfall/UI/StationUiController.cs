@@ -15,6 +15,7 @@ namespace Starfall.UI
         private MobileUiCoordinator mobileUi;
         private ConfirmationOverlay confirmation;
         private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
+        private string offeredMissionId = string.Empty;
 
         private void OnEnable()
         {
@@ -31,6 +32,12 @@ namespace Starfall.UI
             root.Q<Button>("repair")?.RegisterCallback<ClickEvent>(_ => host?.Execute("repair"));
             root.Q<Button>("save")?.RegisterCallback<ClickEvent>(_ => host?.Execute("save"));
             root.Q<Button>("lp-exchange")?.RegisterCallback<ClickEvent>(_ => host?.Execute("lp-exchange"));
+            root.Q<Button>("mission-accept")?.RegisterCallback<ClickEvent>(_ =>
+                host?.Execute("mission-accept", offeredMissionId));
+            root.Q<Button>("mission-decline")?.RegisterCallback<ClickEvent>(_ =>
+                host?.Execute("mission-decline", offeredMissionId));
+            if (root.Q<VisualElement>("mission-offer-overlay") is { } missionOffer)
+                missionOffer.pickingMode = PickingMode.Position;
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             ShowTab("agents");
@@ -66,6 +73,13 @@ namespace Starfall.UI
                 settingsPanel.Close();
                 return true;
             }
+            if (!string.IsNullOrEmpty(offeredMissionId))
+            {
+                confirmation?.Show("DECLINE MISSION OFFER?",
+                    "You can request another mission from this agent afterward.", "DECLINE",
+                    () => host?.Execute("mission-decline", offeredMissionId));
+                return true;
+            }
             confirmation?.Show("RETURN TO MAIN MENU?",
                 "The current game will be saved before returning.", "SAVE & RETURN",
                 () => host?.ReturnToMainMenu());
@@ -97,13 +111,23 @@ namespace Starfall.UI
             root.Q<Label>("station-title").text = $"{s.SystemName} ORBITAL";
             root.Q<Label>("pilot-summary").text = $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP";
             root.Q<Label>("progression-summary").text = s.ProgressionSummary;
+            root.Q<Label>("onboarding-summary").text = s.OnboardingSummary;
             Fill("agents-list", s.Agents, "agent");
             Fill("market-list", s.Market, "market");
             Fill("ships-list", s.Ships, "ship");
             Fill("fitting-list", s.Inventory, "fit");
             root.Q<Label>("lp-summary").text = $"Available loyalty points: {s.LoyaltyPoints:N0}";
+            var loyaltyButton = root.Q<Button>("lp-exchange");
+            loyaltyButton?.SetEnabled(s.LoyaltyPoints >= 100);
+            if (loyaltyButton != null)
+                loyaltyButton.tooltip = s.LoyaltyPoints >= 100 ? "Exchange 100 LP" : $"Need {100 - s.LoyaltyPoints} more LP";
             var status = root.Q<Label>("station-status");
             if (status != null) status.text = s.Log.Count > 0 ? s.Log[s.Log.Count - 1] : "Station services ready.";
+            offeredMissionId = s.OfferedMissionId ?? string.Empty;
+            if (root.Q<VisualElement>("mission-offer-overlay") is { } offer)
+                offer.style.display = string.IsNullOrEmpty(offeredMissionId) ? DisplayStyle.None : DisplayStyle.Flex;
+            if (root.Q<Label>("mission-offer-title") is { } offerTitle) offerTitle.text = s.OfferedMissionTitle;
+            if (root.Q<Label>("mission-offer-detail") is { } offerDetail) offerDetail.text = s.OfferedMissionDetail;
         }
 
         private void Fill(string elementName, IReadOnlyList<UiListItem> items, string command)
@@ -125,14 +149,31 @@ namespace Starfall.UI
                 copyBlock.Add(title);
                 copyBlock.Add(detail);
                 row.Add(copyBlock);
-                var action = new Button(() => host.Execute(command, copy.Id))
+                var action = new Button(() => ExecuteItem(command, copy))
                 {
                     text = item.Enabled ? ActionLabel(command, copy.Id) : "LOCKED",
                 };
                 action.SetEnabled(item.Enabled);
+                action.tooltip = item.Detail;
                 row.Add(action);
                 list.Add(row);
             }
+        }
+
+        private void ExecuteItem(string command, UiListItem item)
+        {
+            if (item == null || !item.Enabled) return;
+            if (!item.RequiresConfirmation)
+            {
+                host?.Execute(command, item.Id);
+                return;
+            }
+
+            var verb = item.Id != null && item.Id.StartsWith("sell-", StringComparison.Ordinal)
+                ? "CONFIRM SALE"
+                : "CONFIRM PURCHASE";
+            confirmation?.Show(verb, item.Title + "\n" + item.Detail, "CONFIRM",
+                () => host?.Execute(command, item.Id));
         }
 
         private static string ActionLabel(string command, string actionId)

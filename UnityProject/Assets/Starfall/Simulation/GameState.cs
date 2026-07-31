@@ -40,6 +40,7 @@ namespace Starfall.Simulation
         public int Jumps;
         public int Deaths;
         public int InsuranceClaims;
+        public int Undocks;
     }
 
     public enum MissionType
@@ -196,9 +197,10 @@ namespace Starfall.Simulation
         public double AggroRange = 350d;
         public bool Elite;
         public double AiTime;
-        public readonly List<SimVec2> Waypoints = new List<SimVec2>();
+        public double InvulnerableUntil;
+        public List<SimVec2> Waypoints = new List<SimVec2>();
         public int WaypointIndex;
-        public readonly List<RuntimeModuleState> Modules = new List<RuntimeModuleState>();
+        public List<RuntimeModuleState> Modules = new List<RuntimeModuleState>();
     }
 
     [Serializable]
@@ -210,6 +212,19 @@ namespace Starfall.Simulation
         public SimVec2 Position;
         public double Radius;
         public double Amount;
+    }
+
+    [Serializable]
+    public sealed class RuntimeSaveState
+    {
+        public string SelectedId = string.Empty;
+        public bool PlayerDead;
+        public int VisitCounter;
+        public bool DirectorateSpawned;
+        public double Accumulator;
+        public List<EntityState> Entities = new List<EntityState>();
+        public List<AsteroidState> Asteroids = new List<AsteroidState>();
+        public List<GameCommand> PendingCommands = new List<GameCommand>();
     }
 
     public sealed class GameState

@@ -9,8 +9,15 @@
 .service-panel { flex-grow: 1; margin-top: 12px; }
 .service-panel ScrollView { flex-grow: 1; margin-top: 8px; }
 .progression-summary { color: rgb(255, 196, 82); font-size: 13px; margin-top: 8px; }
+.onboarding-summary { color: rgb(117, 226, 255); font-size: 14px; margin-top: 4px; white-space: normal; }
 .station-status { min-height: 30px; margin-top: 6px; color: rgb(179, 219, 233); white-space: normal; }
 .service-copy { flex-grow: 1; padding-top: 5px; padding-bottom: 5px; }
 .service-title { color: rgb(220, 238, 246); }
 .service-detail { color: var(--muted); font-size: 12px; white-space: normal; }
+.mission-offer-overlay { display: none; background-color: rgba(0, 3, 12, 0.86); align-items: center; justify-content: center; }
+.mission-offer-card { width: 620px; max-width: 92%; padding: 20px; }
+.mission-offer-title { font-size: 23px; margin-top: 8px; }
+.mission-offer-detail { margin-top: 12px; white-space: normal; color: rgb(207, 234, 245); }
+.mission-offer-actions { flex-direction: row; justify-content: flex-end; margin-top: 18px; }
+.mission-offer-actions Button { min-width: 160px; margin-left: 8px; }
 .station-footer { position: absolute; left: 18px; right: 18px; bottom: 12px; height: 34px; -unity-text-align: middle-center; font-size: 13px; }

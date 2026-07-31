@@ -82,6 +82,14 @@ namespace Starfall.Persistence
         [JsonProperty("legacySourceSha256", Order = 9, NullValueHandling = NullValueHandling.Ignore)]
         public string LegacySourceSha256 { get; set; }
 
+        [JsonProperty("savedAtUtc", Order = 10, NullValueHandling = NullValueHandling.Ignore)]
+        public string SavedAtUtc { get; set; }
+
+        [JsonProperty("runtime", Order = 11, NullValueHandling = NullValueHandling.Ignore)]
+        public JObject Runtime { get; set; }
+
+        public T ReadRuntime<T>() where T : class => Runtime?.ToObject<T>();
+
         public void Validate()
         {
             if (SchemaVersion != CurrentSchemaVersion)
@@ -115,6 +123,14 @@ namespace Starfall.Persistence
             }
 
             ValidateFiniteNumbers(Player);
+            ValidateFiniteNumbers(Runtime);
+
+            if (!string.IsNullOrEmpty(SavedAtUtc) &&
+                !DateTime.TryParse(SavedAtUtc, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out _))
+            {
+                throw new InvalidOperationException("Save timestamp must be an ISO-8601 UTC value.");
+            }
 
             if (!string.IsNullOrEmpty(LegacySourceSha256) && !IsLowerHexSha256(LegacySourceSha256))
             {

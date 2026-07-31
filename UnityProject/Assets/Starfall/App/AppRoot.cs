@@ -108,6 +108,7 @@ namespace Starfall.App
             generator = new UniverseGenerator();
             saves = new FileSaveService();
             legacyImporter = new LegacyV1Importer();
+            RefreshSaveSummary();
             RestoreQualityPreference();
             androidWindowMetrics = new AndroidWindowMetricsProvider();
             MobileWindowing.ProviderFactory = () => androidWindowMetrics;
@@ -201,7 +202,7 @@ namespace Starfall.App
             log.Clear();
             AddLog($"Welcome to the stars, {session.State.Player.Name}.");
             AddLog("Talk to an agent, undock, then use click, W/L/D and modules 1–9.");
-            Save(SaveSlot.Auto);
+            TrySave(SaveSlot.Auto, "new game");
             MarkAllDirty();
             RefreshUiSnapshot(true);
             RequestScene("Station");
@@ -210,26 +211,29 @@ namespace Starfall.App
         public void ContinueGame()
         {
             gameplayOverlayCount = 0;
-            SaveEnvelopeV2 envelope = null;
-            foreach (var slot in new[] { SaveSlot.Auto, SaveSlot.Slot1, SaveSlot.Slot2, SaveSlot.Slot3 })
+            var candidates = saves.List()
+                .Where(value => value.Exists && !value.IsCorrupt)
+                .OrderByDescending(value => value.LastWriteTimeUtc ?? DateTime.MinValue)
+                .ThenBy(value => value.Slot)
+                .ToList();
+            foreach (var info in candidates)
             {
                 try
                 {
-                    envelope = saves.Load(slot);
-                    break;
+                    LoadEnvelope(saves.Load(info.Slot));
+                    return;
                 }
-                catch (Exception exception) when (exception is IOException || exception is InvalidDataException || exception is InvalidOperationException)
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                                                   exception is InvalidDataException || exception is InvalidOperationException ||
+                                                   exception is ArgumentException || exception is JsonException)
                 {
-                    // Try the next explicit slot. FileSaveService already attempts .bak recovery.
+                    // Try the next newest slot. FileSaveService already attempts .bak recovery.
                 }
             }
-            if (envelope == null)
-            {
-                AddLog("No valid save slot was found.");
-                SnapshotChanged?.Invoke();
-                return;
-            }
-            LoadEnvelope(envelope);
+            AddLog("No valid save slot was found.");
+            snapshot.CanContinue = false;
+            snapshot.ContinueSummary = "Unable to load any save. Files may be damaged or incompatible.";
+            SnapshotChanged?.Invoke();
         }
 
         public void ImportLegacy()
@@ -317,11 +321,15 @@ namespace Starfall.App
                 case "repair": Queue(GameCommandType.Repair); break;
                 case "respawn": Queue(GameCommandType.Respawn); break;
                 case "agent": Queue(GameCommandType.TalkToAgent, argument); break;
+                case "mission-accept": Queue(GameCommandType.AcceptMission, argument); CloseJournalForAction(); break;
+                case "mission-decline": Queue(GameCommandType.DeclineMission, argument); CloseJournalForAction(); break;
+                case "mission-abandon": Queue(GameCommandType.AbandonMission, argument); CloseJournalForAction(); break;
+                case "mission-route": SetMissionDestination(argument); CloseJournalForAction(); break;
                 case "market": MarketAction(argument); break;
                 case "fit": FittingAction(argument); break;
                 case "lp-exchange": Queue(GameCommandType.ExchangeLoyalty); break;
                 case "ship": Queue(GameCommandType.SwitchShip, argument); break;
-                case "mission": MissionAction(argument); break;
+                case "mission": MissionAction(argument); CloseJournalForAction(); break;
                 case "destination":
                     Queue(GameCommandType.SetDestination, argument);
                     mapVisible = false;
@@ -393,7 +401,7 @@ namespace Starfall.App
 
         public void ReturnToMainMenu()
         {
-            TrySaveAuto("return to main menu");
+            if (!TrySaveAuto("return to main menu")) return;
             session = null;
             mapVisible = false;
             journalVisible = false;
@@ -404,7 +412,7 @@ namespace Starfall.App
 
         public void QuitGame()
         {
-            TrySaveAuto("quit");
+            if (!TrySaveAuto("quit")) return;
             Application.Quit();
         }
 
@@ -456,16 +464,24 @@ namespace Starfall.App
             AddLog("Autosave failed: " + exception.Message);
         }
 
-        private void TrySaveAuto(string reason)
+        private bool TrySaveAuto(string reason)
         {
-            if (session == null) return;
+            return TrySave(SaveSlot.Auto, reason);
+        }
+
+        private bool TrySave(SaveSlot slot, string reason)
+        {
+            if (session == null) return false;
             try
             {
-                Save(SaveSlot.Auto);
+                Save(slot);
+                return true;
             }
             catch (Exception exception)
             {
-                AddLog("Autosave failed during " + reason + ": " + exception.Message);
+                AddLog((slot == SaveSlot.Auto ? "Autosave" : "Save") +
+                       " failed during " + reason + ": " + exception.Message);
+                return false;
             }
         }
 
@@ -668,7 +684,8 @@ namespace Starfall.App
                     evt.Type == SimulationEventType.Inventory || evt.Type == SimulationEventType.Dock || evt.Type == SimulationEventType.Jump))
                     AddLog(evt.Message);
                 if (evt.Type == SimulationEventType.SaveRequested)
-                    Save(evt.Detail == "auto" ? SaveSlot.Auto : SaveSlot.Slot1);
+                    TrySave(evt.Detail == "auto" ? SaveSlot.Auto : SaveSlot.Slot1,
+                        evt.Detail == "auto" ? "autosave" : "manual save");
                 if (evt.Type == SimulationEventType.Inventory) stationVisualDirty = true;
                 if (spacePresenter && evt.Type == SimulationEventType.Weapon)
                 {
@@ -907,6 +924,7 @@ namespace Starfall.App
                 ? (float)(selectedEntity.Hull / Math.Max(1d, selectedEntity.MaxHull)) : 0f;
             snapshot.CargoUsed = (float)session.CargoUsedVolume;
             snapshot.CargoCapacity = (float)session.CargoCapacityVolume;
+            snapshot.DangerSummary = DangerSummary(entity);
 
             if (entity != null && snapshot.Modules.Count != entity.Modules.Count)
             {
@@ -938,6 +956,7 @@ namespace Starfall.App
         {
             if (session == null)
             {
+                RefreshSaveSummary();
                 SnapshotChanged?.Invoke();
                 return;
             }
@@ -982,10 +1001,17 @@ namespace Starfall.App
             snapshot.SelectedHull01 = selectedEntity != null ? (float)(selectedEntity.Hull / Math.Max(1d, selectedEntity.MaxHull)) : 0f;
             snapshot.MiningMissionActive = player.Missions.Any(value =>
                 value.Type == MissionType.Mining && value.Status == MissionStatus.Active);
+            var offered = player.Missions.Find(value => value.Status == MissionStatus.Offered);
+            snapshot.OfferedMissionId = offered?.Id ?? string.Empty;
+            snapshot.OfferedMissionTitle = offered?.Title ?? string.Empty;
+            snapshot.OfferedMissionDetail = offered != null ? MissionDetail(offered) : string.Empty;
+            snapshot.OnboardingSummary = OnboardingSummary();
+            snapshot.DangerSummary = DangerSummary(entity);
             if (rebuildLists) RebuildLists();
             else OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
             snapshot.Log.Clear();
             snapshot.Log.AddRange(log);
+            snapshot.ToastMessage = log.Count > 0 ? log[log.Count - 1] : string.Empty;
             snapshot.Modules.Clear();
             if (entity != null)
             {
@@ -1041,21 +1067,36 @@ namespace Starfall.App
                 }
 
             snapshot.Market.Clear();
-            foreach (var module in catalog.Modules.Values) snapshot.Market.Add(Item(module.Id, module.Name + " · " + PriceText(module.Id), module.Description));
-            foreach (var marketShip in catalog.Ships.Values) if (!marketShip.NpcOnly) snapshot.Market.Add(Item(marketShip.Id, marketShip.Name + " · " + PriceText(marketShip.Id), marketShip.Description));
+            foreach (var module in catalog.Modules.Values)
+            {
+                var price = session.PriceAtCurrentStation(module.Id);
+                var enabled = player.Credits >= price;
+                snapshot.Market.Add(Item(module.Id, module.Name + " · " + PriceText(module.Id),
+                    enabled ? module.Description : $"{module.Description} · Need {price - player.Credits:N0} more ISK",
+                    enabled, price >= 50000L));
+            }
+            foreach (var marketShip in catalog.Ships.Values)
+            {
+                if (marketShip.NpcOnly) continue;
+                var price = session.PriceAtCurrentStation(marketShip.Id);
+                var enabled = player.Credits >= price;
+                snapshot.Market.Add(Item(marketShip.Id, marketShip.Name + " · " + PriceText(marketShip.Id),
+                    enabled ? marketShip.Description : $"{marketShip.Description} · Need {price - player.Credits:N0} more ISK",
+                    enabled, true));
+            }
             foreach (var pair in player.Cargo)
             {
                 if (pair.Value <= 0d || pair.Key == ItemIds.SealedCargo || !catalog.Items.TryGetValue(pair.Key, out var item)) continue;
                 snapshot.Market.Add(Item(SellItemActionPrefix + pair.Key,
                     "SELL CARGO · " + item.Name + " ×" + pair.Value.ToString("0"),
-                    $"Sell the full stack · {SellPriceText(pair.Key)} per unit"));
+                    $"Sell the full stack · {SellPriceText(pair.Key)} per unit", true, true));
             }
             foreach (var pair in player.Hangar)
             {
                 if (pair.Value <= 0 || !catalog.Modules.TryGetValue(pair.Key, out var module)) continue;
                 snapshot.Market.Add(Item(SellModuleActionPrefix + pair.Key,
                     "SELL HANGAR · " + module.Name + " ×" + pair.Value,
-                    "Sell one module · " + SellPriceText(pair.Key)));
+                    "Sell one module · " + SellPriceText(pair.Key), true, true));
             }
 
             snapshot.Ships.Clear();
@@ -1079,7 +1120,14 @@ namespace Starfall.App
 
             snapshot.Missions.Clear();
             foreach (var mission in player.Missions.Where(value => value.Status != MissionStatus.Done))
-                snapshot.Missions.Add(Item(mission.Id, mission.Title, MissionDetail(mission)));
+            {
+                var primary = mission.Status == MissionStatus.Offered ? "mission-accept" :
+                    mission.Status == MissionStatus.ObjectivesMet ? "mission" : "mission-route";
+                var secondary = mission.Status == MissionStatus.Offered ? "mission-decline" :
+                    mission.Status == MissionStatus.Active ? "mission-abandon" : string.Empty;
+                snapshot.Missions.Add(Item(mission.Id, mission.Title, MissionDetail(mission), true, false,
+                    primary, secondary));
+            }
         }
 
         private string PriceText(string itemId)
@@ -1175,9 +1223,27 @@ namespace Starfall.App
             else AddLog(mission.Title + " — " + mission.ProgressText());
         }
 
+        private void CloseJournalForAction()
+        {
+            if (!journalVisible) return;
+            journalVisible = false;
+            MarkUiDirty(true);
+        }
+
+        private void SetMissionDestination(string missionId)
+        {
+            var mission = session.State.Player.Missions.Find(value => value.Id == missionId);
+            if (mission == null) return;
+            var destination = !string.IsNullOrEmpty(mission.DestinationSystemId)
+                ? mission.DestinationSystemId
+                : mission.TargetSystemId;
+            if (!string.IsNullOrEmpty(destination)) Queue(GameCommandType.SetDestination, destination);
+        }
+
         private void Save(SaveSlot slot)
         {
             if (session == null) return;
+            var runtimeState = session.CaptureRuntimeState();
             var state = session.State;
             var player = JObject.FromObject(state.Player, serializer);
             var payload = new JObject
@@ -1196,8 +1262,11 @@ namespace Starfall.App
                 Player = payload,
                 RngState = state.RngState,
                 NextEntityId = state.NextEntityId,
+                SavedAtUtc = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                Runtime = JObject.FromObject(runtimeState, serializer),
             });
             AddLog("Game saved to " + slot.ToString().ToLowerInvariant() + ".");
+            RefreshSaveSummary();
         }
 
         private void LoadEnvelope(SaveEnvelopeV2 envelope)
@@ -1217,12 +1286,28 @@ namespace Starfall.App
             player.X = envelope.PlayerLocation.X;
             player.Z = envelope.PlayerLocation.Z;
             NormalizeLoadedMissions(player, universe);
-            session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState, envelope.NextEntityId);
+            var runtimeState = envelope.Runtime?.ToObject<RuntimeSaveState>(serializer);
+            ValidateRuntimeState(player, runtimeState);
+            session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState,
+                envelope.NextEntityId, runtimeState);
             log.Clear();
             AddLog("Save loaded.");
             MarkAllDirty();
             RefreshUiSnapshot(true);
             RequestScene(session.State.Docked ? "Station" : "Space");
+        }
+
+        private static void ValidateRuntimeState(PlayerState player, RuntimeSaveState runtime)
+        {
+            if (runtime == null) return;
+            if (runtime.Entities == null || runtime.Asteroids == null || runtime.PendingCommands == null)
+                throw new InvalidDataException("Save runtime collections are missing.");
+            if (!string.IsNullOrEmpty(player.DockedAtStationId)) return;
+            var playerEntity = runtime.Entities.Find(value => value != null && value.Kind == EntityKind.Player);
+            if (playerEntity == null)
+                throw new InvalidDataException("Undocked save has no player entity.");
+            if (runtime.PlayerDead != playerEntity.Dead)
+                throw new InvalidDataException("Saved death state is inconsistent.");
         }
 
         private static void NormalizeLoadedMissions(PlayerState player, GeneratedUniverse universe)
@@ -1367,7 +1452,59 @@ namespace Starfall.App
 
         private string MissionDetail(MissionState mission)
         {
-            return $"{mission.Status} · {MissionObjective(mission)} · Reward {mission.RewardCredits:N0} ISK + {mission.RewardLoyaltyPoints:N0} LP";
+            var destination = !string.IsNullOrEmpty(mission.DestinationSystemId)
+                ? mission.DestinationSystemId
+                : mission.TargetSystemId;
+            var route = !string.IsNullOrEmpty(destination)
+                ? UniverseRoutes.FindRoute(session.State.Universe, session.State.Player.CurrentSystemId, destination)
+                : null;
+            var distance = route == null ? string.Empty : $" · {Math.Max(0, route.Count - 1)} jumps";
+            return $"{mission.Description} · {MissionObjective(mission)}{distance} · Reward {mission.RewardCredits:N0} ISK + {mission.RewardLoyaltyPoints:N0} LP + {mission.RewardStanding:0.00} standing";
+        }
+
+        private string OnboardingSummary()
+        {
+            var state = session.State;
+            var offered = state.Player.Missions.Find(value => value.Status == MissionStatus.Offered);
+            if (offered != null) return "STEP 2 · Review the mission offer, then ACCEPT or DECLINE.";
+            var active = state.Player.Missions.Find(value => value.Status == MissionStatus.Active || value.Status == MissionStatus.ObjectivesMet);
+            if (active != null)
+            {
+                if (active.Status == MissionStatus.ObjectivesMet)
+                    return "OBJECTIVES COMPLETE · Open JOURNAL and claim your reward.";
+                return state.Docked
+                    ? "STEP 3 · Route set. UNDOCK when ready."
+                    : MissionObjective(active);
+            }
+            if (state.Player.Stats.MissionsDone == 0)
+                return state.Docked
+                    ? "STEP 1 · Open AGENTS and tap TALK to request your first mission."
+                    : "Dock at a station and talk to an agent to begin a mission.";
+            return state.Docked ? "Choose an agent mission or prepare your ship." : "Explore, trade, mine, or follow a mission route.";
+        }
+
+        private string DangerSummary(EntityState player)
+        {
+            if (player == null) return string.Empty;
+            if (session.State.SimulationTime < player.InvulnerableUntil)
+                return $"LAUNCH PROTECTION · {Math.Ceiling(player.InvulnerableUntil - session.State.SimulationTime):0}s";
+            var threatened = session.State.Entities.Any(value => value.Kind == EntityKind.Npc && !value.Dead &&
+                string.Equals(value.LockedTargetId, player.Id, StringComparison.Ordinal));
+            return threatened ? "DANGER · WARP TO A STATION OR GATE TO RETREAT" : string.Empty;
+        }
+
+        private void RefreshSaveSummary()
+        {
+            if (saves == null) return;
+            var newest = saves.List()
+                .Where(value => value.Exists && !value.IsCorrupt)
+                .OrderByDescending(value => value.LastWriteTimeUtc ?? DateTime.MinValue)
+                .ThenBy(value => value.Slot)
+                .FirstOrDefault();
+            snapshot.CanContinue = newest != null;
+            snapshot.ContinueSummary = newest == null
+                ? "No valid save found"
+                : $"{newest.Slot.ToString().ToUpperInvariant()} · {newest.PlayerName ?? "Pilot"} · {newest.CurrentSystemId} · {(newest.LastWriteTimeUtc ?? DateTime.UtcNow).ToLocalTime():g}";
         }
 
         private string MissionObjective(MissionState mission)
@@ -1513,9 +1650,19 @@ namespace Starfall.App
             return new WorldObjectViewData { Id = id, Name = name, Kind = kind, Position = new Vector3((float)position.X, 0f, (float)position.Z), Radius = radius, Color = color };
         }
 
-        private static UiListItem Item(string id, string title, string detail, bool enabled = true)
+        private static UiListItem Item(string id, string title, string detail, bool enabled = true,
+            bool requiresConfirmation = false, string primaryAction = "", string secondaryAction = "")
         {
-            return new UiListItem { Id = id, Title = title, Detail = detail, Enabled = enabled };
+            return new UiListItem
+            {
+                Id = id,
+                Title = title,
+                Detail = detail,
+                Enabled = enabled,
+                RequiresConfirmation = requiresConfirmation,
+                PrimaryAction = primaryAction,
+                SecondaryAction = secondaryAction,
+            };
         }
 
         private void AddLog(string message)

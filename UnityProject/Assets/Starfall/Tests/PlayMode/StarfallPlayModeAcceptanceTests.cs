@@ -185,6 +185,24 @@ namespace Starfall.Tests.PlayMode
             Assert.That(app.Snapshot.Inventory.Any(item => item.Id.StartsWith("unfit|", StringComparison.Ordinal)), Is.True,
                 "Installed modules must be exposed as explicit Unfit actions.");
 
+            var firstAgent = app.Snapshot.Agents.First(item => item.Enabled);
+            app.Execute("agent", firstAgent.Id);
+            yield return WaitForCondition(
+                () => !string.IsNullOrEmpty(app.Snapshot.OfferedMissionId),
+                "Talking to an agent did not open a reviewable mission offer.");
+            Assert.That(app.Snapshot.OfferedMissionDetail, Does.Contain("Reward"));
+            Assert.That(app.Snapshot.OfferedMissionDetail, Does.Contain("jumps"));
+            var stationRoot = Object.FindFirstObjectByType<StationUiController>()
+                .GetComponent<UIDocument>().rootVisualElement;
+            Assert.That(stationRoot.Q<VisualElement>("mission-offer-overlay").resolvedStyle.display,
+                Is.EqualTo(DisplayStyle.Flex));
+            app.Execute("mission-accept", app.Snapshot.OfferedMissionId);
+            yield return WaitForCondition(
+                () => string.IsNullOrEmpty(app.Snapshot.OfferedMissionId) &&
+                      app.Snapshot.Missions.Any(item => item.PrimaryAction == "mission-route"),
+                "Accepting the offer did not create an active, routable mission.");
+            Assert.That(GetSession().State.Player.DestinationSystemId, Is.Not.Empty);
+
             app.Execute("fit", "fit-module|" + ModuleIds.MiningLaser);
             yield return WaitForCondition(
                 () => ship.Fitting.High.Contains(ModuleIds.MiningLaser) &&
@@ -278,9 +296,11 @@ namespace Starfall.Tests.PlayMode
                 click.target = loyaltyButton;
                 loyaltyButton.SendEvent(click);
             }
-            yield return WaitForCondition(
-                () => app.Snapshot.Log.Any(line => line.Contains("requires 100 LP")),
-                "Insufficient-LP feedback did not reach the station log.");
+            yield return null;
+            Assert.That(loyaltyButton.enabledSelf, Is.False,
+                "LP exchange must disable immediately when the pilot cannot afford it.");
+            Assert.That(loyaltyButton.tooltip, Does.Contain("Need 100 more LP"),
+                "A disabled LP action must explain why it is unavailable.");
 
             var isolatedSaves = new FileSaveService(temporarySaveDirectory);
             var slotPath = isolatedSaves.GetSlotPath(SaveSlot.Slot1);
@@ -594,11 +614,21 @@ namespace Starfall.Tests.PlayMode
         {
             yield return StartNewGameAndAssertStation("kaldari");
 
+            app.Execute("undock");
+            yield return WaitForScene("Space");
+            yield return WaitForCondition(() => !app.Snapshot.Docked, "Roundtrip pilot did not undock.");
+
             var sessionBeforeSave = GetSession();
+            var runtimePlayer = sessionBeforeSave.State.PlayerEntity();
             const string expectedPilot = "Roundtrip Pilot";
             const long expectedCredits = 7654321L;
             sessionBeforeSave.State.Player.Name = expectedPilot;
             sessionBeforeSave.State.Player.Credits = expectedCredits;
+            runtimePlayer.Shield = 123d;
+            runtimePlayer.Armor = 87d;
+            runtimePlayer.Position += new SimVec2(333d, -222d);
+            runtimePlayer.Movement = MovementMode.Approach;
+            runtimePlayer.MoveTargetPosition = runtimePlayer.Position + new SimVec2(500d, 0d);
 
             var isolatedSaves = new FileSaveService(temporarySaveDirectory);
             var slotPath = isolatedSaves.GetSlotPath(SaveSlot.Slot1);
@@ -606,11 +636,12 @@ namespace Starfall.Tests.PlayMode
             yield return WaitForCondition(
                 () => File.Exists(slotPath),
                 "Manual save did not create slot1 for the roundtrip.");
+            var persistedRuntime = isolatedSaves.Load(SaveSlot.Slot1).ReadRuntime<RuntimeSaveState>();
+            var persistedPlayer = persistedRuntime.Entities.Single(value => value.Kind == EntityKind.Player);
 
-            DeleteIfPresent(isolatedSaves.GetSlotPath(SaveSlot.Auto));
-            DeleteIfPresent(isolatedSaves.GetBackupPath(SaveSlot.Auto));
             sessionBeforeSave.State.Player.Name = "Unsaved Mutation";
             sessionBeforeSave.State.Player.Credits = 1L;
+            runtimePlayer.Shield = 1d;
 
             app.ContinueGame();
             yield return WaitForCondition(
@@ -623,6 +654,13 @@ namespace Starfall.Tests.PlayMode
             Assert.That(restoredSession.State.Player.EmpireId, Is.EqualTo("kaldari"));
             Assert.That(restoredSession.State.Player.Name, Is.EqualTo(expectedPilot));
             Assert.That(restoredSession.State.Player.Credits, Is.EqualTo(expectedCredits));
+            var restoredPlayer = restoredSession.State.PlayerEntity();
+            Assert.That(restoredPlayer.Shield, Is.EqualTo(persistedPlayer.Shield).Within(1e-9d));
+            Assert.That(restoredPlayer.Armor, Is.EqualTo(persistedPlayer.Armor).Within(1e-9d));
+            Assert.That(restoredPlayer.Position, Is.EqualTo(persistedPlayer.Position));
+            Assert.That(restoredPlayer.Movement, Is.EqualTo(persistedPlayer.Movement));
+            Assert.That(app.Snapshot.ContinueSummary, Does.StartWith("SLOT1"),
+                "Continue metadata must identify the newest slot selected for loading.");
             Assert.That(File.Exists(slotPath), Is.True, "ContinueGame must not consume the manual save.");
         }
 
@@ -701,6 +739,7 @@ namespace Starfall.Tests.PlayMode
             UiOverviewContact contact)
         {
             if (contact == null) return false;
+            if ((contact.States & OverviewStateFlags.RouteNext) != 0) return true;
             switch (preset)
             {
                 case OverviewPresetId.General:

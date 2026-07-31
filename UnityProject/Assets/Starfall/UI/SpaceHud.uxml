@@ -19,6 +19,11 @@
                 <ui:Button name="settings" text="⚙" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="objective-tracker" class="objective-tracker panel">
+            <ui:Label name="onboarding-summary" text="Follow your mission objective" class="onboarding-summary" />
+            <ui:Label name="danger-summary" text="" class="danger danger-summary" />
+        </ui:VisualElement>
+        <ui:Label name="action-toast" text="" class="action-toast panel" />
         <ui:VisualElement name="mobile-panel-controls" class="mobile-panel-controls">
             <ui:Button name="mobile-overview-toggle" text="OVERVIEW" />
             <ui:Button name="mobile-target-toggle" text="TARGET" />

@@ -103,7 +103,7 @@ namespace Starfall.Simulation
         }
 
         public GameSession(GeneratedUniverse universe, IContentCatalog content, PlayerState player,
-            double simulationTime, uint rngState, ulong nextEntityId)
+            double simulationTime, uint rngState, ulong nextEntityId, RuntimeSaveState runtime = null)
         {
             if (universe == null) throw new ArgumentNullException(nameof(universe));
             catalog = content ?? throw new ArgumentNullException(nameof(content));
@@ -119,7 +119,20 @@ namespace Starfall.Simulation
                 RngState = rngState,
                 NextEntityId = Math.Max(1UL, nextEntityId),
             };
-            if (!State.Docked)
+            if (runtime != null)
+            {
+                State.SelectedId = runtime.SelectedId ?? string.Empty;
+                State.PlayerDead = runtime.PlayerDead;
+                State.VisitCounter = Math.Max(0, runtime.VisitCounter);
+                directorateSpawned = runtime.DirectorateSpawned;
+                accumulator = Math.Max(0d, Math.Min(runtime.Accumulator, FixedStepSeconds));
+                if (runtime.Entities != null) State.entities.AddRange(runtime.Entities);
+                if (runtime.Asteroids != null) State.asteroids.AddRange(runtime.Asteroids);
+                if (runtime.PendingCommands != null)
+                    for (var i = 0; i < runtime.PendingCommands.Count; i++)
+                        if (runtime.PendingCommands[i] != null) commands.Enqueue(runtime.PendingCommands[i]);
+            }
+            else if (!State.Docked)
             {
                 SpawnPlayer(new SimVec2(player.X, player.Z));
                 PopulateSystem();
@@ -138,6 +151,22 @@ namespace Starfall.Simulation
         {
             State.Player.Standings.TryGetValue(factionId ?? string.Empty, out var standing);
             return standing;
+        }
+
+        public RuntimeSaveState CaptureRuntimeState()
+        {
+            SyncPlayerShip();
+            return new RuntimeSaveState
+            {
+                SelectedId = State.SelectedId,
+                PlayerDead = State.PlayerDead,
+                VisitCounter = State.VisitCounter,
+                DirectorateSpawned = directorateSpawned,
+                Accumulator = accumulator,
+                Entities = new List<EntityState>(State.entities),
+                Asteroids = new List<AsteroidState>(State.asteroids),
+                PendingCommands = new List<GameCommand>(commands),
+            };
         }
 
         public void Enqueue(GameCommand command)
@@ -210,6 +239,7 @@ namespace Starfall.Simulation
                 case GameCommandType.SwitchShip: SwitchShip(command.Argument); break;
                 case GameCommandType.TalkToAgent: TalkToAgent(command.Argument); break;
                 case GameCommandType.AcceptMission: AcceptMission(command.Argument); break;
+                case GameCommandType.DeclineMission: DeclineMission(command.Argument); break;
                 case GameCommandType.CompleteMission: CompleteMission(command.Argument); break;
                 case GameCommandType.AbandonMission: AbandonMission(command.Argument); break;
                 case GameCommandType.SetDestination: SetDestination(command.Argument); break;
@@ -298,6 +328,7 @@ namespace Starfall.Simulation
                 return;
             }
             player.LockedTargetId = target.Id;
+            player.InvulnerableUntil = 0d;
             Log($"Target locked: {target.Name}.");
         }
 
@@ -344,7 +375,14 @@ namespace Starfall.Simulation
             if (station == null) return;
             State.Player.DockedAtStationId = string.Empty;
             var position = station.Position + new SimVec2(70d, 22d);
-            SpawnPlayer(position);
+            var firstUndock = State.Player.Stats.Undocks == 0;
+            State.Player.Stats.Undocks++;
+            var player = SpawnPlayer(position);
+            if (firstUndock)
+            {
+                player.InvulnerableUntil = State.SimulationTime + 20d;
+                Log("Launch protection active for 20 seconds. Locking or firing a weapon ends protection.");
+            }
             PopulateSystem();
             Emit(SimulationEventType.Dock, station.Id, "player", $"Undocked from {station.Name}.", detail: "undock");
             Emit(SimulationEventType.SaveRequested, detail: "auto");
@@ -432,6 +470,7 @@ namespace Starfall.Simulation
         {
             if (runtime.Cooldown > 0d || target.Dead) return;
             if (SimVec2.Distance(shooter.Position, target.Position) > module.Range) return;
+            if (shooter.Kind == EntityKind.Player) shooter.InvulnerableUntil = 0d;
             if (shooter.Kind == EntityKind.Player && IsCriminalAttack(target.FactionId) && State.Player.CriminalTimer <= 0d)
                 ApplyCrime(target.FactionId);
             runtime.Cooldown = Math.Max(0.1d, module.CycleTime);
@@ -444,6 +483,7 @@ namespace Starfall.Simulation
         private void ApplyDamage(EntityState target, double amount, EntityState attacker)
         {
             if (target.Dead || amount <= 0d) return;
+            if (target.Kind == EntityKind.Player && State.SimulationTime < target.InvulnerableUntil) return;
             var remaining = amount;
             target.LastDamageAt = State.SimulationTime;
             target.LastAttackerId = attacker != null ? attacker.Id : string.Empty;
@@ -619,7 +659,7 @@ namespace Starfall.Simulation
                 {
                     target = player;
                     npc.LockedTargetId = player.Id;
-                    Log($"{npc.Name} has engaged you!");
+                    Log($"{npc.Name} has engaged you! If overwhelmed, select a station or gate and WARP away.");
                 }
                 if (target == null)
                 {
@@ -663,6 +703,7 @@ namespace Starfall.Simulation
 
         private bool ShouldAggro(EntityState npc, EntityState player)
         {
+            if (State.SimulationTime < player.InvulnerableUntil) return false;
             if (SimVec2.Distance(npc.Position, player.Position) > npc.AggroRange) return false;
             return EntityDispositionPolicy.Evaluate(npc, State.Player, catalog, player.Id) ==
                    EntityDisposition.Hostile;
@@ -738,8 +779,12 @@ namespace Starfall.Simulation
             for (var i = 0; i < count; i++)
             {
                 var hullIndex = Math.Min(source.RangeInclusive(0, count > 2 ? 2 : 1), hulls.Length - 1);
+                var spawnPosition = anchor + new SimVec2(source.Range(-80d, 80d), source.Range(-80d, 80d));
+                var player = State.PlayerEntity();
+                if (behavior == "pirate" && player != null && SimVec2.Distance(spawnPosition, player.Position) < 800d)
+                    spawnPosition = player.Position + new SimVec2(900d + i * 80d, 300d);
                 var entity = CreateEntity(hulls[hullIndex], factionId, EntityKind.Npc,
-                    anchor + new SimVec2(source.Range(-80d, 80d), source.Range(-80d, 80d)), behavior, null, false);
+                    spawnPosition, behavior, null, false);
                 for (var waypoint = 0; waypoint < Math.Min(3, points.Count); waypoint++)
                     entity.Waypoints.Add(points[(waypoint + i) % points.Count]);
                 Emit(SimulationEventType.Spawn, entity.Id, message: entity.Name, detail: entity.ShipId);
@@ -753,23 +798,37 @@ namespace Starfall.Simulation
                 var mission = State.Player.Missions[missionIndex];
                 if (mission.Status != MissionStatus.Active || mission.TargetSystemId != State.Player.CurrentSystemId) continue;
                 if (mission.Type != MissionType.Security && mission.Type != MissionType.StorylineKill) continue;
-                var remaining = Math.Max(0, mission.KillsRequired - mission.Kills);
-                var faction = string.IsNullOrEmpty(mission.TargetFactionId) ? FactionIds.BloodReavers : mission.TargetFactionId;
-                var hulls = PirateHulls.ContainsKey(faction) ? PirateHulls[faction] : NavyHulls.ContainsKey(faction) ? NavyHulls[faction] : PirateHulls[FactionIds.BloodReavers];
-                var missionRandom = new Mulberry32(Fnv1a.HashString(mission.Id));
-                var angle = missionRandom.Range(0d, TwoPi);
-                var anchor = new SimVec2(Math.Cos(angle), Math.Sin(angle)) * missionRandom.Range(1200d, 2400d);
-                for (var i = 0; i < remaining; i++)
-                {
-                    var elite = mission.Type == MissionType.StorylineKill && i == 0;
-                    var hull = hulls[Math.Min(Math.Max(0, mission.Level - 1 + (elite ? 1 : 0)), hulls.Length - 1)];
-                    var npc = CreateEntity(hull, faction, EntityKind.Npc,
-                        anchor + new SimVec2(missionRandom.Range(-120d, 120d), missionRandom.Range(-120d, 120d)),
-                        "pirate", mission.Id, elite);
-                    npc.AggroRange = 600d;
-                    Emit(SimulationEventType.Spawn, npc.Id, message: npc.Name, detail: npc.ShipId);
-                }
+                SpawnMissionWave(mission);
             }
+        }
+
+        private void SpawnMissionWave(MissionState mission)
+        {
+            var liveTargets = State.entities.FindAll(value =>
+                !value.Dead && string.Equals(value.MissionId, mission.Id, StringComparison.Ordinal)).Count;
+            if (liveTargets > 0) return;
+            var remaining = Math.Max(0, mission.KillsRequired - mission.Kills);
+            if (remaining == 0) return;
+            var waveSize = mission.Level <= 1 ? 1 : Math.Min(2, remaining);
+            var faction = string.IsNullOrEmpty(mission.TargetFactionId) ? FactionIds.BloodReavers : mission.TargetFactionId;
+            var hulls = PirateHulls.ContainsKey(faction) ? PirateHulls[faction] :
+                NavyHulls.ContainsKey(faction) ? NavyHulls[faction] : PirateHulls[FactionIds.BloodReavers];
+            var missionRandom = new Mulberry32(Fnv1a.HashString(mission.Id + ":" + mission.Kills));
+            var angle = missionRandom.Range(0d, TwoPi);
+            var anchor = new SimVec2(Math.Cos(angle), Math.Sin(angle)) * missionRandom.Range(1200d, 2400d);
+            for (var i = 0; i < waveSize; i++)
+            {
+                var elite = mission.Type == MissionType.StorylineKill && mission.Kills == 0 && i == 0;
+                var hull = hulls[Math.Min(Math.Max(0, mission.Level - 1 + (elite ? 1 : 0)), hulls.Length - 1)];
+                var npc = CreateEntity(hull, faction, EntityKind.Npc,
+                    anchor + new SimVec2(missionRandom.Range(-90d, 90d), missionRandom.Range(-90d, 90d)),
+                    "pirate", mission.Id, elite);
+                npc.AggroRange = 600d;
+                Emit(SimulationEventType.Spawn, npc.Id, message: npc.Name, detail: npc.ShipId);
+            }
+            Emit(SimulationEventType.Mission, targetId: mission.Id,
+                message: $"Mission wave {mission.Kills + 1}/{mission.KillsRequired} detected. Engage one group at a time.",
+                detail: "wave");
         }
 
         private EntityState SpawnPlayer(SimVec2 position)
@@ -967,14 +1026,14 @@ namespace Starfall.Simulation
             var existing = State.Player.Missions.Find(value => value.AgentId == agent.Id && value.Status != MissionStatus.Done);
             if (existing != null)
             {
-                if (existing.Status == MissionStatus.Offered) AcceptMission(existing.Id);
-                else Log(existing.Title + " — " + existing.ProgressText());
+                Log(existing.Status == MissionStatus.Offered
+                    ? "Review the pending mission offer before accepting it."
+                    : existing.Title + " — " + existing.ProgressText());
                 return;
             }
             var mission = GenerateMission(agent);
             State.Player.Missions.Add(mission);
             Emit(SimulationEventType.Mission, agent.Id, mission.Id, "Mission offered: " + mission.Title, detail: "offered");
-            AcceptMission(mission.Id);
         }
 
         private MissionState GenerateMission(AgentDefinition agent)
@@ -1069,6 +1128,15 @@ namespace Starfall.Simulation
             }
         }
 
+        private void DeclineMission(string missionId)
+        {
+            var mission = State.Player.Missions.Find(value => value.Id == missionId);
+            if (mission == null || mission.Status != MissionStatus.Offered) return;
+            mission.Status = MissionStatus.Done;
+            Emit(SimulationEventType.Mission, targetId: mission.Id,
+                message: "Mission declined: " + mission.Title, detail: "declined");
+        }
+
         private void AbandonMission(string missionId)
         {
             var mission = State.Player.Missions.Find(value => value.Id == missionId);
@@ -1113,6 +1181,7 @@ namespace Starfall.Simulation
                 mission.Status = MissionStatus.ObjectivesMet;
                 Emit(SimulationEventType.Mission, targetId: mission.Id, message: "Objectives complete: " + mission.Title, detail: "objectives_met");
             }
+            else SpawnMissionWave(mission);
         }
 
         private void OfferStoryline(string factionId)
@@ -1331,7 +1400,7 @@ namespace Starfall.Simulation
 
         private void SyncPlayerShip()
         {
-            var entity = State.PlayerEntity();
+            var entity = State.entities.Find(value => value.Kind == EntityKind.Player);
             var ship = State.Player.ActiveShip();
             if (entity == null || ship == null) return;
             ship.Shield = Math.Max(0d, entity.Shield);

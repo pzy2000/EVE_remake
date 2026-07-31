@@ -11,6 +11,9 @@ namespace Starfall.UI
         public string Detail = string.Empty;
         public string Accent = "#4edbff";
         public bool Enabled = true;
+        public bool RequiresConfirmation;
+        public string PrimaryAction = string.Empty;
+        public string SecondaryAction = string.Empty;
     }
 
     [Serializable]
@@ -42,6 +45,14 @@ namespace Starfall.UI
         public string NextRouteGateId = string.Empty;
         public string ProgressionSummary = string.Empty;
         public string DeathSummary = "Your clone contract is active at your home station.";
+        public string OnboardingSummary = string.Empty;
+        public string DangerSummary = string.Empty;
+        public string ToastMessage = string.Empty;
+        public string OfferedMissionId = string.Empty;
+        public string OfferedMissionTitle = string.Empty;
+        public string OfferedMissionDetail = string.Empty;
+        public string ContinueSummary = "No valid save found";
+        public bool CanContinue;
         public long Credits = 50000;
         public int LoyaltyPoints;
         public float Shield01 = 1f;

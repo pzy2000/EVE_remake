@@ -315,6 +315,13 @@ namespace Starfall.UI
             SetText("target-detail", snapshot.SelectedDetail);
             SetText("mission", snapshot.MissionSummary);
             SetText("route", snapshot.RouteSummary);
+            SetText("onboarding-summary", snapshot.OnboardingSummary);
+            SetText("danger-summary", snapshot.DangerSummary);
+            SetText("action-toast", snapshot.ToastMessage);
+            if (root.Q<Label>("danger-summary") is { } danger)
+                danger.style.display = string.IsNullOrEmpty(snapshot.DangerSummary) ? DisplayStyle.None : DisplayStyle.Flex;
+            if (root.Q<Label>("action-toast") is { } toast)
+                toast.style.display = string.IsNullOrEmpty(snapshot.ToastMessage) ? DisplayStyle.None : DisplayStyle.Flex;
             SetText("cargo", $"CARGO {snapshot.CargoUsed:0} / {snapshot.CargoCapacity:0} m3");
             SetText("death-summary", snapshot.DeathSummary);
             SetBar("shield", snapshot.Shield01);
@@ -377,6 +384,9 @@ namespace Starfall.UI
             SetBar("armor", snapshot.Armor01);
             SetBar("hull", snapshot.Hull01);
             SetText("cargo", $"CARGO {snapshot.CargoUsed:0} / {snapshot.CargoCapacity:0} m3");
+            SetText("danger-summary", snapshot.DangerSummary);
+            if (root.Q<Label>("danger-summary") is { } danger)
+                danger.style.display = string.IsNullOrEmpty(snapshot.DangerSummary) ? DisplayStyle.None : DisplayStyle.Flex;
             RefreshTargetHealth(snapshot);
             RefreshOverview(snapshot);
             RefreshSelectedActions(snapshot);
@@ -704,6 +714,11 @@ namespace Starfall.UI
             foreach (var item in items)
             {
                 if (item == null) continue;
+                if (command == "mission")
+                {
+                    AddMissionRow(list, item);
+                    continue;
+                }
                 var itemId = item.Id;
                 var button = new Button(() => host?.Execute(command, itemId)) { text = item.Title };
                 button.AddToClassList("modal-list-row");
@@ -713,6 +728,62 @@ namespace Starfall.UI
 
             cachedFingerprint = fingerprint;
             cacheValid = true;
+        }
+
+        private void AddMissionRow(ScrollView list, UiListItem item)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("mission-list-row");
+            var title = new Label(item.Title);
+            title.AddToClassList("mission-list-title");
+            var detail = new Label(item.Detail);
+            detail.AddToClassList("mission-list-detail");
+            row.Add(title);
+            row.Add(detail);
+            var actions = new VisualElement();
+            actions.AddToClassList("mission-list-actions");
+            if (!string.IsNullOrEmpty(item.PrimaryAction))
+            {
+                var primary = new Button(() => host?.Execute(item.PrimaryAction, item.Id))
+                {
+                    text = MissionActionLabel(item.PrimaryAction),
+                };
+                actions.Add(primary);
+            }
+            if (!string.IsNullOrEmpty(item.SecondaryAction))
+            {
+                var secondary = new Button(() => ConfirmMissionSecondary(item))
+                {
+                    text = MissionActionLabel(item.SecondaryAction),
+                };
+                actions.Add(secondary);
+            }
+            row.Add(actions);
+            list.Add(row);
+        }
+
+        private void ConfirmMissionSecondary(UiListItem item)
+        {
+            if (item.SecondaryAction == "mission-decline")
+            {
+                host?.Execute(item.SecondaryAction, item.Id);
+                return;
+            }
+            confirmation?.Show("ABANDON MISSION?",
+                item.Title + "\nMission progress will be lost and standing will decrease.",
+                "ABANDON", () => host?.Execute(item.SecondaryAction, item.Id));
+        }
+
+        private static string MissionActionLabel(string action)
+        {
+            switch (action)
+            {
+                case "mission-accept": return "ACCEPT & SET ROUTE";
+                case "mission-decline": return "DECLINE";
+                case "mission-abandon": return "ABANDON";
+                case "mission-route": return "SET ROUTE";
+                default: return "CLAIM REWARD";
+            }
         }
 
         private void ResetAuxiliaryListCaches()
@@ -738,6 +809,8 @@ namespace Starfall.UI
                     hash = MixFingerprint(hash, item?.Title);
                     hash = MixFingerprint(hash, item?.Detail);
                     hash = MixFingerprint(hash, item?.Accent);
+                    hash = MixFingerprint(hash, item?.PrimaryAction);
+                    hash = MixFingerprint(hash, item?.SecondaryAction);
                 }
                 return hash;
             }

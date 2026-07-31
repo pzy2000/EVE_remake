@@ -167,6 +167,7 @@ namespace Starfall.Tests.EditMode.Gameplay
             var session = new GameSession(universe, catalog, "Test Pilot", FactionIds.Aurelian);
             var batch = Execute(session, new GameCommand(GameCommandType.Undock));
             Assert.That(batch.Any(value => value.Type == SimulationEventType.Dock && value.Detail == "undock"), Is.True);
+            session.State.PlayerEntity().InvulnerableUntil = 0d;
             return session;
         }
 
