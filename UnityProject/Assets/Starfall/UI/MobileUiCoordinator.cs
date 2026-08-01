@@ -324,7 +324,7 @@ namespace Starfall.UI
                 first = true;
                 foreach (var name in new[]
                          {
-                             "menu-card", "station-services", "overview-panel", "target-panel",
+                             "menu-card", "station-services", "overview-panel", "target-panel", "ship-status",
                              "combat-log-scroll", "settings-card", "starmap-card", "journal-card",
                              "death-card", "confirmation-card"
                          })
@@ -380,12 +380,39 @@ namespace Starfall.UI
                 lastCiLayoutEvidence = payload;
                 var path = Path.Combine(Application.persistentDataPath,
                     $"starfall-ci-layout-{screenKind}.json");
-                File.WriteAllText(path, payload);
+                WriteEvidenceAtomically(path, payload);
                 Debug.Log($"STARFALL_ANDROID_CI_UI_LAYOUT={screenKind}:{path}");
             }
             catch (Exception exception)
             {
                 Debug.LogError("Could not write Android CI UI layout evidence: " + exception.Message);
+            }
+        }
+
+        private static void WriteEvidenceAtomically(string path, string payload)
+        {
+            var temporaryPath = path + ".tmp";
+            try
+            {
+                File.WriteAllText(temporaryPath, payload);
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        File.Replace(temporaryPath, path, null, true);
+                        return;
+                    }
+                    catch (Exception exception) when (
+                        exception is PlatformNotSupportedException || exception is NotSupportedException)
+                    {
+                        File.Delete(path);
+                    }
+                }
+                File.Move(temporaryPath, path);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
             }
         }
 
@@ -552,10 +579,10 @@ namespace Starfall.UI
             {
                 var top = 70f;
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("overview-panel"),
-                    InsetTopBottom(primary, 8f, top, 172f));
+                    InsetTopBottom(primary, 8f, top, 248f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("ship-status"),
-                    new Rect(primary.xMin + 8f, primary.yMax - 164f,
-                        Mathf.Min(220f, primary.width - 16f), 156f));
+                    new Rect(primary.xMin + 8f, primary.yMax - 240f,
+                        Mathf.Min(220f, primary.width - 16f), 232f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(primary.xMin + Mathf.Min(236f, primary.width * 0.52f), primary.yMax - 126f,
                         Mathf.Max(0f, primary.width - Mathf.Min(244f, primary.width * 0.54f)), 120f));
@@ -577,7 +604,7 @@ namespace Starfall.UI
                     new Rect(primary.xMax - Mathf.Min(330f, primary.width * 0.42f) - 8f, primary.yMin + 70f,
                         Mathf.Min(330f, primary.width * 0.42f), Mathf.Max(0f, primary.height - 78f)));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("ship-status"),
-                    new Rect(secondary.xMin + 8f, secondary.yMax - 164f, 220f, 156f));
+                    new Rect(secondary.xMin + 8f, secondary.yMax - 240f, 220f, 232f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(secondary.xMin + 238f, secondary.yMax - 126f,
                         Mathf.Max(0f, secondary.width - 586f), 120f));

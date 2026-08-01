@@ -339,8 +339,21 @@ pull_app_file() {
   local remote_path
   remote_path="$(starfall_android_app_file_path "$package_name" "$remote_name")"
   wait_for_app_file "$remote_name"
-  adb exec-out cat "$remote_path" >"$destination"
-  python3 -m json.tool "$destination" >/dev/null
+  pull_remote_json "$remote_path" "$destination"
+}
+
+pull_remote_json() {
+  local remote_path="$1"
+  local destination="$2"
+  for _ in $(seq 1 80); do
+    if adb exec-out cat "$remote_path" >"$destination" 2>/dev/null &&
+      python3 -m json.tool "$destination" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "Timed out waiting for complete JSON evidence: $remote_path" >&2
+  return 1
 }
 
 assert_png_dimensions() {
@@ -1684,18 +1697,18 @@ assert_no_app_failures "stability"
 
 # Exercise lifecycle save coalescing, low-memory cleanup, force-stop recovery,
 # and a real Continue action after the geometry/import/stability gates.
-adb exec-out cat \
+pull_remote_json \
   "$persistent_data_directory/Saves/auto.json" \
-  >"$results_directory/lifecycle-auto-before.json"
+  "$results_directory/lifecycle-auto-before.json"
 auto_mtime_before="$(adb shell stat -c %Y \
   "$persistent_data_directory/Saves/auto.json" | tr -d '\r')"
 for _ in $(seq 1 10); do
   adb shell input keyevent KEYCODE_HOME
   adb shell am start -W -n "$activity" >/dev/null
 done
-adb exec-out cat \
+pull_remote_json \
   "$persistent_data_directory/Saves/auto.json" \
-  >"$results_directory/lifecycle-auto-after.json"
+  "$results_directory/lifecycle-auto-after.json"
 auto_mtime_after="$(adb shell stat -c %Y \
   "$persistent_data_directory/Saves/auto.json" | tr -d '\r')"
 python3 - \

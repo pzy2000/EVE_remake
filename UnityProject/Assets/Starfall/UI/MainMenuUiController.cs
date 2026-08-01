@@ -27,6 +27,7 @@ namespace Starfall.UI
             empireDescription = root.Q<Label>("empire-description");
             legacyImportStatus = root.Q<Label>("legacy-import-status");
             continueSummary = root.Q<Label>("continue-summary");
+            if (continueSummary != null) continueSummary.pickingMode = PickingMode.Ignore;
             continueButton = root.Q<Button>("continue");
             BindEmpire(root, "empire-aurelian", "aurelian", "Golden laser specialists with resilient armor.");
             BindEmpire(root, "empire-kaldari", "kaldari", "Missile and railgun doctrine backed by massive shields.");

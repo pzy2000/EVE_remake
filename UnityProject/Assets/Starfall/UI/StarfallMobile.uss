@@ -65,6 +65,7 @@
 .mobile .overview-row,
 .mobile .overview-cell { height: 48px; }
 .mobile .overview-object-icon { width: 30px; height: 30px; }
+.mobile .menu-card .button-row { min-height: 48px; flex-shrink: 0; }
 
 .mobile.compact-landscape .menu-card {
     width: 96%;
@@ -234,14 +235,19 @@
 .mobile.square-expanded .overview {
     left: 10px;
     top: 78px;
-    bottom: 146px;
+    bottom: 252px;
     width: 40%;
     min-width: 340px;
     max-width: 410px;
 }
 
 .mobile.square-expanded .target { right: 10px; top: 78px; width: 320px; }
-.mobile.square-expanded .ship-status { left: 10px; bottom: 10px; width: 230px; }
+.mobile.square-expanded .ship-status {
+    left: 10px;
+    bottom: 10px;
+    width: 230px;
+    height: 232px;
+}
 .mobile.square-expanded .module-rack {
     left: 250px;
     right: 352px;
@@ -294,6 +300,11 @@
    The full mission remains available in Journal without crossing the hinge. */
 .mobile.hinge-vertical .mission { display: none; }
 .mobile.hinge-vertical .objective-tracker {
+    left: 10px;
+    right: auto;
+    width: 410px;
+}
+.mobile.hinge-vertical .action-toast {
     left: 10px;
     right: auto;
     width: 410px;

@@ -152,6 +152,8 @@ namespace Starfall.Tests.PlayMode
 
                 ApplyDeterministicPanelGeometry(document, layout);
                 yield return WaitForFinalGeometry(content, layout.SafeInsetsDp.Left);
+                if (scene == "Space")
+                    yield return ShowSpaceActionToast(content);
                 AssertDocumentMode(profile, document, content, layout, scene);
                 AssertInteractiveControlsAvoidFolding(profile, content, layout, scene);
                 if (layout.HasSeparatingFeature && scene == "Station")
@@ -159,7 +161,11 @@ namespace Starfall.Tests.PlayMode
                 AssertCriticalTouchTargets(profile, content, scene);
                 AssertCardsAndScrolling(profile, content, layout, scene);
                 AssertVisibleTextMinimum(profile, content, $"{scene}/Base");
-                if (scene == "MainMenu") AssertLegacyImportError(profile, content, layout);
+                if (scene == "MainMenu")
+                {
+                    AssertLegacyImportError(profile, content, layout);
+                    AssertContinueSummaryDoesNotCoverActions(profile, content);
+                }
                 if (scene == "Space")
                     yield return AssertModuleRackAccessibility(profile, content, layout);
                 yield return AssertSettingsOverlay(profile, content, layout, scene, overlayFailures);
@@ -169,6 +175,16 @@ namespace Starfall.Tests.PlayMode
 
             Assert.That(overlayFailures, Is.Empty,
                 $"{profile.Name}: mobile overlay geometry failures:\n" + string.Join("\n", overlayFailures));
+        }
+
+        private static IEnumerator ShowSpaceActionToast(VisualElement root)
+        {
+            var toast = root.Q<Label>("action-toast");
+            Assert.That(toast, Is.Not.Null, "Space must expose the action toast.");
+            toast.text = "Game saved to auto.";
+            toast.style.display = DisplayStyle.Flex;
+            yield return null;
+            yield return null;
         }
 
         private static void ShowLegacyImportError(VisualElement root)
@@ -217,6 +233,24 @@ namespace Starfall.Tests.PlayMode
                 RectContains(layout.SecondaryPaneDp, status.worldBound),
                 Is.True,
                 $"{profile.Name}/MainMenu: legacy status is not wholly contained by one pane.");
+        }
+
+        private static void AssertContinueSummaryDoesNotCoverActions(
+            Profile profile,
+            VisualElement root)
+        {
+            var summary = root.Q<Label>("continue-summary");
+            Assert.That(summary, Is.Not.Null, $"{profile.Name}/MainMenu: missing continue summary.");
+            Assert.That(summary.pickingMode, Is.EqualTo(PickingMode.Ignore),
+                $"{profile.Name}/MainMenu: continue summary must not intercept button taps.");
+            foreach (var name in new[] { "continue", "import", "settings" })
+            {
+                var button = root.Q<Button>(name);
+                Assert.That(button, Is.Not.Null, $"{profile.Name}/MainMenu: missing {name} button.");
+                Assert.That(summary.worldBound.Overlaps(button.worldBound), Is.False,
+                    $"{profile.Name}/MainMenu: continue summary {summary.worldBound} overlaps " +
+                    $"{name} button {button.worldBound}.");
+            }
         }
 
         private void AttachDeterministicPanel(UIDocument document, Profile profile)
@@ -472,16 +506,26 @@ namespace Starfall.Tests.PlayMode
             {
                 var shipStatus = root.Q<VisualElement>("ship-status");
                 var speed = root.Q<Label>("speed");
+                var cargo = root.Q<Label>("cargo");
                 Assert.That(shipStatus, Is.Not.Null,
                     $"{profile.Name}/Space: missing ship status panel.");
                 Assert.That(speed, Is.Not.Null,
                     $"{profile.Name}/Space: missing speed telemetry.");
+                Assert.That(cargo, Is.Not.Null,
+                    $"{profile.Name}/Space: missing cargo telemetry.");
                 Assert.That(TryGetVisibleBoundsInContent(speed, root, out var speedBounds), Is.True,
                     $"{profile.Name}/Space: speed telemetry is not visible.");
                 AssertRectApproximately(speedBounds, speed.worldBound,
                     $"{profile.Name}/Space: speed telemetry is partially clipped");
                 Assert.That(RectContains(shipStatus.worldBound, speed.worldBound), Is.True,
                     $"{profile.Name}/Space: speed telemetry {speed.worldBound} is clipped by " +
+                    $"ship status {shipStatus.worldBound}.");
+                Assert.That(TryGetVisibleBoundsInContent(cargo, root, out var cargoBounds), Is.True,
+                    $"{profile.Name}/Space: cargo telemetry is not visible.");
+                AssertRectApproximately(cargoBounds, cargo.worldBound,
+                    $"{profile.Name}/Space: cargo telemetry is partially clipped");
+                Assert.That(RectContains(shipStatus.worldBound, cargo.worldBound), Is.True,
+                    $"{profile.Name}/Space: cargo telemetry {cargo.worldBound} is clipped by " +
                     $"ship status {shipStatus.worldBound}.");
             }
         }
