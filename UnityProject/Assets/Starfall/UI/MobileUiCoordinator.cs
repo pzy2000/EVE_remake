@@ -571,14 +571,18 @@ namespace Starfall.UI
 
         private void ApplySpaceHinge(MobileLayout layout, Rect primary, Rect secondary)
         {
+            // Toasts are transient and must never cross a separating hinge.
+            // The persistent action result remains available in the Journal/log.
+            var toast = contentRoot.Q<VisualElement>("action-toast");
+            if (toast != null) toast.style.display = DisplayStyle.None;
             if (layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
             {
                 var top = 70f;
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("overview-panel"),
-                    InsetTopBottom(primary, 8f, top, 172f));
+                    InsetTopBottom(primary, 8f, top, 216f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("ship-status"),
-                    new Rect(primary.xMin + 8f, primary.yMax - 164f,
-                        Mathf.Min(220f, primary.width - 16f), 156f));
+                    new Rect(primary.xMin + 8f, primary.yMax - 208f,
+                        Mathf.Min(220f, primary.width - 16f), 200f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(primary.xMin + Mathf.Min(236f, primary.width * 0.52f), primary.yMax - 126f,
                         Mathf.Max(0f, primary.width - Mathf.Min(244f, primary.width * 0.54f)), 120f));
@@ -600,7 +604,7 @@ namespace Starfall.UI
                     new Rect(primary.xMax - Mathf.Min(330f, primary.width * 0.42f) - 8f, primary.yMin + 70f,
                         Mathf.Min(330f, primary.width * 0.42f), Mathf.Max(0f, primary.height - 78f)));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("ship-status"),
-                    new Rect(secondary.xMin + 8f, secondary.yMax - 164f, 220f, 156f));
+                    new Rect(secondary.xMin + 8f, secondary.yMax - 208f, 220f, 200f));
                 SetAbsoluteRect(contentRoot.Q<VisualElement>("module-rack"),
                     new Rect(secondary.xMin + 238f, secondary.yMax - 126f,
                         Mathf.Max(0f, secondary.width - 586f), 120f));
