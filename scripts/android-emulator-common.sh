@@ -372,3 +372,38 @@ starfall_install_apk_with_system_retries() {
   echo "APK installation exhausted system-service retries." >&2
   return 1
 }
+
+# First-run consent is a real UI action, never a preference injection or CI bypass.
+starfall_accept_privacy_if_required() {
+  local package_name="$1"
+  local evidence_root="$2/privacy-consent"
+  mkdir -p "$evidence_root"
+  for attempt in $(seq 1 45); do
+    if [[ -n "$(adb shell pidof "$package_name" 2>/dev/null | tr -d '\r')" ]]; then
+      return 0
+    fi
+    adb shell uiautomator dump /sdcard/starfall-privacy-ui.xml >/dev/null 2>&1 || true
+    adb pull /sdcard/starfall-privacy-ui.xml "$evidence_root/ui.xml" >/dev/null 2>&1 || true
+    local coordinate consent_x consent_y
+    coordinate="$(python3 - "$evidence_root/ui.xml" "$package_name" <<'PY'
+import sys, re, xml.etree.ElementTree as E
+try: root=E.parse(sys.argv[1]).getroot()
+except (OSError,E.ParseError): raise SystemExit(0)
+for node in root.iter('node'):
+    if node.get('package')==sys.argv[2] and node.get('text')=='同意并进入':
+        b=list(map(int,re.findall(r'\d+',node.get('bounds',''))))
+        if len(b)==4: print((b[0]+b[2])//2,(b[1]+b[3])//2)
+        break
+PY
+)"
+    if [[ "$coordinate" =~ ^[0-9]+\ [0-9]+$ ]]; then
+      adb shell screencap -p /sdcard/starfall-privacy.png
+      adb pull /sdcard/starfall-privacy.png "$evidence_root/consent.png" >/dev/null
+      read -r consent_x consent_y <<<"$coordinate"
+      adb shell input tap "$consent_x" "$consent_y"
+    fi
+    sleep 1
+  done
+  echo "Privacy consent did not reach the Unity process: $evidence_root" >&2
+  return 1
+}

@@ -19,6 +19,19 @@
 }
 
 .mobile Button { min-width: 48px; }
+/* ScrollView handles support the viewport's swipe gesture; they are not game
+   action buttons. Do not expand their internal sliders to the 48dp action size. */
+.mobile .unity-scroller Slider { min-height: 12px; min-width: 12px; }
+.mobile .unity-scroller Button {
+    min-height: 12px;
+    min-width: 12px;
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    padding: 0;
+}
+.mobile .unity-scroller--horizontal { height: 12px; }
+.mobile .unity-scroller--vertical { width: 12px; }
 .mobile .service-row { min-height: 48px; }
 .mobile .modal-list Button { min-height: 48px; }
 .mobile .settings-card { max-height: 90%; }
@@ -65,12 +78,33 @@
 .mobile .overview-row,
 .mobile .overview-cell { height: 48px; }
 .mobile .overview-object-icon { width: 30px; height: 30px; }
+
+/* Keep intrinsic content out of Yoga's shrinking rows. On short windows the
+   menu scrolls as a whole instead of pushing labels through the touch targets. */
+.mobile .menu-card { height: 96%; max-height: 580px; }
+.mobile .mobile-menu-scroll { flex-grow: 1; flex-shrink: 1; min-height: 0; min-width: 0; }
+.mobile .mobile-menu-scroll .unity-scroll-view__content-container {
+    width: 100%;
+    min-width: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+.mobile .mobile-menu-scroll .unity-scroll-view__content-container > * { flex-shrink: 0; }
+.mobile .menu-card .empire-grid { min-height: 58px; }
 .mobile .menu-card .button-row { min-height: 48px; flex-shrink: 0; }
+.mobile .empire-card { min-width: 0; flex-basis: 0; }
+.mobile.hinge-vertical .empire-card { flex-basis: auto; }
+.mobile .description { white-space: normal; }
+.mobile .continue-summary { white-space: normal; margin-top: 4px; }
+.mobile .overview-heading,
+.mobile .overview-tabs,
+.mobile .overview-columns { flex-shrink: 0; }
+.mobile .overview-list { min-height: 48px; }
 
 .mobile.compact-landscape .menu-card {
     width: 96%;
     max-width: 980px;
-    padding: 12px;
+    padding: 8px;
 }
 
 .mobile.compact-landscape .menu-card .title { font-size: 27px; }
@@ -80,6 +114,7 @@
 .mobile.compact-landscape .description { min-height: 24px; margin-top: 3px; }
 .mobile.compact-landscape .primary { height: 48px; }
 .mobile.compact-landscape .footer { display: none; }
+.mobile.compact-landscape .menu-tagline { display: none; }
 
 .mobile.square-expanded .menu-card {
     width: 96%;
@@ -140,10 +175,13 @@
     right: auto;
     top: 64px;
     width: 440px;
-    min-height: 48px;
+    height: 80px;
+    min-height: 0;
+    padding: 4px;
+    overflow: hidden;
 }
 .mobile.compact-landscape .action-toast {
-    left: 236px;
+    left: 464px;
     right: 8px;
     bottom: 112px;
 }
@@ -165,7 +203,7 @@
 .mobile.compact-landscape .overview {
     display: flex;
     left: 8px;
-    top: 118px;
+    top: 150px;
     bottom: 112px;
     width: 440px;
     min-width: 0;
@@ -194,8 +232,26 @@
     left: 8px;
     bottom: 4px;
     width: 220px;
-    padding: 7px;
+    height: 102px;
+    padding: 4px;
 }
+
+/* Pilot identity and credits remain in PILOT. Reserve a fixed bottom strip
+   for flight telemetry so it cannot grow over the contact list. */
+.mobile.compact-landscape .ship-status #pilot-name,
+.mobile.compact-landscape .ship-status #credits { display: none; }
+.mobile.compact-landscape .ship-status Label {
+    height: 18px;
+    min-height: 18px;
+    flex-shrink: 0;
+    font-size: 14px;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mobile.compact-landscape .ship-status .bar-track { height: 8px; margin-top: 3px; flex-shrink: 0; }
+.mobile.compact-landscape .ship-status .bar-fill { height: 8px; }
 
 .mobile.compact-landscape .module-rack {
     left: 236px;
@@ -206,9 +262,9 @@
 }
 
 .mobile.compact-landscape .module-rack Button {
-    width: 68px;
-    height: 48px;
-    min-height: 48px;
+    width: 116px;
+    height: 76px;
+    min-height: 76px;
     flex-shrink: 0;
     margin-right: 3px;
     font-size: 14px;
@@ -242,12 +298,7 @@
 }
 
 .mobile.square-expanded .target { right: 10px; top: 78px; width: 320px; }
-.mobile.square-expanded .ship-status {
-    left: 10px;
-    bottom: 10px;
-    width: 230px;
-    height: 232px;
-}
+.mobile.square-expanded .ship-status { left: 10px; bottom: 10px; width: 230px; height: 232px; }
 .mobile.square-expanded .module-rack {
     left: 250px;
     right: 352px;
@@ -300,11 +351,6 @@
    The full mission remains available in Journal without crossing the hinge. */
 .mobile.hinge-vertical .mission { display: none; }
 .mobile.hinge-vertical .objective-tracker {
-    left: 10px;
-    right: auto;
-    width: 410px;
-}
-.mobile.hinge-vertical .action-toast {
     left: 10px;
     right: auto;
     width: 410px;

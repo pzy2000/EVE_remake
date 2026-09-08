@@ -168,6 +168,7 @@ record_pss() {
 adb shell pm clear "$package_name" >/dev/null
 adb logcat -c
 adb shell am start -W -n "$activity" >"$results_directory/start.txt"
+starfall_accept_privacy_if_required "$package_name" "$results_directory"
 wait_for_process
 run_ci_command start-new-game
 wait_for_status scene Station

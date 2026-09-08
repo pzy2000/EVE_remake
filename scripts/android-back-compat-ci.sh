@@ -155,6 +155,7 @@ adb logcat -c
 starfall_start_continuous_logcat "$results_directory/session.logcat.txt"
 adb shell am start -W -n "$activity" --es unity -force-gles30 \
   >"$results_directory/start.txt"
+starfall_accept_privacy_if_required "$package_name" "$results_directory"
 
 pid_before=""
 for _ in $(seq 1 60); do

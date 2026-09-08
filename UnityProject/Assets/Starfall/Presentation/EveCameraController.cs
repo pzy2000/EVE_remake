@@ -18,7 +18,8 @@ namespace Starfall.Presentation
         private Transform playerTarget;
         private Transform selectedTarget;
         private Transform focusTarget;
-        private Vector3 smoothedFocus;
+        private float smoothedDistance;
+        private bool poseInitialized;
 
         public Camera Camera => controlledCamera;
         public Transform FocusTarget => focusTarget;
@@ -64,7 +65,7 @@ namespace Starfall.Presentation
         public void SetFocus(Transform target)
         {
             focusTarget = target ? target : playerTarget;
-            if (focusTarget) smoothedFocus = focusTarget.position;
+
         }
 
         public void ApplyOrbit(Vector2 deltaPixels)
@@ -109,16 +110,27 @@ namespace Starfall.Presentation
             return false;
         }
 
-        private void LateUpdate()
+        private void LateUpdate() => UpdatePose(Time.unscaledDeltaTime);
+
+        // Dampen orbit/zoom in target-relative space. Damping two world-space
+        // positions lets a fast target pass the camera and reverses LookRotation.
+        private void UpdatePose(float deltaSeconds)
         {
             if (!focusTarget || !controlledCamera) return;
-            var blend = 1f - Mathf.Exp(-damping * Time.unscaledDeltaTime);
-            smoothedFocus = Vector3.Lerp(smoothedFocus, focusTarget.position, blend);
-            var rotation = Quaternion.Euler(pitch, yaw, 0);
-            var desired = smoothedFocus + rotation * new Vector3(0, 0, -distance);
-            transform.position = Vector3.Lerp(transform.position, desired, blend);
-            transform.rotation = Quaternion.Slerp(transform.rotation,
-                Quaternion.LookRotation(smoothedFocus - transform.position, Vector3.up), blend);
+            var desiredRotation = Quaternion.Euler(pitch, yaw, 0);
+            var blend = 1f - Mathf.Exp(-damping * Mathf.Max(0f, deltaSeconds));
+            if (!poseInitialized)
+            {
+                transform.rotation = desiredRotation;
+                smoothedDistance = distance;
+                poseInitialized = true;
+            }
+            else
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, blend);
+                smoothedDistance = Mathf.Lerp(smoothedDistance, distance, blend);
+            }
+            transform.position = focusTarget.position - transform.forward * smoothedDistance;
         }
     }
 }

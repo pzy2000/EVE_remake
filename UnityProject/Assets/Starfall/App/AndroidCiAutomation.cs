@@ -51,7 +51,7 @@ namespace Starfall.App
                 ["frameCount"] = Time.frameCount,
                 ["timestampUtc"] = DateTime.UtcNow.ToString("O"),
             };
-            WriteAndroidCiEvidenceAtomically(
+            File.WriteAllText(
                 Path.Combine(Application.persistentDataPath, AndroidCiRenderReadyEvidence),
                 evidence.ToString(Formatting.Indented));
             Debug.Log("STARFALL_ANDROID_CI_RENDER_READY=" + evidence.ToString(Formatting.None));
@@ -238,7 +238,7 @@ namespace Starfall.App
                     }
                 }
                 var compact = evidence.ToString(Formatting.None);
-                WriteAndroidCiEvidenceAtomically(
+                File.WriteAllText(
                     Path.Combine(Application.persistentDataPath, AndroidCiCommandEvidence),
                     evidence.ToString(Formatting.Indented));
                 Debug.Log("STARFALL_ANDROID_CI_COMMAND_" + (success ? "ACK=" : "ERR=") + compact);
@@ -267,7 +267,7 @@ namespace Starfall.App
                     ["releasedShipCacheEntries"] = releasedShipCacheEntries,
                     ["timestampUtc"] = DateTime.UtcNow.ToString("O"),
                 };
-                WriteAndroidCiEvidenceAtomically(
+                File.WriteAllText(
                     Path.Combine(Application.persistentDataPath, AndroidCiLowMemoryEvidence),
                     evidence.ToString(Formatting.Indented));
                 Debug.Log("STARFALL_ANDROID_CI_LOW_MEMORY=" + evidence.ToString(Formatting.None));
@@ -275,33 +275,6 @@ namespace Starfall.App
             catch (Exception exception)
             {
                 Debug.LogError("STARFALL_ANDROID_CI_LOW_MEMORY_ERR=" + exception.Message);
-            }
-        }
-
-        private static void WriteAndroidCiEvidenceAtomically(string path, string payload)
-        {
-            var temporaryPath = path + ".tmp";
-            try
-            {
-                File.WriteAllText(temporaryPath, payload);
-                if (File.Exists(path))
-                {
-                    try
-                    {
-                        File.Replace(temporaryPath, path, null, true);
-                        return;
-                    }
-                    catch (Exception exception) when (
-                        exception is PlatformNotSupportedException || exception is NotSupportedException)
-                    {
-                        File.Delete(path);
-                    }
-                }
-                File.Move(temporaryPath, path);
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
             }
         }
     }

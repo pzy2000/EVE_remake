@@ -4,17 +4,25 @@
     <application android:enableOnBackInvokedCallback="true">
         <activity
             android:name="com.pzy.starfall.mobile.StarfallUnityGameActivity"
-            android:configChanges="colorMode|density|fontScale|fontWeightAdjustment|grammaticalGender|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
+            android:process=":privacy"
             android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.pzy.starfall.mobile.StarfallUnityPlayerActivity"
+            android:configChanges="colorMode|density|fontScale|fontWeightAdjustment|grammaticalGender|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
+            android:exported="false"
             android:label="@string/app_name"
             android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:screenOrientation="sensorLandscape"
             android:theme="@style/BaseUnityGameActivityTheme">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
             <meta-data android:name="android.app.lib_name" android:value="game" />
         </activity>

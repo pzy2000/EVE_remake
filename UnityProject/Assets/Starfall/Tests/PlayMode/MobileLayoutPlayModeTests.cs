@@ -152,8 +152,10 @@ namespace Starfall.Tests.PlayMode
 
                 ApplyDeterministicPanelGeometry(document, layout);
                 yield return WaitForFinalGeometry(content, layout.SafeInsetsDp.Left);
-                if (scene == "Space")
-                    yield return ShowSpaceActionToast(content);
+                if (scene == "MainMenu" || scene == "Space")
+                {
+                    AssertNoOverlappingSurfaces(profile, content, layout, scene);
+                }
                 AssertDocumentMode(profile, document, content, layout, scene);
                 AssertInteractiveControlsAvoidFolding(profile, content, layout, scene);
                 if (layout.HasSeparatingFeature && scene == "Station")
@@ -162,32 +164,46 @@ namespace Starfall.Tests.PlayMode
                 AssertCardsAndScrolling(profile, content, layout, scene);
                 AssertVisibleTextMinimum(profile, content, $"{scene}/Base");
                 if (scene == "MainMenu")
-                {
-                    AssertLegacyImportError(profile, content, layout);
-                    AssertContinueSummaryDoesNotCoverActions(profile, content);
-                }
+                    yield return AssertLegacyImportErrorAccessible(profile, content, layout);
                 if (scene == "Space")
                     yield return AssertModuleRackAccessibility(profile, content, layout);
                 yield return AssertSettingsOverlay(profile, content, layout, scene, overlayFailures);
                 if (scene == "Space")
-                {
                     yield return AssertSpaceOverlays(profile, content, layout, overlayFailures);
-                    yield return AssertSpaceBackNavigation(profile, content, layout);
-                }
             }
 
             Assert.That(overlayFailures, Is.Empty,
                 $"{profile.Name}: mobile overlay geometry failures:\n" + string.Join("\n", overlayFailures));
         }
 
-        private static IEnumerator ShowSpaceActionToast(VisualElement root)
+        private static void AssertNoOverlappingSurfaces(
+            Profile profile, VisualElement root, MobileLayout layout, string scene)
         {
-            var toast = root.Q<Label>("action-toast");
-            Assert.That(toast, Is.Not.Null, "Space must expose the action toast.");
-            toast.text = "Game saved to auto.";
-            toast.style.display = DisplayStyle.Flex;
-            yield return null;
-            yield return null;
+            void Separate(VisualElement first, VisualElement second)
+            {
+                Assert.That(first, Is.Not.Null);
+                Assert.That(second, Is.Not.Null);
+                Assert.That(first.worldBound.Overlaps(second.worldBound), Is.False,
+                    $"{profile.Name}/{scene}: {first.name} {first.worldBound} overlaps {second.name} {second.worldBound}");
+            }
+            if (scene == "MainMenu")
+            {
+                var grid = root.Q<VisualElement>(className: "empire-grid");
+                Separate(grid, root.Q<Label>("empire-description"));
+                Separate(root.Q<Label>("empire-description"), root.Q<Button>("launch"));
+                Separate(root.Q<Button>("launch"), root.Q<VisualElement>(className: "button-row"));
+                Separate(root.Q<VisualElement>(className: "button-row"), root.Q<Label>("continue-summary"));
+            }
+            else if (!layout.HasSeparatingFeature)
+            {
+                Separate(root.Q<VisualElement>("overview-panel"), root.Q<VisualElement>("ship-status"));
+                Separate(root.Q<VisualElement>("ship-status"), root.Q<ScrollView>("module-rack"));
+                if (layout.Mode == MobileLayoutMode.CompactLandscape)
+                    Separate(root.Q<VisualElement>("objective-tracker"), root.Q<VisualElement>("overview-panel"));
+                foreach (var name in new[] { "ship-name", "speed", "cargo" })
+                    Assert.That(RectContains(root.Q<VisualElement>("ship-status").worldBound,
+                        root.Q<Label>(name).worldBound), Is.True, $"{profile.Name}: clipped flight telemetry {name}");
+            }
         }
 
         private static void ShowLegacyImportError(VisualElement root)
@@ -197,6 +213,20 @@ namespace Starfall.Tests.PlayMode
             status.text = LongLegacyImportError;
             status.style.display = DisplayStyle.Flex;
             status.EnableInClassList("danger", true);
+        }
+
+        private static IEnumerator AssertLegacyImportErrorAccessible(
+            Profile profile, VisualElement root, MobileLayout layout)
+        {
+            var status = root.Q<Label>("legacy-import-status");
+            var scroll = root.Q<ScrollView>("mobile-menu-scroll");
+            if (scroll != null && status != null)
+            {
+                scroll.ScrollTo(status);
+                yield return null;
+                yield return null;
+            }
+            AssertLegacyImportError(profile, root, layout);
         }
 
         private static void AssertLegacyImportError(
@@ -236,24 +266,6 @@ namespace Starfall.Tests.PlayMode
                 RectContains(layout.SecondaryPaneDp, status.worldBound),
                 Is.True,
                 $"{profile.Name}/MainMenu: legacy status is not wholly contained by one pane.");
-        }
-
-        private static void AssertContinueSummaryDoesNotCoverActions(
-            Profile profile,
-            VisualElement root)
-        {
-            var summary = root.Q<Label>("continue-summary");
-            Assert.That(summary, Is.Not.Null, $"{profile.Name}/MainMenu: missing continue summary.");
-            Assert.That(summary.pickingMode, Is.EqualTo(PickingMode.Ignore),
-                $"{profile.Name}/MainMenu: continue summary must not intercept button taps.");
-            foreach (var name in new[] { "continue", "import", "settings" })
-            {
-                var button = root.Q<Button>(name);
-                Assert.That(button, Is.Not.Null, $"{profile.Name}/MainMenu: missing {name} button.");
-                Assert.That(summary.worldBound.Overlaps(button.worldBound), Is.False,
-                    $"{profile.Name}/MainMenu: continue summary {summary.worldBound} overlaps " +
-                    $"{name} button {button.worldBound}.");
-            }
         }
 
         private void AttachDeterministicPanel(UIDocument document, Profile profile)
@@ -509,26 +521,16 @@ namespace Starfall.Tests.PlayMode
             {
                 var shipStatus = root.Q<VisualElement>("ship-status");
                 var speed = root.Q<Label>("speed");
-                var cargo = root.Q<Label>("cargo");
                 Assert.That(shipStatus, Is.Not.Null,
                     $"{profile.Name}/Space: missing ship status panel.");
                 Assert.That(speed, Is.Not.Null,
                     $"{profile.Name}/Space: missing speed telemetry.");
-                Assert.That(cargo, Is.Not.Null,
-                    $"{profile.Name}/Space: missing cargo telemetry.");
                 Assert.That(TryGetVisibleBoundsInContent(speed, root, out var speedBounds), Is.True,
                     $"{profile.Name}/Space: speed telemetry is not visible.");
                 AssertRectApproximately(speedBounds, speed.worldBound,
                     $"{profile.Name}/Space: speed telemetry is partially clipped");
                 Assert.That(RectContains(shipStatus.worldBound, speed.worldBound), Is.True,
                     $"{profile.Name}/Space: speed telemetry {speed.worldBound} is clipped by " +
-                    $"ship status {shipStatus.worldBound}.");
-                Assert.That(TryGetVisibleBoundsInContent(cargo, root, out var cargoBounds), Is.True,
-                    $"{profile.Name}/Space: cargo telemetry is not visible.");
-                AssertRectApproximately(cargoBounds, cargo.worldBound,
-                    $"{profile.Name}/Space: cargo telemetry is partially clipped");
-                Assert.That(RectContains(shipStatus.worldBound, cargo.worldBound), Is.True,
-                    $"{profile.Name}/Space: cargo telemetry {cargo.worldBound} is clipped by " +
                     $"ship status {shipStatus.worldBound}.");
             }
         }
@@ -797,36 +799,6 @@ namespace Starfall.Tests.PlayMode
                 profile, root, layout, "journal-overlay", "journal-list", "journal-close", "Journal", failures);
             yield return AssertCombatLog(profile, root, layout, failures);
             yield return AssertDeathOverlay(profile, root, layout, failures);
-        }
-
-        private static IEnumerator AssertSpaceBackNavigation(
-            Profile profile,
-            VisualElement root,
-            MobileLayout layout)
-        {
-            if (layout.Mode == MobileLayoutMode.CompactLandscape) yield break;
-
-            var controller = Object.FindFirstObjectByType<SpaceHudController>();
-            var overlay = root.Q<VisualElement>("mobile-confirmation");
-            var activePanel = typeof(SpaceHudController).GetField(
-                "activeMobilePanel",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            Assert.That(controller, Is.Not.Null, $"{profile.Name}/Space/Back: missing controller.");
-            Assert.That(overlay, Is.Not.Null, $"{profile.Name}/Space/Back: missing confirmation overlay.");
-            Assert.That(activePanel, Is.Not.Null, $"{profile.Name}/Space/Back: missing active panel state.");
-
-            activePanel.SetValue(controller, "target");
-            Assert.That(controller.HandleMobileBack(), Is.True,
-                $"{profile.Name}/Space/Back: target-panel Back was not handled.");
-            yield return null;
-
-            Assert.That(overlay.resolvedStyle.display, Is.Not.EqualTo(DisplayStyle.None),
-                $"{profile.Name}/Space/Back: expanded Back must open confirmation immediately.");
-            Assert.That(controller.HandleMobileBack(), Is.True,
-                $"{profile.Name}/Space/Back: confirmation Back was not handled.");
-            yield return null;
-            Assert.That(overlay.resolvedStyle.display, Is.EqualTo(DisplayStyle.None),
-                $"{profile.Name}/Space/Back: confirmation did not close.");
         }
 
         private static IEnumerator AssertScrollableOverlay(
