@@ -31,10 +31,14 @@ def tap(text):
 def shot(name):
  (out/(name+'.png')).write_bytes(subprocess.check_output([adb,'-s',args.serial,'exec-out','screencap','-p']))
  (out/(name+'.xml')).write_text(E.tostring(ui(),encoding='unicode'))
+launch_time = 0.0
 def no_player():
  assert not shell('pidof',pkg,check=False).strip(),'Main/player process started without consent'
  assert 'PLAYER_TEST_DOUBLE_STARTED' not in shell('logcat','-d','-s','StarfallPrivacyTest')
-def start():shell('am','start','-W','-n',launch)
+def start():
+ global launch_time
+ launch_time=float(shell('date','+%s.%N').strip())
+ shell('am','start','-W','-n',launch)
 def stop():shell('am','force-stop',pkg)
 def reset():stop();shell('pm','clear',pkg);shell('logcat','-c')
 for _ in range(60):

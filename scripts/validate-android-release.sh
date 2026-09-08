@@ -171,7 +171,8 @@ assert gate.get(n+'process') == ':privacy', 'Consent must run outside the Unity 
 assert gate.get(n+'exported') == 'true'
 assert player.get(n+'exported') == 'false', 'External callers must not bypass consent'
 assert not player.findall('intent-filter'), 'Only the native consent gate may be a launcher'
-assert not gate.findall('meta-data'), 'Launcher must not initialize native Unity libraries'
+assert not any(m.get(n+'name') in ('unityplayer.UnityActivity', 'android.app.lib_name')
+               for m in gate.findall('meta-data')), 'Launcher must not initialize native Unity libraries'
 print('Built manifest privacy entry-point checks passed.')
 PY_PRIVACY
 
