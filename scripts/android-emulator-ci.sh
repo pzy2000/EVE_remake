@@ -1103,6 +1103,7 @@ PY
   adb logcat -c
   starfall_start_continuous_logcat "$legacy_directory/session.logcat.txt"
   adb shell am start -W -n "$activity" >"$legacy_directory/start.txt"
+  starfall_accept_privacy_if_required "$package_name" "$results_directory"
   wait_for_process >/dev/null
   starfall_clear_immersive_mode_confirmation \
     "$legacy_directory/immersive-mode-confirmation"
@@ -1233,6 +1234,7 @@ run_scenario() {
   starfall_start_continuous_logcat "$scenario_directory/session.logcat.txt"
   adb shell am start -W -n "$activity" --es unity "$graphics_argument" \
     >"$scenario_directory/start.txt"
+  starfall_accept_privacy_if_required "$package_name" "$results_directory"
   wait_for_process >/dev/null
   starfall_clear_immersive_mode_confirmation \
     "$scenario_directory/immersive-mode-confirmation"
@@ -1705,6 +1707,7 @@ auto_mtime_before="$(adb shell stat -c %Y \
 for _ in $(seq 1 10); do
   adb shell input keyevent KEYCODE_HOME
   adb shell am start -W -n "$activity" >/dev/null
+  starfall_accept_privacy_if_required "$package_name" "$results_directory"
 done
 pull_remote_json \
   "$persistent_data_directory/Saves/auto.json" \
@@ -1801,6 +1804,7 @@ adb shell am force-stop "$package_name"
 adb shell rm -f \
   "$persistent_data_directory/starfall-ci-render-ready.json"
 adb shell am start -W -n "$activity" >"$results_directory/force-stop-restart.txt"
+starfall_accept_privacy_if_required "$package_name" "$results_directory"
 wait_for_process >/dev/null
 starfall_wait_for_unity_render_ready \
   "$package_name" "$results_directory/force-stop-render-ready.json" MainMenu

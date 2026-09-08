@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 java_root="$repository_root/UnityProject/Assets/Plugins/Android/StarfallMobile.androidlib/src"
-activity="$repository_root/UnityProject/Assets/Starfall/Android/StarfallUnityGameActivity.java"
+activity="$repository_root/UnityProject/Assets/Starfall/Android/StarfallUnityPlayerActivity.java"
 activity_meta="$activity.meta"
 manifest="$repository_root/UnityProject/Assets/Plugins/Android/AndroidManifest.xml"
 project_settings="$repository_root/UnityProject/ProjectSettings/ProjectSettings.asset"
@@ -48,5 +48,7 @@ java -cp "$classes_directory" com.pzy.starfall.mobile.StarfallMobileBridgeLifecy
   "$picker" \
   "$library_manifest" \
   "$activity_meta"
+
+python3 "$repository_root/scripts/android-privacy-policy-test.py"
 
 echo "Android Java lifecycle, custom GameActivity, and Back policy tests passed."

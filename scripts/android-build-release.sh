@@ -50,9 +50,9 @@ if [[ ! -d "$unity_project_root/Assets" ]] || [[ ! -d "$unity_project_root/Proje
 fi
 
 mapfile -t custom_activity_sources < <(find "$export_root" -type f \
-  -path '*/src/main/java/com/pzy/starfall/mobile/StarfallUnityGameActivity.java' -print)
+  -path '*/src/main/java/com/pzy/starfall/mobile/StarfallUnityPlayerActivity.java' -print)
 if (( ${#custom_activity_sources[@]} != 1 )); then
-  echo "Expected exactly one exported StarfallUnityGameActivity.java, found ${#custom_activity_sources[@]}." >&2
+  echo "Expected exactly one exported StarfallUnityPlayerActivity.java, found ${#custom_activity_sources[@]}." >&2
   exit 1
 fi
 grep -Fq 'extends UnityPlayerGameActivity' "${custom_activity_sources[0]}" || {

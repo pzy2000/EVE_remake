@@ -160,7 +160,22 @@ if grep -Eq 'com\.pzy\.starfall\.mobile\.DEBUG_(WINDOW_LAYOUT|COMMAND)' "$bundle
   echo "Release manifest exposes a smoke-only debug broadcast action." >&2
   exit 1
 fi
-grep -Fq 'android:name="com.pzy.starfall.mobile.StarfallUnityGameActivity"' "$bundle_manifest" || {
+python3 - "$bundle_manifest" <<'PY_PRIVACY'
+import sys, xml.etree.ElementTree as E
+n = '{http://schemas.android.com/apk/res/android}'
+root = E.parse(sys.argv[1]).getroot()
+activities = {a.get(n+'name'): a for a in root.findall('./application/activity')}
+gate = activities['com.pzy.starfall.mobile.StarfallUnityGameActivity']
+player = activities['com.pzy.starfall.mobile.StarfallUnityPlayerActivity']
+assert gate.get(n+'process') == ':privacy', 'Consent must run outside the Unity process'
+assert gate.get(n+'exported') == 'true'
+assert player.get(n+'exported') == 'false', 'External callers must not bypass consent'
+assert not player.findall('intent-filter'), 'Only the native consent gate may be a launcher'
+assert not gate.findall('meta-data'), 'Launcher must not initialize native Unity libraries'
+print('Built manifest privacy entry-point checks passed.')
+PY_PRIVACY
+
+grep -Fq 'android:name="com.pzy.starfall.mobile.StarfallUnityPlayerActivity"' "$bundle_manifest" || {
   echo "AAB does not use the custom Unity GameActivity entry point." >&2
   exit 1
 }

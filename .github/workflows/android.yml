@@ -78,6 +78,7 @@ jobs:
           bash -n scripts/android-emulator-common.sh
           bash -n scripts/android-emulator-ci.sh
           bash -n scripts/android-java-policy-test.sh
+          python3 scripts/android-privacy-policy-test.py
           bash -n scripts/android-stability-ci.sh
           bash -n scripts/test-android-emulator-common.sh
           bash -n scripts/android-verify-unity-results.sh
@@ -279,7 +280,7 @@ jobs:
           artifactsPath: artifacts/unity/editmode
 
       - name: Verify exact EditMode baseline plus mobile suite
-        run: bash scripts/android-verify-unity-results.sh artifacts/unity/editmode EditMode 146
+        run: bash scripts/android-verify-unity-results.sh artifacts/unity/editmode EditMode 150
 
       - name: Run PlayMode tests
         id: playmode
