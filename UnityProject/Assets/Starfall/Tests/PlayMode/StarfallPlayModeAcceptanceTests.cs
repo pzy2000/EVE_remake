@@ -644,10 +644,9 @@ namespace Starfall.Tests.PlayMode
             runtimePlayer.Shield = 1d;
 
             app.ContinueGame();
-            yield return WaitForCondition(
-                () => app.Snapshot.PilotName == expectedPilot && app.Snapshot.Credits == expectedCredits,
-                "ContinueGame did not restore the manual slot1 player state.");
-
+            // ContinueGame restores the complete state synchronously. Assert the
+            // exact values before yielding a frame, because shield regeneration
+            // is intentionally allowed to advance on the next simulation tick.
             var restoredSession = GetSession();
             Assert.That(ReferenceEquals(restoredSession, sessionBeforeSave), Is.False,
                 "ContinueGame must replace the live simulation session.");
@@ -662,6 +661,9 @@ namespace Starfall.Tests.PlayMode
             Assert.That(app.Snapshot.ContinueSummary, Does.StartWith("SLOT1"),
                 "Continue metadata must identify the newest slot selected for loading.");
             Assert.That(File.Exists(slotPath), Is.True, "ContinueGame must not consume the manual save.");
+            yield return WaitForCondition(
+                () => app.Snapshot.PilotName == expectedPilot && app.Snapshot.Credits == expectedCredits,
+                "ContinueGame did not restore the manual slot1 player state.");
         }
 
         private IEnumerator StartNewGameAndAssertStation(string empireId)
