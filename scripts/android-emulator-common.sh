@@ -397,8 +397,13 @@ for node in root.iter('node'):
 PY
 )"
     if [[ "$coordinate" =~ ^[0-9]+\ [0-9]+$ ]]; then
-      adb shell screencap -p /sdcard/starfall-privacy.png
-      adb pull /sdcard/starfall-privacy.png "$evidence_root/consent.png" >/dev/null
+      # Capture directly, with the same bounded read retries as other evidence.
+      # Preserve stderr so capture failures are distinguishable from game failures.
+      if ! starfall_adb_capture_file "$evidence_root/consent.png" exec-out screencap -p \
+        2>"$evidence_root/consent-capture.stderr.txt"; then
+        echo "Privacy screenshot capture failed; see $evidence_root/consent-capture.stderr.txt" >&2
+        return 1
+      fi
       read -r consent_x consent_y <<<"$coordinate"
       adb shell input tap "$consent_x" "$consent_y"
     fi
