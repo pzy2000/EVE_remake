@@ -207,7 +207,8 @@ namespace Starfall.UI
                 host.Execute("journal");
                 return true;
             }
-            if (!string.Equals(activeMobilePanel, "overview", StringComparison.Ordinal))
+            if (mobileUi?.CurrentLayout.Mode == MobileLayoutMode.CompactLandscape &&
+                !string.Equals(activeMobilePanel, "overview", StringComparison.Ordinal))
             {
                 SetMobilePanel("overview");
                 return true;

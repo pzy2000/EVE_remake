@@ -398,10 +398,15 @@ namespace Starfall.UI
                 json.Append("]}");
                 var payload = json.ToString();
                 if (string.Equals(payload, lastCiLayoutEvidence, StringComparison.Ordinal)) return;
-                lastCiLayoutEvidence = payload;
                 var path = Path.Combine(Application.persistentDataPath,
                     $"starfall-ci-layout-{screenKind}.json");
-                File.WriteAllText(path, payload);
+                var temporaryPath = path + ".tmp";
+                File.WriteAllText(temporaryPath, payload);
+                // Readers see either complete snapshot, never a truncated overwrite.
+                if (File.Exists(path)) File.Replace(temporaryPath, path, null);
+                else File.Move(temporaryPath, path);
+                // Only cache a snapshot after it is successfully published.
+                lastCiLayoutEvidence = payload;
                 Debug.Log($"STARFALL_ANDROID_CI_UI_LAYOUT={screenKind}:{path}");
             }
             catch (Exception exception)

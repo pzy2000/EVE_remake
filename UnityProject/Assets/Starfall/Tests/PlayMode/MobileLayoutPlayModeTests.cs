@@ -169,7 +169,10 @@ namespace Starfall.Tests.PlayMode
                     yield return AssertModuleRackAccessibility(profile, content, layout);
                 yield return AssertSettingsOverlay(profile, content, layout, scene, overlayFailures);
                 if (scene == "Space")
+                {
                     yield return AssertSpaceOverlays(profile, content, layout, overlayFailures);
+                    yield return AssertSpaceBackNavigation(profile, content, layout);
+                }
             }
 
             Assert.That(overlayFailures, Is.Empty,
@@ -799,6 +802,36 @@ namespace Starfall.Tests.PlayMode
                 profile, root, layout, "journal-overlay", "journal-list", "journal-close", "Journal", failures);
             yield return AssertCombatLog(profile, root, layout, failures);
             yield return AssertDeathOverlay(profile, root, layout, failures);
+        }
+
+        private static IEnumerator AssertSpaceBackNavigation(
+            Profile profile,
+            VisualElement root,
+            MobileLayout layout)
+        {
+            if (layout.Mode == MobileLayoutMode.CompactLandscape) yield break;
+
+            var controller = Object.FindFirstObjectByType<SpaceHudController>();
+            var overlay = root.Q<VisualElement>("mobile-confirmation");
+            var activePanel = typeof(SpaceHudController).GetField(
+                "activeMobilePanel",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(controller, Is.Not.Null, $"{profile.Name}/Space/Back: missing controller.");
+            Assert.That(overlay, Is.Not.Null, $"{profile.Name}/Space/Back: missing confirmation overlay.");
+            Assert.That(activePanel, Is.Not.Null, $"{profile.Name}/Space/Back: missing active panel state.");
+
+            activePanel.SetValue(controller, "target");
+            Assert.That(controller.HandleMobileBack(), Is.True,
+                $"{profile.Name}/Space/Back: target-panel Back was not handled.");
+            yield return null;
+
+            Assert.That(overlay.resolvedStyle.display, Is.Not.EqualTo(DisplayStyle.None),
+                $"{profile.Name}/Space/Back: expanded Back must open confirmation immediately.");
+            Assert.That(controller.HandleMobileBack(), Is.True,
+                $"{profile.Name}/Space/Back: confirmation Back was not handled.");
+            yield return null;
+            Assert.That(overlay.resolvedStyle.display, Is.EqualTo(DisplayStyle.None),
+                $"{profile.Name}/Space/Back: confirmation did not close.");
         }
 
         private static IEnumerator AssertScrollableOverlay(
