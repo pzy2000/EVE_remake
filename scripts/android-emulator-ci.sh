@@ -1501,13 +1501,42 @@ PY
     exit 1
   fi
 
+  # Selecting a target can open the compact target panel, changing hit testing.
+  # Derive the drag corridor and yaw baseline from this current UI state, not
+  # the pre-selection snapshot. Still require a real swipe to rotate the camera.
+  local drag_baseline="$scenario_directory/Touch.Drag.Baseline.command.json"
+  local drag_ready=false
+  for _ in $(seq 1 40); do
+    dispatch_ci_command "status" "$drag_baseline"
+    if touch_coordinates="$(python3 - "$drag_baseline" "$height" <<'PYDRAG'
+import json
+import sys
+p = json.load(open(sys.argv[1], encoding="utf-8"))
+fields = ("dragStartX", "dragStartY", "dragEndX", "dragEndY", "cameraYawDegrees")
+if not all(k in p for k in fields):
+    raise SystemExit(1)
+h = int(sys.argv[2])
+print(round(p["dragStartX"]), round(h-p["dragStartY"]),
+      round(p["dragEndX"]), round(h-p["dragEndY"]))
+PYDRAG
+)"; then
+      drag_ready=true
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$drag_ready" != "true" ]]; then
+    echo "No UI-free drag corridor after target selection." >&2
+    exit 1
+  fi
+  read -r drag_start_x drag_start_y drag_end_x drag_end_y <<<"$touch_coordinates"
   adb shell input swipe \
     "$drag_start_x" "$drag_start_y" "$drag_end_x" "$drag_end_y" \
     "$world_swipe_duration_ms"
   local rotated_by_drag=false
   for _ in $(seq 1 40); do
     dispatch_ci_command "status" "$scenario_directory/Touch.Drag.command.json"
-    if python3 - "$touch_initial" "$scenario_directory/Touch.Drag.command.json" <<'PY'
+    if python3 - "$drag_baseline" "$scenario_directory/Touch.Drag.command.json" <<'PY'
 import json
 import sys
 
