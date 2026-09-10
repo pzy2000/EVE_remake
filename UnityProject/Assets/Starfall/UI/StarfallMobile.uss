@@ -171,15 +171,15 @@
 .mobile.compact-landscape .system-title { width: 190px; font-size: 17px; }
 .mobile.compact-landscape .mission { display: none; }
 .mobile.compact-landscape .objective-tracker {
-    left: 8px;
-    right: auto;
-    top: 64px;
-    width: 440px;
-    height: 80px;
-    min-height: 0;
+    left: 50%;
+    right: 8px;
+    top: 118px;
+    width: auto;
+    min-height: 48px;
     padding: 4px;
-    overflow: hidden;
 }
+.mobile.compact-landscape.mobile-panel-target .objective-tracker,
+.mobile.compact-landscape.mobile-panel-log .objective-tracker { display: none; }
 .mobile.compact-landscape .action-toast {
     left: 464px;
     right: 8px;
@@ -203,7 +203,8 @@
 .mobile.compact-landscape .overview {
     display: flex;
     left: 8px;
-    top: 150px;
+    top: 64px;
+    padding: 4px;
     bottom: 112px;
     width: 440px;
     min-width: 0;

@@ -62,6 +62,11 @@ namespace Starfall.Tests.PlayMode
         {
             yield return RunProfile(Profile.FullScreen(
                 "2748x1172", 2748, 1172, MobileLayoutMode.CompactLandscape));
+            // Real Android system insets reduce the available height even when
+            // the physical framebuffer matches the nominal acceptance profile.
+            yield return RunProfile(new Profile("2748x1172-system-insets",
+                new MobileWindowMetrics(2748, 1172, Dpi, new RectInt(0, 140, 2748, 960)),
+                MobileLayoutMode.CompactLandscape, FoldingFeatureOrientation.Unknown));
         }
 
         [UnityTest]
@@ -176,7 +181,7 @@ namespace Starfall.Tests.PlayMode
                 AssertInteractiveControlsAvoidFolding(profile, content, layout, scene);
                 if (layout.HasSeparatingFeature && scene == "Station")
                     yield return AssertOffscreenScrollControlIsExcluded(profile, content, layout);
-                AssertCriticalTouchTargets(profile, content, scene);
+                yield return AssertCriticalTouchTargets(profile, content, scene);
                 AssertCardsAndScrolling(profile, content, layout, scene);
                 AssertVisibleTextMinimum(profile, content, $"{scene}/Base");
                 if (scene == "MainMenu")
@@ -216,6 +221,9 @@ namespace Starfall.Tests.PlayMode
             else if (!layout.HasSeparatingFeature)
             {
                 Separate(root.Q<VisualElement>("overview-panel"), root.Q<VisualElement>("ship-status"));
+                Assert.That(RectContains(root.Q<VisualElement>("overview-panel").worldBound,
+                    root.Q<ListView>("overview-list").worldBound), Is.True,
+                    $"{profile.Name}: contact list escapes the overview panel into bottom telemetry");
                 Separate(root.Q<VisualElement>("ship-status"), root.Q<ScrollView>("module-rack"));
                 if (layout.Mode == MobileLayoutMode.CompactLandscape)
                     Separate(root.Q<VisualElement>("objective-tracker"), root.Q<VisualElement>("overview-panel"));
@@ -463,7 +471,7 @@ namespace Starfall.Tests.PlayMode
             Assert.That(actual.height, Is.EqualTo(expected.height).Within(Epsilon), message + " height");
         }
 
-        private static void AssertCriticalTouchTargets(Profile profile, VisualElement root, string scene)
+        private static IEnumerator AssertCriticalTouchTargets(Profile profile, VisualElement root, string scene)
         {
             string[] names;
             switch (scene)
@@ -485,6 +493,15 @@ namespace Starfall.Tests.PlayMode
             {
                 var button = root.Q<Button>(name);
                 Assert.That(button, Is.Not.Null, $"{profile.Name}/{scene}: missing button {name}.");
+                if (scene == "MainMenu")
+                {
+                    var menuScroll = root.Q<ScrollView>("mobile-menu-scroll");
+                    menuScroll.ScrollTo(button);
+                    yield return null;
+                    yield return null;
+                    Assert.That(RectContains(menuScroll.contentViewport.worldBound, button.worldBound),
+                        Is.True, $"{profile.Name}: {name} must be completely reachable by menu scrolling");
+                }
                 Assert.That(button.resolvedStyle.display, Is.Not.EqualTo(DisplayStyle.None),
                     $"{profile.Name}/{scene}: key button {name} is hidden.");
                 Assert.That(
