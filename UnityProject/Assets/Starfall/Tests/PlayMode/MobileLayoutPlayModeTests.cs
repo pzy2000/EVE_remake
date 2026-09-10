@@ -156,6 +156,22 @@ namespace Starfall.Tests.PlayMode
                 {
                     AssertNoOverlappingSurfaces(profile, content, layout, scene);
                 }
+                if (scene == "Space")
+                {
+                    // Simulate a live save result after the coordinator applied
+                    // metrics: hiding a toast once must not pass this regression.
+                    var toast = content.Q<Label>("action-toast");
+                    toast.text = "Game saved to auto.";
+                    toast.style.display = DisplayStyle.Flex;
+                    yield return null;
+                    yield return null;
+                    if (layout.HasSeparatingFeature)
+                    {
+                        Assert.That(toast.worldBound.Overlaps(layout.FoldingBoundsDp), Is.False);
+                        Assert.That(RectContains(layout.PrimaryPaneDp, toast.worldBound) ||
+                            RectContains(layout.SecondaryPaneDp, toast.worldBound), Is.True);
+                    }
+                }
                 AssertDocumentMode(profile, document, content, layout, scene);
                 AssertInteractiveControlsAvoidFolding(profile, content, layout, scene);
                 if (layout.HasSeparatingFeature && scene == "Station")

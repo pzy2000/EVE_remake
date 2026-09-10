@@ -576,10 +576,13 @@ namespace Starfall.UI
 
         private void ApplySpaceHinge(MobileLayout layout, Rect primary, Rect secondary)
         {
-            // Toasts are transient and must never cross a separating hinge.
-            // The persistent action result remains available in the Journal/log.
+            // The controller owns toast visibility on every snapshot. Constrain
+            // its geometry instead of hiding it only when window metrics change.
             var toast = contentRoot.Q<VisualElement>("action-toast");
-            if (toast != null) toast.style.display = DisplayStyle.None;
+            var toastTop = layout.FoldingOrientation == FoldingFeatureOrientation.Vertical
+                ? 270f : 8f;
+            SetAbsoluteRect(toast, new Rect(secondary.xMin + 8f,
+                secondary.yMin + toastTop, Mathf.Max(0f, secondary.width - 16f), 60f));
             if (layout.FoldingOrientation == FoldingFeatureOrientation.Vertical)
             {
                 var top = 70f;
@@ -651,7 +654,7 @@ namespace Starfall.UI
             foreach (var name in new[]
                      {
                          "menu-card", "station-services", "overview-panel", "target-panel",
-                         "station-footer", "ship-status", "module-rack", "combat-log-scroll", "settings-overlay",
+                         "station-footer", "action-toast", "ship-status", "module-rack", "combat-log-scroll", "settings-overlay",
                          "mobile-confirmation", "map-overlay", "journal-overlay", "death-overlay"
                      })
                 ResetAbsoluteRect(contentRoot.Q<VisualElement>(name));
