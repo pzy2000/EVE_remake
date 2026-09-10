@@ -42,6 +42,7 @@ namespace Starfall.UI
         private bool hasMetrics;
         private bool disposed;
         private ScrollView menuScroll;
+        private ScrollView targetScroll;
 
         private MobileUiCoordinator(
             UIDocument document,
@@ -113,6 +114,7 @@ namespace Starfall.UI
             androidCompositor?.Dispose();
 #endif
             ResetHingeOverrides();
+            RestoreTargetContents();
             if (menuScroll != null)
             {
                 var card = menuScroll.parent;
@@ -204,12 +206,41 @@ namespace Starfall.UI
             contentRoot.style.right = layout.SafeInsetsDp.Right;
             contentRoot.style.bottom = layout.SafeInsetsDp.Bottom;
 
+            ConfigureTargetScroll(layout);
             ConfigureModuleRack(layout.Mode);
             ResetHingeOverrides();
             if (layout.HasSeparatingFeature) ApplyHingeLayout(layout);
 #if STARFALL_ANDROID_CI
             contentRoot.schedule.Execute(() => WriteCiLayoutEvidence(layout));
 #endif
+        }
+
+        private void ConfigureTargetScroll(MobileLayout layout)
+        {
+            if (screenKind != MobileScreenKind.Space) return;
+            if (layout.Mode != MobileLayoutMode.CompactLandscape || layout.HasSeparatingFeature)
+            {
+                RestoreTargetContents();
+                return;
+            }
+            if (targetScroll != null) return;
+            var panel = contentRoot.Q<VisualElement>("target-panel");
+            if (panel == null) return;
+            targetScroll = new ScrollView(ScrollViewMode.Vertical) { name = "mobile-target-scroll" };
+            targetScroll.AddToClassList("mobile-target-scroll");
+            targetScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            while (panel.childCount > 0) targetScroll.Add(panel.ElementAt(0));
+            panel.Add(targetScroll);
+        }
+
+        private void RestoreTargetContents()
+        {
+            if (targetScroll == null) return;
+            var panel = targetScroll.parent;
+            targetScroll.RemoveFromHierarchy();
+            while (targetScroll.contentContainer.childCount > 0)
+                panel.Add(targetScroll.contentContainer.ElementAt(0));
+            targetScroll = null;
         }
 
         private void ConfigureModuleRack(MobileLayoutMode mode)

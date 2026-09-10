@@ -187,7 +187,10 @@ namespace Starfall.Tests.PlayMode
                 if (scene == "MainMenu")
                     yield return AssertLegacyImportErrorAccessible(profile, content, layout);
                 if (scene == "Space")
+                {
                     yield return AssertModuleRackAccessibility(profile, content, layout);
+                    yield return AssertCompactTargetActions(profile, content, layout);
+                }
                 yield return AssertSettingsOverlay(profile, content, layout, scene, overlayFailures);
                 if (scene == "Space")
                 {
@@ -240,6 +243,38 @@ namespace Starfall.Tests.PlayMode
             status.text = LongLegacyImportError;
             status.style.display = DisplayStyle.Flex;
             status.EnableInClassList("danger", true);
+        }
+
+        private static IEnumerator AssertCompactTargetActions(Profile profile, VisualElement root, MobileLayout layout)
+        {
+            if (layout.Mode != MobileLayoutMode.CompactLandscape || layout.HasSeparatingFeature) yield break;
+            // Exercise the target layout state on the deterministic test panel.
+            // Real toggle input is covered separately by Android ADB acceptance.
+            root.RemoveFromClassList("mobile-panel-overview");
+            root.AddToClassList("mobile-panel-target");
+            yield return null;
+            yield return null;
+            var panel = root.Q<VisualElement>("target-panel");
+            var scroll = root.Q<ScrollView>("mobile-target-scroll");
+            Assert.That(scroll, Is.Not.Null);
+            Assert.That(panel.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(panel.worldBound.Overlaps(root.Q<ScrollView>("module-rack").worldBound), Is.False,
+                $"{profile.Name}: target actions overlap modules");
+            Assert.That(panel.worldBound.Overlaps(root.Q<Label>("action-toast").worldBound), Is.False,
+                $"{profile.Name}: target actions overlap toast");
+            foreach (var name in new[] { "approach", "orbit", "warp", "lock", "dock" })
+            {
+                var button = root.Q<Button>(name);
+                scroll.ScrollTo(button);
+                yield return null;
+                yield return null;
+                Assert.That(RectContains(scroll.contentViewport.worldBound, button.worldBound), Is.True,
+                    $"{profile.Name}: {name} not fully reachable in target scroll view");
+                Assert.That(button.worldBound.height + Epsilon, Is.GreaterThanOrEqualTo(48f));
+            }
+            root.RemoveFromClassList("mobile-panel-target");
+            root.AddToClassList("mobile-panel-overview");
+            yield return null;
         }
 
         private static IEnumerator AssertLegacyImportErrorAccessible(

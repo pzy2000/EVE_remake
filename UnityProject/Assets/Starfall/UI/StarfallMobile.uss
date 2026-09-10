@@ -218,7 +218,20 @@
     display: flex;
     right: 8px;
     top: 118px;
+    bottom: 112px;
     width: 360px;
+    padding: 4px;
+}
+.mobile .mobile-target-scroll { flex-grow: 1; min-height: 0; min-width: 0; }
+.mobile .mobile-target-scroll .unity-scroll-view__content-container { width: 100%; min-width: 0; }
+.mobile .mobile-target-scroll .unity-scroll-view__content-container > * { flex-shrink: 0; }
+.mobile .mobile-target-scroll .button-row { min-height: 48px; }
+.mobile.compact-landscape.mobile-panel-target .action-toast,
+.mobile.compact-landscape.mobile-panel-log .action-toast {
+    left: 8px;
+    right: 52%;
+    top: 64px;
+    bottom: auto;
 }
 .mobile.compact-landscape.mobile-panel-log .overview { display: none; }
 .mobile.compact-landscape.mobile-panel-log .combat-log {
