@@ -289,6 +289,34 @@ namespace Starfall.Presentation
                 end = candidateEnd;
                 return true;
             }
+            // A tabletop HUD can leave a narrow horizontal corridor that none
+            // of the coarse diagonal candidates reach. Search a denser grid
+            // with horizontal drags, keeping the original drag distance and
+            // checking the complete path rather than just its endpoints.
+            for (var row = 2; row <= 18; row++)
+            for (var column = 2; column <= 18; column++)
+            foreach (var direction in new[] { -1f, 1f })
+            {
+                var candidateStart = new Vector2(width * column / 20f, height * row / 20f);
+                var candidateEnd = candidateStart + new Vector2(delta.x * direction, 0f);
+                // Stay clear of both center fold bands, including the 84px
+                // vertical and 80px horizontal acceptance profiles.
+                if (!(Mathf.Max(candidateStart.x, candidateEnd.x) < width * 0.475f ||
+                      Mathf.Min(candidateStart.x, candidateEnd.x) > width * 0.525f) ||
+                    !(candidateStart.y < height * 0.475f || candidateStart.y > height * 0.525f))
+                    continue;
+                var clear = true;
+                for (var sample = 0; sample <= 12; sample++)
+                {
+                    if (IsBlankWorldPoint(Vector2.Lerp(candidateStart, candidateEnd, sample / 12f))) continue;
+                    clear = false;
+                    break;
+                }
+                if (!clear) continue;
+                start = candidateStart;
+                end = candidateEnd;
+                return true;
+            }
             return false;
         }
 
