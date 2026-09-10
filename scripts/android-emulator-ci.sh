@@ -1337,7 +1337,10 @@ import json
 import sys
 
 payload = json.load(open(sys.argv[1], encoding="utf-8"))
-required = ("touchTargetId", "touchTargetX", "touchTargetY")
+# A visible target can precede a clear drag corridor (for example while a
+# save toast is still visible). Wait for both before sending physical gestures.
+required = ("touchTargetId", "touchTargetX", "touchTargetY",
+            "dragStartX", "dragStartY", "dragEndX", "dragEndY")
 raise SystemExit(0 if all(name in payload for name in required) else 1)
 PY
     then
@@ -1347,7 +1350,7 @@ PY
     sleep 0.25
   done
   if [[ "$touch_target_ready" != "true" ]]; then
-    echo "The prepared world target never became visible and raycast-selectable." >&2
+    echo "The prepared world target and UI-free drag path never became ready." >&2
     exit 1
   fi
   local touch_coordinates

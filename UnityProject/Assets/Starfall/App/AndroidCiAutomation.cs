@@ -57,6 +57,10 @@ namespace Starfall.App
             Debug.Log("STARFALL_ANDROID_CI_RENDER_READY=" + evidence.ToString(Formatting.None));
         }
 
+        private int lastCompletedCiRequestId;
+        private string lastCompletedCiCommand;
+        private string lastCompletedCiDetail;
+
         public void OnAndroidCiCommand(string payload)
         {
             var requestId = 0;
@@ -68,7 +72,17 @@ namespace Starfall.App
                 command = request.Value<string>("command") ?? string.Empty;
                 if (requestId <= 0) throw new InvalidDataException("requestId must be positive");
 
+                // ADB retries the same request while waiting for evidence. Do not
+                // execute non-idempotent commands twice if the ACK was delayed.
+                if (requestId == lastCompletedCiRequestId && command == lastCompletedCiCommand)
+                {
+                    WriteAndroidCiCommandEvidence(requestId, command, true, lastCompletedCiDetail);
+                    return;
+                }
                 var detail = ExecuteAndroidCiCommand(command);
+                lastCompletedCiRequestId = requestId;
+                lastCompletedCiCommand = command;
+                lastCompletedCiDetail = detail;
                 WriteAndroidCiCommandEvidence(requestId, command, true, detail);
             }
             catch (Exception exception)
