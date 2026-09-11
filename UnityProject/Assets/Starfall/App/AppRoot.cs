@@ -973,6 +973,9 @@ namespace Starfall.App
                 {
                     ["name"] = state.Player.Name,
                     ["credits"] = state.Player.Credits,
+                    // Persisting the death flag is what makes dying stick: the
+                    // death save itself records PlayerDead = true.
+                    ["playerDead"] = state.PlayerDead,
                     ["runtime"] = player,
                 };
                 saves.Save(slot, new SaveEnvelopeV2
@@ -1013,7 +1016,8 @@ namespace Starfall.App
             player.DockedAtStationId = envelope.PlayerLocation.DockedAt ?? string.Empty;
             player.X = envelope.PlayerLocation.X;
             player.Z = envelope.PlayerLocation.Z;
-            session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState, envelope.NextEntityId);
+            var playerDead = envelope.Player.Value<bool?>("playerDead") ?? false;
+            session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState, envelope.NextEntityId, playerDead);
             log.Clear();
             AddLog(Tr("Save loaded."));
             MarkAllDirty();

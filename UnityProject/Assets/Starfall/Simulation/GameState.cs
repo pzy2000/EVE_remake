@@ -102,6 +102,30 @@ namespace Starfall.Simulation
     }
 
     [Serializable]
+    public sealed class AsteroidVisitState
+    {
+        public string Id = string.Empty;
+        public string OreId = string.Empty;
+        public double X;
+        public double Z;
+        public double Radius;
+        public double Amount;
+    }
+
+    /// <summary>
+    /// Per-system world state that must survive docking, jumping and reloading.
+    /// Without it every undock reset the belt to full ore and respawned all
+    /// NPCs, which made mining and bounty farming infinitely AFK-able.
+    /// </summary>
+    [Serializable]
+    public sealed class SystemVisitState
+    {
+        /// <summary>Simulation time before which NPC traffic will not repopulate.</summary>
+        public double NpcRespawnReadyAt;
+        public List<AsteroidVisitState> Asteroids;
+    }
+
+    [Serializable]
     public sealed class PlayerState
     {
         public string Name = "Pilot";
@@ -123,6 +147,9 @@ namespace Starfall.Simulation
         public double Z;
         public double CriminalTimer;
         public string DestinationSystemId = string.Empty;
+        /// <summary>Last simulation time the player fired a weapon; gates docking for a while.</summary>
+        public double LastWeaponFireAt = -999d;
+        public Dictionary<string, SystemVisitState> SystemVisits = new Dictionary<string, SystemVisitState>(StringComparer.Ordinal);
         public PlayerStatsState Stats = new PlayerStatsState();
 
         public ShipInstanceState ActiveShip()

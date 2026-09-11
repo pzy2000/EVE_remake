@@ -15,6 +15,11 @@ namespace Starfall.Simulation
         public const double FixedStepSeconds = 0.05d;
         private const double TwoPi = Math.PI * 2d;
         private const double CelestialStandOffPadding = 40d;
+        /// <summary>Docking stays locked this long after the player fires a weapon.</summary>
+        private const double DockLockoutSeconds = 60d;
+        /// <summary>Sim-time cooldown before NPC traffic repopulates in a system.</summary>
+        private const double NpcRespawnCooldownSeconds = 600d;
+        private const double MaxMarketPressure = 0.3d;
         private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
         private readonly Queue<GameCommand> commands = new Queue<GameCommand>();
         private readonly List<SimulationEvent> frameEvents = new List<SimulationEvent>();
@@ -22,6 +27,8 @@ namespace Starfall.Simulation
         private Mulberry32 random;
         private double accumulator;
         private bool directorateSpawned;
+        /// <summary>Session-local price drift per "stationId|itemId"; trading volume moves prices.</summary>
+        private readonly Dictionary<string, double> marketPressure = new Dictionary<string, double>(StringComparer.Ordinal);
 
         private static readonly Dictionary<string, string> EmpireStarterShips = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -105,7 +112,7 @@ namespace Starfall.Simulation
         }
 
         public GameSession(GeneratedUniverse universe, IContentCatalog content, PlayerState player,
-            double simulationTime, uint rngState, ulong nextEntityId)
+            double simulationTime, uint rngState, ulong nextEntityId, bool playerDead = false)
         {
             if (universe == null) throw new ArgumentNullException(nameof(universe));
             catalog = content ?? throw new ArgumentNullException(nameof(content));
@@ -120,11 +127,13 @@ namespace Starfall.Simulation
                 SimulationTime = Math.Max(0d, simulationTime),
                 RngState = rngState,
                 NextEntityId = Math.Max(1UL, nextEntityId),
+                PlayerDead = playerDead,
             };
-            if (!State.Docked)
+            if (State.Docked) return;
+            if (!playerDead)
             {
                 SpawnPlayer(new SimVec2(player.X, player.Z));
-                PopulateSystem();
+                EnsureSystemWorld();
             }
         }
 
@@ -305,13 +314,23 @@ namespace Starfall.Simulation
                     Log(Tr("Move within 40 m before docking."));
                     return;
                 }
+                var sinceFire = State.SimulationTime - State.Player.LastWeaponFireAt;
+                if (sinceFire < DockLockoutSeconds)
+                {
+                    Log(Tr("Docking is locked while weapons are hot. Try again in {0} s.",
+                        Math.Ceiling(DockLockoutSeconds - sinceFire).ToString("0", Inv)));
+                    return;
+                }
                 SyncPlayerShip();
+                PersistSystemWorld();
                 State.Player.DockedAtStationId = station.Id;
                 State.Player.X = station.Position.X;
                 State.Player.Z = station.Position.Z;
                 CompleteDockObjectives(station.Id);
                 State.entities.Clear();
                 State.asteroids.Clear();
+                marketPressure.Clear();
+                directorateSpawned = false;
                 Emit(SimulationEventType.Dock, "player", station.Id, Tr("Docked at {0}.", TrName(station.Name)));
                 Emit(SimulationEventType.SaveRequested, detail: "auto");
                 return;
@@ -335,7 +354,8 @@ namespace Starfall.Simulation
             State.Player.DockedAtStationId = string.Empty;
             var position = station.Position + new SimVec2(70d, 22d);
             SpawnPlayer(position);
-            PopulateSystem();
+            EnsureSystemWorld();
+            directorateSpawned = false;
             Emit(SimulationEventType.Dock, station.Id, "player", Tr("Undocked from {0}.", TrName(station.Name)), detail: "undock");
             Emit(SimulationEventType.SaveRequested, detail: "auto");
         }
@@ -343,6 +363,7 @@ namespace Starfall.Simulation
         private void Jump(GateDefinition gate)
         {
             SyncPlayerShip();
+            PersistSystemWorld();
             var previousSystemId = State.Player.CurrentSystemId;
             State.Player.CurrentSystemId = gate.DestinationSystemId;
             State.Player.Stats.Jumps++;
@@ -353,7 +374,7 @@ namespace Starfall.Simulation
             State.Player.Z = position.Z;
             State.entities.Clear();
             SpawnPlayer(position);
-            PopulateSystem();
+            EnsureSystemWorld();
             State.SelectedId = string.Empty;
             directorateSpawned = false;
             Emit(SimulationEventType.Jump, gate.Id, destination.Id, Tr("Jump complete: {0}.", TrName(destination.Name)));
@@ -426,6 +447,8 @@ namespace Starfall.Simulation
                 ApplyCrime(target.FactionId);
             runtime.Cooldown = Math.Max(0.1d, module.CycleTime);
             var damage = module.Damage * shooter.DamageMultiplier * (0.85d + random.NextDouble() * 0.3d);
+            if (shooter.Kind == EntityKind.Player)
+                State.Player.LastWeaponFireAt = State.SimulationTime;
             Emit(SimulationEventType.Weapon, shooter.Id, target.Id, module.Name, damage,
                 module.Projectile ? "projectile:" + module.Id : "beam:" + module.Id);
             ApplyDamage(target, damage, shooter);
@@ -459,7 +482,14 @@ namespace Starfall.Simulation
             {
                 SyncPlayerShip();
                 State.PlayerDead = true;
+                State.Player.Cargo.Clear();
+                State.Player.LastWeaponFireAt = -999d;
+                FailHaulMissionsOnDeath();
                 Log(Tr("Your {0} was destroyed!", Tr(catalog.Ships[target.ShipId].Name)));
+                Log(Tr("Your cargo was lost with the ship."));
+                // Persist the death immediately: without a save here, killing the
+                // app would roll the player back to the pre-fight autosave.
+                Emit(SimulationEventType.SaveRequested, detail: "auto");
                 return;
             }
             if (attacker == null || attacker.Kind != EntityKind.Player) return;
@@ -603,6 +633,10 @@ namespace Starfall.Simulation
                 var npc = State.entities[i];
                 if (npc.Kind != EntityKind.Npc || npc.Dead) continue;
                 npc.AiTime += dt;
+                // Law enforcement stands down once the criminal timer expires;
+                // the preset lock plus the huge aggro range used to chase forever.
+                if (npc.AiBehavior == "police" && State.Player.CriminalTimer <= 0d)
+                    npc.LockedTargetId = string.Empty;
                 EntityState target = State.FindEntity(npc.LockedTargetId);
                 if (target == null && ShouldAggro(npc, player))
                 {
@@ -657,35 +691,27 @@ namespace Starfall.Simulation
                    EntityDisposition.Hostile;
         }
 
-        private void PopulateSystem()
+        private void EnsureSystemWorld()
         {
             var player = State.PlayerEntity();
-            State.entities.RemoveAll(entity => entity.Kind == EntityKind.Npc);
-            State.asteroids.Clear();
+            RestoreAsteroids();
             var system = CurrentSystem();
-            var visit = State.VisitCounter++;
-
-            for (var beltIndex = 0; beltIndex < system.Belts.Count; beltIndex++)
+            var visit = GetVisit(system.Id);
+            var populationRandom = new Mulberry32(Fnv1a.HashString(system.Id + ":" + State.VisitCounter++));
+            if (State.SimulationTime >= visit.NpcRespawnReadyAt)
             {
-                var belt = system.Belts[beltIndex];
-                var beltRandom = new Mulberry32(Fnv1a.HashString(system.Id + belt.Id));
-                for (var i = 0; i < belt.AsteroidCount; i++)
-                {
-                    var angle = beltRandom.Range(0d, TwoPi);
-                    var radius = beltRandom.Range(30d, 220d);
-                    State.asteroids.Add(new AsteroidState
-                    {
-                        Id = belt.Id + "_a" + i,
-                        BeltId = belt.Id,
-                        OreId = belt.OreId,
-                        Position = belt.Position + new SimVec2(Math.Cos(angle), Math.Sin(angle)) * radius,
-                        Radius = beltRandom.Range(6d, 16d),
-                        Amount = beltRandom.RangeInclusive(60, 220),
-                    });
-                }
+                // Traffic only repopulates after a cooldown, so undock/dock
+                // cycling cannot farm bounties from the same spawns.
+                visit.NpcRespawnReadyAt = State.SimulationTime + NpcRespawnCooldownSeconds;
+                PopulateTraffic(system, populationRandom);
             }
+            SpawnMissionTargets(null);
+            Emit(SimulationEventType.SystemPopulated, system.Id,
+                message: Tr("{0}: {1} traffic contacts.", TrName(system.Name), State.entities.Count - (player == null ? 0 : 1)));
+        }
 
-            var populationRandom = new Mulberry32(Fnv1a.HashString(system.Id + ":" + visit));
+        private void PopulateTraffic(StarSystemDefinition system, Mulberry32 populationRandom)
+        {
             var points = new List<SimVec2>();
             for (var i = 0; i < system.Gates.Count; i++) points.Add(system.Gates[i].Position);
             for (var i = 0; i < system.Stations.Count; i++) points.Add(system.Stations[i].Position);
@@ -696,8 +722,10 @@ namespace Starfall.Simulation
             {
                 SpawnPatrol(system.FactionId, NavyHulls[system.FactionId], populationRandom.RangeInclusive(2, 3), "navy", points, populationRandom);
                 var faction = catalog.Factions[system.FactionId];
+                // Empire space only fields frigate pirate scouts: a fresh pilot's
+                // starter frigate must not meet a destroyer on a 30% belt roll.
                 if (system.Belts.Count > 0 && populationRandom.Chance(0.3d) && !string.IsNullOrEmpty(faction.HomePirateId))
-                    SpawnPatrol(faction.HomePirateId, PirateHulls[faction.HomePirateId], 1, "pirate", points, populationRandom);
+                    SpawnPatrol(faction.HomePirateId, new[] { PirateHulls[faction.HomePirateId][0] }, 1, "pirate", points, populationRandom);
             }
             else if (system.Region == SystemRegion.LowSecurity)
             {
@@ -716,9 +744,85 @@ namespace Starfall.Simulation
             {
                 SpawnPatrol(FactionIds.Sisters, NavyHulls[FactionIds.Sisters], 2, "sisters", points, populationRandom);
             }
-            SpawnMissionTargets(populationRandom);
-            Emit(SimulationEventType.SystemPopulated, system.Id,
-                message: Tr("{0}: {1} traffic contacts.", TrName(system.Name), State.entities.Count - (player == null ? 0 : 1)));
+        }
+
+        private SystemVisitState GetVisit(string systemId)
+        {
+            if (!State.Player.SystemVisits.TryGetValue(systemId, out var visit))
+            {
+                visit = new SystemVisitState();
+                State.Player.SystemVisits[systemId] = visit;
+            }
+            return visit;
+        }
+
+        private void RestoreAsteroids()
+        {
+            State.asteroids.Clear();
+            var system = CurrentSystem();
+            var visit = GetVisit(system.Id);
+            if (visit.Asteroids == null)
+            {
+                visit.Asteroids = new List<AsteroidVisitState>();
+                foreach (var belt in system.Belts)
+                {
+                    var beltRandom = new Mulberry32(Fnv1a.HashString(system.Id + belt.Id));
+                    for (var i = 0; i < belt.AsteroidCount; i++)
+                    {
+                        var angle = beltRandom.Range(0d, TwoPi);
+                        var radius = beltRandom.Range(30d, 220d);
+                        var asteroid = new AsteroidState
+                        {
+                            Id = belt.Id + "_a" + i,
+                            BeltId = belt.Id,
+                            OreId = belt.OreId,
+                            Position = belt.Position + new SimVec2(Math.Cos(angle), Math.Sin(angle)) * radius,
+                            Radius = beltRandom.Range(6d, 16d),
+                            Amount = beltRandom.RangeInclusive(60, 220),
+                        };
+                        State.asteroids.Add(asteroid);
+                        visit.Asteroids.Add(new AsteroidVisitState
+                        {
+                            Id = asteroid.Id,
+                            OreId = asteroid.OreId,
+                            X = asteroid.Position.X,
+                            Z = asteroid.Position.Z,
+                            Radius = asteroid.Radius,
+                            Amount = asteroid.Amount,
+                        });
+                    }
+                }
+                return;
+            }
+            foreach (var record in visit.Asteroids)
+            {
+                if (record.Amount <= 0d) continue;
+                State.asteroids.Add(new AsteroidState
+                {
+                    Id = record.Id,
+                    BeltId = record.Id.Substring(0, record.Id.LastIndexOf('_')),
+                    OreId = record.OreId,
+                    Position = new SimVec2(record.X, record.Z),
+                    Radius = record.Radius,
+                    Amount = record.Amount,
+                });
+            }
+        }
+
+        private void PersistSystemWorld()
+        {
+            var visit = GetVisit(State.Player.CurrentSystemId);
+            visit.Asteroids = new List<AsteroidVisitState>(State.asteroids.Count);
+            foreach (var asteroid in State.asteroids)
+                visit.Asteroids.Add(new AsteroidVisitState
+                {
+                    Id = asteroid.Id,
+                    OreId = asteroid.OreId,
+                    X = asteroid.Position.X,
+                    Z = asteroid.Position.Z,
+                    Radius = asteroid.Radius,
+                    Amount = asteroid.Amount,
+                });
         }
 
         private void SpawnPatrol(string factionId, string[] hulls, int count, string behavior,
@@ -862,6 +966,7 @@ namespace Starfall.Simulation
                 Log(Tr("Insufficient credits or item unavailable."));
                 return;
             }
+            MoveMarketPressure(itemId, 0.05d);
             if (catalog.Ships.ContainsKey(itemId))
             {
                 var definition = catalog.Ships[itemId];
@@ -882,20 +987,34 @@ namespace Starfall.Simulation
         private void Sell(string itemId)
         {
             if (!State.Docked || string.IsNullOrEmpty(itemId)) return;
+            if (catalog.Items.TryGetValue(itemId, out var saleItem) && saleItem.NoMarket)
+            {
+                Log(Tr("This item has no market value here."));
+                return;
+            }
             if (catalog.Items.ContainsKey(itemId) && State.Player.Cargo.TryGetValue(itemId, out var quantity) && quantity > 0d)
             {
-                var price = Math.Max(1L, (long)JsMath.Round(StationPrice(itemId) * 0.85d));
+                var price = Math.Max(1L, (long)JsMath.Round(StationPrice(itemId) * 0.62d));
                 State.Player.Credits += (long)JsMath.Round(price * quantity);
                 State.Player.Cargo.Remove(itemId);
+                MoveMarketPressure(itemId, -0.04d * Math.Min(1d, quantity / 50d));
                 Emit(SimulationEventType.Inventory, message: Tr("Sold {0}x {1}.", quantity.ToString("0", Inv), Tr(catalog.Items[itemId].Name)), detail: itemId);
             }
             else if (catalog.Modules.ContainsKey(itemId) && State.Player.Hangar.TryGetValue(itemId, out var count) && count > 0)
             {
                 State.Player.Hangar[itemId] = count - 1;
                 if (count == 1) State.Player.Hangar.Remove(itemId);
-                State.Player.Credits += Math.Max(1L, (long)JsMath.Round(StationPrice(itemId) * 0.85d));
+                State.Player.Credits += Math.Max(1L, (long)JsMath.Round(StationPrice(itemId) * 0.62d));
+                MoveMarketPressure(itemId, -0.05d);
                 Emit(SimulationEventType.Inventory, message: Tr("Sold {0}.", Tr(catalog.Modules[itemId].Name)), detail: itemId);
             }
+        }
+
+        private void MoveMarketPressure(string itemId, double delta)
+        {
+            var key = State.Player.DockedAtStationId + "|" + itemId;
+            marketPressure.TryGetValue(key, out var current);
+            marketPressure[key] = Clamp(current + delta, -MaxMarketPressure, MaxMarketPressure);
         }
 
         private void Fit(string argument)
@@ -955,7 +1074,9 @@ namespace Starfall.Simulation
             var mission = GenerateMission(agent);
             State.Player.Missions.Add(mission);
             Emit(SimulationEventType.Mission, agent.Id, mission.Id, Tr("Mission offered: {0}", Tr(mission.Title)), detail: "offered");
-            AcceptMission(mission.Id);
+            // The offer stays in the journal until the pilot accepts it from the
+            // mission list; auto-accepting here skipped the cargo-space check
+            // and removed the player's choice.
         }
 
         private MissionState GenerateMission(AgentDefinition agent)
@@ -1023,7 +1144,10 @@ namespace Starfall.Simulation
             }
             mission.Status = MissionStatus.Active;
             Emit(SimulationEventType.Mission, mission.AgentId, mission.Id, Tr("Mission accepted: {0}", Tr(mission.Title)), detail: "active");
-            if (!State.Docked) PopulateSystem();
+            // Mission targets must spawn without disturbing the rest of the
+            // system: a full repopulation used to delete the NPCs shooting at
+            // you, which doubled as a combat-escape exploit.
+            if (!State.Docked) SpawnMissionTargets(null);
         }
 
         private void CompleteMission(string missionId)
@@ -1147,10 +1271,39 @@ namespace Starfall.Simulation
             var ship = State.Player.ActiveShip();
             if (ship == null) return;
             var definition = catalog.Ships[ship.ShipId];
+            // Repairs are an ISK sink: armor costs 4% and hull 8% of the hull
+            // price. Shield always recharges for free, matching the passive regen.
             ship.Shield = definition.HitPoints.Shield;
-            ship.Armor = definition.HitPoints.Armor;
-            ship.Hull = definition.HitPoints.Hull;
-            Emit(SimulationEventType.Inventory, message: Tr("{0} fully repaired.", Tr(ship.Name)), detail: "repair");
+            long spent = 0;
+            if (ship.Armor < definition.HitPoints.Armor)
+            {
+                var cost = (long)JsMath.Round(definition.Price * 0.04d);
+                if (State.Player.Credits < cost)
+                {
+                    Log(Tr("Repair requires {0} ISK.", cost.ToString("N0", Inv)));
+                    return;
+                }
+                State.Player.Credits -= cost;
+                ship.Armor = definition.HitPoints.Armor;
+                spent += cost;
+                Log(Tr("Armor repaired for {0} ISK.", cost.ToString("N0", Inv)));
+            }
+            if (ship.Hull < definition.HitPoints.Hull)
+            {
+                var cost = (long)JsMath.Round(definition.Price * 0.08d);
+                if (State.Player.Credits < cost)
+                {
+                    Log(Tr("Repair requires {0} ISK.", cost.ToString("N0", Inv)));
+                    Emit(SimulationEventType.Inventory, message: Tr("{0} partially repaired.", Tr(ship.Name)), detail: "repair");
+                    return;
+                }
+                State.Player.Credits -= cost;
+                ship.Hull = definition.HitPoints.Hull;
+                spent += cost;
+                Log(Tr("Hull repaired for {0} ISK.", cost.ToString("N0", Inv)));
+            }
+            if (spent == 0) Log(Tr("No repairs are needed."));
+            Emit(SimulationEventType.Inventory, message: Tr("{0} repaired.", Tr(ship.Name)), detail: "repair");
         }
 
         private void ExchangeLoyalty()
@@ -1172,9 +1325,25 @@ namespace Starfall.Simulation
                 detail: ModuleIds.DamageAmp);
         }
 
+        private void FailHaulMissionsOnDeath()
+        {
+            for (var i = 0; i < State.Player.Missions.Count; i++)
+            {
+                var mission = State.Player.Missions[i];
+                if (mission.Status != MissionStatus.Active) continue;
+                if (mission.Type != MissionType.Distribution && mission.Type != MissionType.StorylineHaul) continue;
+                mission.Status = MissionStatus.Done;
+                ModifyStanding(mission.FactionId, -0.2d);
+                Emit(SimulationEventType.Mission, targetId: mission.Id,
+                    message: Tr("Mission failed: {0} — the cargo was lost with the ship.", Tr(mission.Title)), detail: "done");
+            }
+        }
+
         private void Respawn()
         {
             if (!State.PlayerDead) return;
+            // Record the death system's world state before the clone moves home.
+            PersistSystemWorld();
             var lost = State.Player.ActiveShip();
             if (lost != null) State.Player.Ships.Remove(lost);
             if (State.Player.Ships.Count == 0)
@@ -1188,12 +1357,14 @@ namespace Starfall.Simulation
             State.Player.CriminalTimer = 0d;
             State.Player.CurrentSystemId = State.Player.HomeSystemId;
             State.Player.DockedAtStationId = State.Player.HomeStationId;
-            var station = CurrentSystem().Stations.Find(value => value.Id == State.Player.HomeStationId);
+            var station = CurrentSystem().Stations.Find(value => value.Id == State.Player.HomeStationId)
+                ?? CurrentSystem().Stations[0];
             State.Player.X = station.Position.X;
             State.Player.Z = station.Position.Z;
             State.PlayerDead = false;
             State.entities.Clear();
             State.asteroids.Clear();
+            directorateSpawned = false;
             Emit(SimulationEventType.Dock, "player", station.Id, Tr("Clone activated at home station."), detail: "respawn");
             Emit(SimulationEventType.SaveRequested, detail: "auto");
         }
@@ -1248,6 +1419,10 @@ namespace Starfall.Simulation
             var priceRandom = new Mulberry32(Fnv1a.HashString(stationId + ":" + itemId));
             var factor = 0.85d + priceRandom.NextDouble() * 0.45d;
             factor *= 1d + (0.5d - Math.Min(CurrentSystem().Security, 0.5d)) * 0.5d;
+            // Trading volume moves local prices against the player, which makes
+            // one-station arbitrage grinding self-limiting.
+            marketPressure.TryGetValue(stationId + "|" + itemId, out var pressure);
+            factor = Math.Max(0.1d, factor * (1d + pressure));
             return Math.Max(1L, (long)JsMath.Round(basePrice * factor));
         }
 
@@ -1399,7 +1574,9 @@ namespace Starfall.Simulation
 
         private StarSystemDefinition PickDestinationSystem(string fromSystemId, int maximumJumps)
         {
-            var candidates = new List<string> { fromSystemId };
+            // The origin system is excluded: including it let couriers target
+            // the very station the agent sits at, completable by undock+dock.
+            var candidates = new List<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal) { fromSystemId };
             var frontier = new List<string> { fromSystemId };
             for (var depth = 0; depth < maximumJumps; depth++)
@@ -1416,6 +1593,7 @@ namespace Starfall.Simulation
                 }
                 frontier = next;
             }
+            if (candidates.Count == 0) return State.Universe.Systems[fromSystemId];
             var id = candidates[random.RangeInclusive(0, candidates.Count - 1)];
             return State.Universe.Systems[id];
         }
