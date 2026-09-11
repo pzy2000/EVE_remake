@@ -1,5 +1,7 @@
 using System;
 using UnityEngine.UIElements;
+using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.UI
 {
@@ -9,6 +11,7 @@ namespace Starfall.UI
         private readonly Button openButton;
         private readonly Button closeButton;
         private readonly Button qualityButton;
+        private readonly Button languageButton;
         private readonly Slider volumeSlider;
         private readonly Label volumeValue;
         private readonly Toggle muteToggle;
@@ -37,6 +40,13 @@ namespace Starfall.UI
             qualityButton.AddToClassList("settings-control");
             card.Add(qualityButton);
 
+            card.Add(new Label("LANGUAGE") { name = "settings-language-heading" });
+            languageButton = new Button(CycleLanguage) { name = "language-cycle" };
+            languageButton.AddToClassList("settings-control");
+            // The caption is the language's own name and must not be localized.
+            languageButton.AddToClassList("l10n-skip");
+            card.Add(languageButton);
+
             card.Add(new Label("AUDIO") { name = "settings-audio-heading" });
             var volumeRow = new VisualElement();
             volumeRow.AddToClassList("settings-volume-row");
@@ -61,7 +71,9 @@ namespace Starfall.UI
             volumeSlider.RegisterValueChangedCallback(OnVolumeChanged);
             muteToggle.RegisterValueChangedCallback(OnMutedChanged);
             StarfallUiBridge.HostChanged += BindHost;
+            L10n.LanguageChanged += OnLanguageChanged;
             BindHost();
+            UpdateLanguageButton();
             Close();
         }
 
@@ -69,6 +81,7 @@ namespace Starfall.UI
 
         public void Dispose()
         {
+            L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null) host.SettingsChanged -= Refresh;
             if (openButton != null) openButton.clicked -= Open;
@@ -102,16 +115,32 @@ namespace Starfall.UI
             if (host == null) return;
             refreshing = true;
             volumeSlider.SetValueWithoutNotify(host.MusicVolume);
-            volumeValue.text = $"{host.MusicVolume * 100f:0}%";
+            volumeValue.text = FormattableString.Invariant($"{host.MusicVolume * 100f:0}%");
             muteToggle.SetValueWithoutNotify(host.MusicMuted);
-            qualityButton.text = "QUALITY · " + host.QualityPreset.ToUpperInvariant();
+            qualityButton.text = Tr("QUALITY · {0}", Tr(host.QualityPreset));
             refreshing = false;
+        }
+
+        private void OnLanguageChanged()
+        {
+            UpdateLanguageButton();
+            Refresh();
+        }
+
+        private void UpdateLanguageButton()
+        {
+            languageButton.text = L10n.IsChinese ? "中文" : "English";
+        }
+
+        private void CycleLanguage()
+        {
+            host?.SetLanguage(L10n.IsChinese ? L10nLanguage.English : L10nLanguage.Chinese);
         }
 
         private void OnVolumeChanged(ChangeEvent<float> evt)
         {
             if (refreshing) return;
-            volumeValue.text = $"{evt.newValue * 100f:0}%";
+            volumeValue.text = FormattableString.Invariant($"{evt.newValue * 100f:0}%");
             host?.SetMusicVolume(evt.newValue);
         }
 

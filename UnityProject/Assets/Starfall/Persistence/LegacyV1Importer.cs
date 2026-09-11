@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.Persistence
 {
@@ -31,13 +32,13 @@ namespace Starfall.Persistence
 
             if (sourceBytes.Length == 0)
             {
-                return Failure(LegacyImportErrorCode.EmptyInput, "Legacy save is empty.", sourceBytes, null);
+                return Failure(LegacyImportErrorCode.EmptyInput, Tr("Legacy save is empty."), sourceBytes, null);
             }
 
             if (sourceBytes.Length > MaximumSourceBytes)
             {
                 return Failure(LegacyImportErrorCode.FileTooLarge,
-                    $"Legacy save exceeds the {MaximumSourceBytes} byte limit.", sourceBytes, null);
+                    Tr("Legacy save exceeds the {0} byte limit.", MaximumSourceBytes), sourceBytes, null);
             }
 
             var sha256 = ComputeSha256(sourceBytes);
@@ -124,7 +125,7 @@ namespace Starfall.Persistence
                 {
                     if (reader.TokenType != JsonToken.Comment)
                     {
-                        throw new JsonReaderException("Legacy save contains trailing JSON content.");
+                        throw new JsonReaderException(Tr("Legacy save contains trailing JSON content."));
                     }
                 }
 
@@ -147,7 +148,7 @@ namespace Starfall.Persistence
             if (version != 1L)
             {
                 throw new LegacyValidationException(LegacyImportErrorCode.WrongVersion,
-                    $"Expected legacy version 1, got {version}.");
+                    Tr("Expected legacy version 1, got {0}.", version));
             }
 
             var seed = RequiredInteger(root, "seed");
@@ -215,7 +216,7 @@ namespace Starfall.Persistence
                 if (!instanceIds.Add(instanceId))
                 {
                     throw new LegacyValidationException(LegacyImportErrorCode.DuplicateId,
-                        $"Duplicate ship instance ID '{instanceId}'.");
+                        Tr("Duplicate ship instance ID '{0}'.", instanceId));
                 }
 
                 var shipId = RequiredString(ship, "shipId");
@@ -230,7 +231,7 @@ namespace Starfall.Persistence
             if (!instanceIds.Contains(activeShip))
             {
                 throw new LegacyValidationException(LegacyImportErrorCode.UnknownReference,
-                    $"player.activeShip references unknown instance '{activeShip}'.");
+                    Tr("{0} references unknown instance '{1}'.", "player.activeShip", activeShip));
             }
         }
 
@@ -272,8 +273,8 @@ namespace Starfall.Persistence
                 var missionId = RequiredString(mission, "id");
                 if (!missionIds.Add(missionId))
                 {
-                    throw new LegacyValidationException(LegacyImportErrorCode.DuplicateId,
-                        $"Duplicate mission ID '{missionId}'.");
+                throw new LegacyValidationException(LegacyImportErrorCode.DuplicateId,
+                    Tr("Duplicate mission ID '{0}'.", missionId));
                 }
 
                 OptionalReference(mission, "faction", references.HasFaction);
@@ -415,7 +416,7 @@ namespace Starfall.Persistence
             if (!SaveEnvelopeV2.IsFinite(number))
             {
                 throw new LegacyValidationException(LegacyImportErrorCode.NonFiniteNumber,
-                    $"{path} must be finite.");
+                    Tr("{0} must be finite.", path));
             }
 
             return number;
@@ -426,18 +427,18 @@ namespace Starfall.Persistence
             if (!exists)
             {
                 throw new LegacyValidationException(LegacyImportErrorCode.UnknownReference,
-                    $"{path} references unknown ID '{id}'.");
+                    Tr("{0} references unknown ID '{1}'.", path, id));
             }
         }
 
         private static LegacyValidationException Missing(string path)
         {
-            return new LegacyValidationException(LegacyImportErrorCode.MissingField, $"Required field '{path}' is missing.");
+            return new LegacyValidationException(LegacyImportErrorCode.MissingField, Tr("Required field '{0}' is missing.", path));
         }
 
         private static LegacyValidationException InvalidValue(string path, string reason)
         {
-            return new LegacyValidationException(LegacyImportErrorCode.InvalidValue, $"Field '{path}' {reason}.");
+            return new LegacyValidationException(LegacyImportErrorCode.InvalidValue, Tr("Field '{0}' {1}.", path, Tr(reason)));
         }
 
         private static uint DeriveRngState(uint seed, double simulationTime)

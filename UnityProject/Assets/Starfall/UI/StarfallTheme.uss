@@ -128,6 +128,7 @@ Button:hover, Button.active, Button.chosen {
 }
 
 #settings-display-heading,
+#settings-language-heading,
 #settings-audio-heading {
     color: var(--cyan);
     letter-spacing: 2px;
@@ -161,4 +162,26 @@ Button:hover, Button.active, Button.chosen {
     color: var(--muted);
     margin-top: 8px;
     font-size: 13px;
+}
+
+/* Chinese locale: Orbitron/Rajdhani carry no CJK glyphs, so swap the whole
+   document to Noto Sans SC. Placed last and with specificity that beats both
+   the global "*" rule and ".title" so every element flips together with the
+   "lang-zh" class toggled by UiLocalizer.Apply. */
+.lang-zh * {
+    -unity-font-definition: url("/Assets/Starfall/Fonts/NotoSansSC/NotoSansSC-Regular.ttf");
+}
+
+.lang-zh .title,
+.lang-zh #settings-title {
+    -unity-font-definition: url("/Assets/Starfall/Fonts/NotoSansSC/NotoSansSC-Bold.ttf");
+    letter-spacing: 2px;
+}
+
+.lang-zh .eyebrow {
+    letter-spacing: 1px;
+}
+
+.lang-zh Button {
+    font-size: 15px;
 }

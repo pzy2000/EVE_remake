@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.UI
 {
@@ -32,10 +34,13 @@ namespace Starfall.UI
             BindHost();
             ShowTab("agents");
             settingsPanel = new StarfallSettingsPanel(root);
+            L10n.LanguageChanged += OnLanguageChanged;
+            UiLocalizer.Apply(root);
         }
 
         private void OnDisable()
         {
+            L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null) host.SnapshotChanged -= Refresh;
             settingsPanel?.Dispose();
@@ -47,6 +52,12 @@ namespace Starfall.UI
             if (host != null) host.SnapshotChanged -= Refresh;
             host = StarfallUiBridge.Host;
             if (host != null) host.SnapshotChanged += Refresh;
+            Refresh();
+        }
+
+        private void OnLanguageChanged()
+        {
+            UiLocalizer.Apply(root);
             Refresh();
         }
 
@@ -64,13 +75,13 @@ namespace Starfall.UI
         {
             if (root == null || host?.Snapshot == null) return;
             var s = host.Snapshot;
-            root.Q<Label>("station-title").text = $"{s.SystemName} ORBITAL";
+            root.Q<Label>("station-title").text = Tr("{0} ORBITAL", s.SystemName);
             root.Q<Label>("pilot-summary").text = $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP";
             Fill("agents-list", s.Agents, "agent");
             Fill("market-list", s.Market, "market");
             Fill("ships-list", s.Ships, "ship");
             Fill("fitting-list", s.Inventory, "fit");
-            root.Q<Label>("lp-summary").text = $"Available loyalty points: {s.LoyaltyPoints:N0}";
+            root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
         }
 
         private void Fill(string elementName, IReadOnlyList<UiListItem> items, string command)
@@ -91,13 +102,13 @@ namespace Starfall.UI
 
         private static string ActionLabel(string command, string actionId)
         {
-            if (command == "agent") return "TALK";
+            if (command == "agent") return Tr("TALK");
             if (command == "market")
-                return actionId != null && actionId.StartsWith("sell-", StringComparison.Ordinal) ? "SELL" : "BUY";
+                return actionId != null && actionId.StartsWith("sell-", StringComparison.Ordinal) ? Tr("SELL") : Tr("BUY");
             if (command == "fit")
-                return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? "UNFIT" : "FIT";
-            if (command == "ship") return "ACTIVATE";
-            return "SELECT";
+                return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? Tr("UNFIT") : Tr("FIT");
+            if (command == "ship") return Tr("ACTIVATE");
+            return Tr("SELECT");
         }
     }
 }

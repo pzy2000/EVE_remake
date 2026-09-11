@@ -13,6 +13,7 @@ using Starfall.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.App
 {
@@ -25,6 +26,8 @@ namespace Starfall.App
         private const string SellModuleActionPrefix = "sell-module|";
         private const string FitModuleActionPrefix = "fit-module|";
         private const string UnfitActionPrefix = "unfit|";
+        private const string LanguagePreferenceKey = "starfall.language";
+        private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
         private static AppRoot instance;
         private readonly UiSnapshot snapshot = new UiSnapshot();
         private readonly List<string> log = new List<string>();
@@ -88,6 +91,14 @@ namespace Starfall.App
             }
             instance = this;
             DontDestroyOnLoad(gameObject);
+            // Library default is English (tests assert canonical strings); the game
+            // itself defaults to Chinese unless the player chose English before.
+            var preferredLanguage = PlayerPrefs.GetString(LanguagePreferenceKey, "zh") == "en"
+                ? L10nLanguage.English
+                : L10nLanguage.Chinese;
+            L10n.SetLanguage(preferredLanguage);
+            L10n.LanguageChanged += OnLanguageChanged;
+            ApplyLocalizedSnapshotDefaults();
             catalog = GameContentCatalog.Default;
             generator = new UniverseGenerator();
             saves = new FileSaveService();
@@ -109,8 +120,37 @@ namespace Starfall.App
         {
             if (instance != this) return;
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            L10n.LanguageChanged -= OnLanguageChanged;
             if (musicDirector) musicDirector.SettingsChanged -= OnMusicSettingsChanged;
             instance = null;
+        }
+
+        public void SetLanguage(L10nLanguage value)
+        {
+            if (L10n.Language == value) return;
+            PlayerPrefs.SetString(LanguagePreferenceKey, value == L10nLanguage.Chinese ? "zh" : "en");
+            PlayerPrefs.Save();
+            L10n.SetLanguage(value);
+            SettingsChanged?.Invoke();
+        }
+
+        private void OnLanguageChanged()
+        {
+            ApplyLocalizedSnapshotDefaults();
+            MarkAllDirty();
+            RefreshUiSnapshot(true);
+        }
+
+        private void ApplyLocalizedSnapshotDefaults()
+        {
+            snapshot.PilotName = Tr("Pilot");
+            snapshot.EmpireName = Tr("Aurelian Ascendancy");
+            snapshot.SystemName = TrName("Helios Prime");
+            snapshot.ShipName = Tr("Acolyte");
+            snapshot.ShipClass = Tr("Frigate");
+            snapshot.SelectedName = Tr("No target");
+            snapshot.SelectedDetail = Tr("Select an object in space");
+            snapshot.MissionSummary = Tr("No active mission");
         }
 
         private void Update()
@@ -163,8 +203,8 @@ namespace Starfall.App
         {
             session = new GameSession(generator.Generate(DefaultSeed), catalog, pilotName, empireId);
             log.Clear();
-            AddLog($"Welcome to the stars, {session.State.Player.Name}.");
-            AddLog("Talk to an agent, undock, then use click, W/L/D and modules 1–9.");
+            AddLog(Tr("Welcome to the stars, {0}.", session.State.Player.Name));
+            AddLog(Tr("Talk to an agent, undock, then use click, W/L/D and modules 1–9."));
             Save(SaveSlot.Auto);
             MarkAllDirty();
             RefreshUiSnapshot(true);
@@ -188,7 +228,7 @@ namespace Starfall.App
             }
             if (envelope == null)
             {
-                AddLog("No valid save slot was found.");
+                AddLog(Tr("No valid save slot was found."));
                 SnapshotChanged?.Invoke();
                 return;
             }
@@ -200,7 +240,7 @@ namespace Starfall.App
             var path = FindLegacySave();
             if (path == null)
             {
-                AddLog("Place a legacy JSON save in Downloads or as persistentDataPath/legacy-v1.json, then try again.");
+                AddLog(Tr("Place a legacy JSON save in Downloads or as persistentDataPath/legacy-v1.json, then try again."));
                 SnapshotChanged?.Invoke();
                 return;
             }
@@ -213,17 +253,17 @@ namespace Starfall.App
                 var converted = legacyImporter.Convert(bytes, references);
                 if (!converted.IsSuccess)
                 {
-                    AddLog("Legacy import rejected: " + converted.Inspection.ErrorMessage);
+                    AddLog(Tr("Legacy import rejected: {0}", converted.Inspection.ErrorMessage));
                     SnapshotChanged?.Invoke();
                     return;
                 }
                 saves.Save(SaveSlot.Slot1, converted.Envelope);
                 LoadEnvelope(converted.Envelope);
-                AddLog("Legacy v1 imported to slot1. The source file was not modified.");
+                AddLog(Tr("Legacy v1 imported to slot1. The source file was not modified."));
             }
             catch (Exception exception)
             {
-                AddLog("Legacy import failed: " + exception.Message);
+                AddLog(Tr("Legacy import failed: {0}", exception.Message));
                 SnapshotChanged?.Invoke();
             }
         }
@@ -284,7 +324,7 @@ namespace Starfall.App
             QualitySettings.SetQualityLevel(next, true);
             PlayerPrefs.SetInt("starfall.quality", next);
             PlayerPrefs.Save();
-            AddLog("Quality preset: " + QualityPreset + ".");
+            AddLog(Tr("Quality preset: {0}.", Tr(QualityPreset)));
             SettingsChanged?.Invoke();
         }
 
@@ -325,7 +365,7 @@ namespace Starfall.App
             if (keyboard.mKey.wasPressedThisFrame) Execute("map");
             if (keyboard.jKey.wasPressedThisFrame) Execute("journal");
             if (keyboard.cKey.wasPressedThisFrame) Execute("pilot");
-            if (keyboard.hKey.wasPressedThisFrame) AddLog("Help: click to select · double-click approach · W warp · L lock · D dock/jump · V/X focus · 1–9 modules.");
+            if (keyboard.hKey.wasPressedThisFrame) AddLog(Tr("Help: click to select · double-click approach · W warp · L lock · D dock/jump · V/X focus · 1–9 modules."));
             for (var i = 0; i < 9; i++)
             {
                 var key = i == 0 ? keyboard.digit1Key : i == 1 ? keyboard.digit2Key : i == 2 ? keyboard.digit3Key :
@@ -430,7 +470,7 @@ namespace Starfall.App
         {
             if (session == null) return;
             session.Enqueue(new GameCommand(GameCommandType.Select, stableId));
-            AddLog("Context: Approach · Orbit · Warp · Lock · Dock/Jump.");
+            AddLog(Tr("Context: Approach · Orbit · Warp · Lock · Dock/Jump."));
         }
 
         private void RequestScene(string sceneName)
@@ -638,11 +678,11 @@ namespace Starfall.App
             var shipDefinition = ship != null ? catalog.Ships[ship.ShipId] : null;
             snapshot.PilotName = player.Name;
             snapshot.EmpireId = player.EmpireId;
-            snapshot.EmpireName = catalog.Factions[player.EmpireId].Name;
-            snapshot.SystemName = system.Name + (mapVisible ? " · STARMAP" : string.Empty);
+            snapshot.EmpireName = Tr(catalog.Factions[player.EmpireId].Name);
+            snapshot.SystemName = TrName(system.Name) + (mapVisible ? Tr(" · STARMAP") : string.Empty);
             snapshot.Security = (float)system.Security;
-            snapshot.ShipName = ship != null ? ship.Name : "No ship";
-            snapshot.ShipClass = shipDefinition != null ? shipDefinition.Class.ToString() : string.Empty;
+            snapshot.ShipName = ship != null ? Tr(ship.Name) : Tr("No ship");
+            snapshot.ShipClass = shipDefinition != null ? Tr(shipDefinition.Class.ToString()) : string.Empty;
             snapshot.Credits = player.Credits;
             player.LoyaltyPoints.TryGetValue(player.EmpireId, out snapshot.LoyaltyPoints);
             snapshot.SelectedId = state.SelectedId;
@@ -671,8 +711,8 @@ namespace Starfall.App
                     snapshot.Modules.Add(new UiModuleState
                     {
                         Id = module.ModuleId,
-                        Name = definition.Name,
-                        Slot = definition.Slot.ToString(),
+                        Name = Tr(definition.Name),
+                        Slot = Tr(definition.Slot.ToString()),
                         Active = module.Active,
                         Cooldown01 = definition.CycleTime > 0d ? (float)(module.Cooldown / definition.CycleTime) : 0f,
                     });
@@ -692,38 +732,38 @@ namespace Starfall.App
             foreach (var mapSystem in state.Universe.OrderedSystems)
             {
                 var route = UniverseRoutes.FindRoute(state.Universe, player.CurrentSystemId, mapSystem.Id);
-                var jumps = route == null ? "NO ROUTE" : (route.Count - 1) + " jumps";
-                var destination = player.DestinationSystemId == mapSystem.Id ? " · DESTINATION" : string.Empty;
+                var jumps = route == null ? Tr("NO ROUTE") : Tr("{0} jumps", route.Count - 1);
+                var destination = player.DestinationSystemId == mapSystem.Id ? Tr(" · DESTINATION") : string.Empty;
                 snapshot.Starmap.Add(Item(mapSystem.Id,
-                    mapSystem.Name + " · SEC " + mapSystem.Security.ToString("0.0") + destination,
-                    jumps + " · " + catalog.Factions[mapSystem.FactionId].Name));
+                    TrName(mapSystem.Name) + Tr(" · SEC {0}", mapSystem.Security.ToString("0.0", Inv)) + destination,
+                    jumps + " · " + Tr(catalog.Factions[mapSystem.FactionId].Name)));
             }
 
             snapshot.Agents.Clear();
             var dockedStation = system.Stations.Find(value => value.Id == player.DockedAtStationId);
             if (dockedStation != null)
-                foreach (var agent in dockedStation.Agents) snapshot.Agents.Add(Item(agent.Id, agent.Name + " · L" + agent.Level, agent.Division));
+                foreach (var agent in dockedStation.Agents) snapshot.Agents.Add(Item(agent.Id, TrPersonName(agent.Name) + " · L" + agent.Level, Tr(agent.Division)));
 
             snapshot.Market.Clear();
-            foreach (var module in catalog.Modules.Values) snapshot.Market.Add(Item(module.Id, module.Name + " · " + PriceText(module.Id), module.Description));
-            foreach (var ship in catalog.Ships.Values) if (!ship.NpcOnly) snapshot.Market.Add(Item(ship.Id, ship.Name + " · " + PriceText(ship.Id), ship.Description));
+            foreach (var module in catalog.Modules.Values) snapshot.Market.Add(Item(module.Id, Tr(module.Name) + " · " + PriceText(module.Id), Tr(module.Description)));
+            foreach (var ship in catalog.Ships.Values) if (!ship.NpcOnly) snapshot.Market.Add(Item(ship.Id, Tr(ship.Name) + " · " + PriceText(ship.Id), Tr(ship.Description)));
             foreach (var pair in player.Cargo)
             {
                 if (pair.Value <= 0d || pair.Key == ItemIds.SealedCargo || !catalog.Items.TryGetValue(pair.Key, out var item)) continue;
                 snapshot.Market.Add(Item(SellItemActionPrefix + pair.Key,
-                    "SELL CARGO · " + item.Name + " ×" + pair.Value.ToString("0"),
-                    "Sell the full stack · " + PriceText(pair.Key) + " per unit base"));
+                    Tr("SELL CARGO · {0} ×{1}", Tr(item.Name), pair.Value.ToString("0", Inv)),
+                    Tr("Sell the full stack · {0} per unit base", PriceText(pair.Key))));
             }
             foreach (var pair in player.Hangar)
             {
                 if (pair.Value <= 0 || !catalog.Modules.TryGetValue(pair.Key, out var module)) continue;
                 snapshot.Market.Add(Item(SellModuleActionPrefix + pair.Key,
-                    "SELL HANGAR · " + module.Name + " ×" + pair.Value,
-                    "Sell one module · " + PriceText(pair.Key)));
+                    Tr("SELL HANGAR · {0} ×{1}", Tr(module.Name), pair.Value),
+                    Tr("Sell one module · {0}", PriceText(pair.Key))));
             }
 
             snapshot.Ships.Clear();
-            foreach (var owned in player.Ships) snapshot.Ships.Add(Item(owned.InstanceId, (owned.InstanceId == player.ActiveShipInstanceId ? "ACTIVE · " : string.Empty) + owned.Name, catalog.Ships[owned.ShipId].Description));
+            foreach (var owned in player.Ships) snapshot.Ships.Add(Item(owned.InstanceId, owned.InstanceId == player.ActiveShipInstanceId ? Tr("ACTIVE · {0}", Tr(owned.Name)) : Tr(owned.Name), Tr(catalog.Ships[owned.ShipId].Description)));
 
             snapshot.Inventory.Clear();
             var activeShip = player.ActiveShip();
@@ -737,13 +777,13 @@ namespace Starfall.App
             {
                 if (pair.Value <= 0 || !catalog.Modules.TryGetValue(pair.Key, out var module)) continue;
                 snapshot.Inventory.Add(Item(FitModuleActionPrefix + pair.Key,
-                    "HANGAR · " + module.Name + " ×" + pair.Value,
-                    "Click to fit the first compatible free slot"));
+                    Tr("HANGAR · {0} ×{1}", Tr(module.Name), pair.Value),
+                    Tr("Click to fit the first compatible free slot")));
             }
 
             snapshot.Missions.Clear();
             foreach (var mission in player.Missions.Where(value => value.Status != MissionStatus.Done))
-                snapshot.Missions.Add(Item(mission.Id, mission.Title, mission.Status + " · " + mission.ProgressText()));
+                snapshot.Missions.Add(Item(mission.Id, Tr(mission.Title), Tr(mission.Status.ToString()) + " · " + mission.ProgressText()));
         }
 
         private string PriceText(string itemId)
@@ -752,7 +792,7 @@ namespace Starfall.App
             long basePrice = catalog.Modules.TryGetValue(itemId, out var module) ? module.Price :
                 catalog.Ships.TryGetValue(itemId, out var ship) ? ship.Price :
                 catalog.Items.TryGetValue(itemId, out var item) ? item.BasePrice : 0;
-            return basePrice.ToString("N0") + " ISK base";
+            return Tr("{0} ISK base", basePrice.ToString("N0", Inv));
         }
 
         private void MarketAction(string actionId)
@@ -798,7 +838,7 @@ namespace Starfall.App
             var slots = module.Slot == SlotType.High ? ship.Fitting.High : module.Slot == SlotType.Mid ? ship.Fitting.Mid : ship.Fitting.Low;
             var index = slots.FindIndex(string.IsNullOrEmpty);
             if (index >= 0) Queue(GameCommandType.Fit, ship.InstanceId + "|" + slotName + "|" + index + "|" + moduleId);
-            else AddLog("No compatible free slot.");
+            else AddLog(Tr("No compatible free slot."));
         }
 
         private void AddFittedModules(ShipInstanceState ship, IReadOnlyList<string> slots, string slotName)
@@ -809,8 +849,8 @@ namespace Starfall.App
                 if (string.IsNullOrEmpty(moduleId) || !catalog.Modules.TryGetValue(moduleId, out var module)) continue;
                 snapshot.Inventory.Add(Item(
                     UnfitActionPrefix + ship.InstanceId + "|" + slotName + "|" + i,
-                    "FITTED · " + slotName.ToUpperInvariant() + " " + (i + 1) + " · " + module.Name,
-                    "Click to unfit this module to the hangar"));
+                    Tr("FITTED · {0} {1} · {2}", Tr(slotName.ToUpperInvariant()), i + 1, Tr(module.Name)),
+                    Tr("Click to unfit this module to the hangar")));
             }
         }
 
@@ -829,7 +869,7 @@ namespace Starfall.App
             if (mission == null) return;
             if (mission.Status == MissionStatus.Offered) Queue(GameCommandType.AcceptMission, missionId);
             else if (mission.Status == MissionStatus.ObjectivesMet) Queue(GameCommandType.CompleteMission, missionId);
-            else AddLog(mission.Title + " — " + mission.ProgressText());
+            else AddLog(Tr("{0} — {1}", Tr(mission.Title), mission.ProgressText()));
         }
 
         private void Save(SaveSlot slot)
@@ -854,7 +894,7 @@ namespace Starfall.App
                 RngState = state.RngState,
                 NextEntityId = state.NextEntityId,
             });
-            AddLog("Game saved to " + slot.ToString().ToLowerInvariant() + ".");
+            AddLog(Tr("Game saved to {0}.", Tr(slot.ToString().ToLowerInvariant())));
         }
 
         private void LoadEnvelope(SaveEnvelopeV2 envelope)
@@ -875,7 +915,7 @@ namespace Starfall.App
             player.Z = envelope.PlayerLocation.Z;
             session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState, envelope.NextEntityId);
             log.Clear();
-            AddLog("Save loaded.");
+            AddLog(Tr("Save loaded."));
             MarkAllDirty();
             RefreshUiSnapshot(true);
             RequestScene(session.State.Docked ? "Station" : "Space");
@@ -972,55 +1012,59 @@ namespace Starfall.App
         {
             var state = session.State;
             var current = state.Universe.Systems[state.Player.CurrentSystemId];
-            var neighbors = state.Universe.Adjacency[current.Id].Select(id => state.Universe.Systems[id].Name);
-            AddLog((mapVisible ? "Starmap open · Adjacent: " : "Starmap closed · ") + string.Join(", ", neighbors));
+            var neighbors = state.Universe.Adjacency[current.Id].Select(id => TrName(state.Universe.Systems[id].Name));
+            var joined = string.Join(", ", neighbors);
+            AddLog(mapVisible ? Tr("Starmap open · Adjacent: {0}", joined) : Tr("Starmap closed · {0}", joined));
         }
 
         private void AddJournalLog()
         {
             var missions = session.State.Player.Missions.Where(value => value.Status != MissionStatus.Done).ToList();
-            AddLog(missions.Count == 0 ? "Journal: no active missions." : "Journal: " + string.Join(" · ", missions.Select(value => value.Title + " [" + value.ProgressText() + "]")));
+            AddLog(missions.Count == 0 ? Tr("Journal: no active missions.")
+                : Tr("Journal: {0}", string.Join(" · ", missions.Select(value => Tr(value.Title) + " [" + value.ProgressText() + "]"))));
         }
 
         private void AddPilotLog()
         {
             var player = session.State.Player;
-            AddLog($"Pilot {player.Name} · {player.Stats.Kills} kills · {player.Stats.MissionsDone} missions · {player.Stats.OreMined:0} ore · {player.Stats.Jumps} jumps.");
+            AddLog(Tr("Pilot {0} · {1} kills · {2} missions · {3} ore · {4} jumps.",
+                player.Name, player.Stats.Kills, player.Stats.MissionsDone,
+                player.Stats.OreMined.ToString("0", Inv), player.Stats.Jumps));
         }
 
         private string ActiveMissionSummary()
         {
             var mission = session.State.Player.Missions.Find(value => value.Status == MissionStatus.Active || value.Status == MissionStatus.ObjectivesMet);
-            return mission == null ? "No active mission" : mission.Title + " · " + mission.ProgressText();
+            return mission == null ? Tr("No active mission") : Tr(mission.Title) + " · " + mission.ProgressText();
         }
 
         private string SelectedName(string id)
         {
-            if (string.IsNullOrEmpty(id)) return "No target";
+            if (string.IsNullOrEmpty(id)) return Tr("No target");
             var entity = session.State.FindEntity(id);
-            if (entity != null) return entity.Name;
+            if (entity != null) return TrName(entity.Name);
             var asteroid = session.State.FindAsteroid(id);
-            if (asteroid != null) return catalog.Items[asteroid.OreId].Name;
+            if (asteroid != null) return Tr(catalog.Items[asteroid.OreId].Name);
             var system = session.State.Universe.Systems[session.State.Player.CurrentSystemId];
-            var station = system.Stations.Find(value => value.Id == id); if (station != null) return station.Name;
-            var gate = system.Gates.Find(value => value.Id == id); if (gate != null) return gate.Name;
-            var belt = system.Belts.Find(value => value.Id == id); if (belt != null) return belt.Name;
-            if (string.Equals(id, system.Id + "_star", StringComparison.Ordinal)) return system.Name + " Star";
-            var planet = system.Planets.Find(value => value.Id == id); if (planet != null) return planet.Name;
+            var station = system.Stations.Find(value => value.Id == id); if (station != null) return TrName(station.Name);
+            var gate = system.Gates.Find(value => value.Id == id); if (gate != null) return TrName(gate.Name);
+            var belt = system.Belts.Find(value => value.Id == id); if (belt != null) return TrName(belt.Name);
+            if (string.Equals(id, system.Id + "_star", StringComparison.Ordinal)) return TrName(system.Name + " Star");
+            var planet = system.Planets.Find(value => value.Id == id); if (planet != null) return TrName(planet.Name);
             for (var i = 0; i < system.Planets.Count; i++)
             {
                 var moon = system.Planets[i].Moons.Find(value => value.Id == id);
-                if (moon != null) return moon.Name;
+                if (moon != null) return TrName(moon.Name);
             }
             return id;
         }
 
         private string SelectedDetail(string id)
         {
-            if (string.IsNullOrEmpty(id)) return "Select an object in space";
-            if (!TryWorldPosition(id, out var target)) return "Command target";
+            if (string.IsNullOrEmpty(id)) return Tr("Select an object in space");
+            if (!TryWorldPosition(id, out var target)) return Tr("Command target");
             var player = session.State.PlayerEntity();
-            return player == null ? "Docked" : SimVec2.Distance(player.Position, target).ToString("0") + " m";
+            return player == null ? Tr("Docked") : Tr("{0} m", SimVec2.Distance(player.Position, target).ToString("0"));
         }
 
         private bool TryWorldPosition(string id, out SimVec2 result)

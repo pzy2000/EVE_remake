@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Starfall.Content;
 using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.Simulation
 {
@@ -14,6 +15,7 @@ namespace Starfall.Simulation
         public const double FixedStepSeconds = 0.05d;
         private const double TwoPi = Math.PI * 2d;
         private const double CelestialStandOffPadding = 40d;
+        private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
         private readonly Queue<GameCommand> commands = new Queue<GameCommand>();
         private readonly List<SimulationEvent> frameEvents = new List<SimulationEvent>();
         private readonly IContentCatalog catalog;
@@ -206,7 +208,7 @@ namespace Starfall.Simulation
                 case GameCommandType.ExchangeLoyalty: ExchangeLoyalty(); break;
                 case GameCommandType.Save:
                     SyncPlayerShip();
-                    Emit(SimulationEventType.SaveRequested, message: "Manual save requested.", detail: "slot1");
+                    Emit(SimulationEventType.SaveRequested, message: Tr("Manual save requested."), detail: "slot1");
                     break;
             }
         }
@@ -265,8 +267,8 @@ namespace Starfall.Simulation
             player.WarpTarget = position;
             player.WarpPhaseTime = 0d;
             player.Movement = MovementMode.WarpAlign;
-            Emit(SimulationEventType.Warp, player.Id, targetId, "Warp drive active.", detail: "start");
-            Log("Warp drive active.");
+            Emit(SimulationEventType.Warp, player.Id, targetId, Tr("Warp drive active."), detail: "start");
+            Log(Tr("Warp drive active."));
         }
 
         private void LockTarget(string id)
@@ -277,16 +279,16 @@ namespace Starfall.Simulation
             var target = State.FindEntity(targetId);
             if (target == null || target == player)
             {
-                Log("Only ships can be locked.");
+                Log(Tr("Only ships can be locked."));
                 return;
             }
             if (SimVec2.Distance(player.Position, target.Position) > player.LockRange)
             {
-                Log("Target is outside lock range.");
+                Log(Tr("Target is outside lock range."));
                 return;
             }
             player.LockedTargetId = target.Id;
-            Log($"Target locked: {target.Name}.");
+            Log(Tr("Target locked: {0}.", TrName(target.Name)));
         }
 
         private void DockOrJump(string id)
@@ -300,7 +302,7 @@ namespace Starfall.Simulation
             {
                 if (SimVec2.Distance(player.Position, station.Position) > 40d)
                 {
-                    Log("Move within 40 m before docking.");
+                    Log(Tr("Move within 40 m before docking."));
                     return;
                 }
                 SyncPlayerShip();
@@ -310,7 +312,7 @@ namespace Starfall.Simulation
                 CompleteDockObjectives(station.Id);
                 State.entities.Clear();
                 State.asteroids.Clear();
-                Emit(SimulationEventType.Dock, "player", station.Id, $"Docked at {station.Name}.");
+                Emit(SimulationEventType.Dock, "player", station.Id, Tr("Docked at {0}.", TrName(station.Name)));
                 Emit(SimulationEventType.SaveRequested, detail: "auto");
                 return;
             }
@@ -319,7 +321,7 @@ namespace Starfall.Simulation
             if (gate == null) return;
             if (SimVec2.Distance(player.Position, gate.Position) > 35d)
             {
-                Log("Move within 35 m before jumping.");
+                Log(Tr("Move within 35 m before jumping."));
                 return;
             }
             Jump(gate);
@@ -334,7 +336,7 @@ namespace Starfall.Simulation
             var position = station.Position + new SimVec2(70d, 22d);
             SpawnPlayer(position);
             PopulateSystem();
-            Emit(SimulationEventType.Dock, station.Id, "player", $"Undocked from {station.Name}.", detail: "undock");
+            Emit(SimulationEventType.Dock, station.Id, "player", Tr("Undocked from {0}.", TrName(station.Name)), detail: "undock");
             Emit(SimulationEventType.SaveRequested, detail: "auto");
         }
 
@@ -354,7 +356,7 @@ namespace Starfall.Simulation
             PopulateSystem();
             State.SelectedId = string.Empty;
             directorateSpawned = false;
-            Emit(SimulationEventType.Jump, gate.Id, destination.Id, $"Jump complete: {destination.Name}.");
+            Emit(SimulationEventType.Jump, gate.Id, destination.Id, Tr("Jump complete: {0}.", TrName(destination.Name)));
             Emit(SimulationEventType.SaveRequested, detail: "auto");
         }
 
@@ -380,7 +382,7 @@ namespace Starfall.Simulation
                     {
                         player.Shield = Math.Min(player.MaxShield, player.Shield + definition.RepairAmount);
                         runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
-                        Emit(SimulationEventType.Damage, player.Id, player.Id, "Shield restored.", -definition.RepairAmount, definition.Id);
+                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Shield restored."), -definition.RepairAmount, definition.Id);
                     }
                     break;
                 case ModuleKind.ArmorRepair:
@@ -388,7 +390,7 @@ namespace Starfall.Simulation
                     {
                         player.Armor = Math.Min(player.MaxArmor, player.Armor + definition.RepairAmount);
                         runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
-                        Emit(SimulationEventType.Damage, player.Id, player.Id, "Armor restored.", -definition.RepairAmount, definition.Id);
+                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Armor restored."), -definition.RepairAmount, definition.Id);
                     }
                     break;
             }
@@ -452,12 +454,12 @@ namespace Starfall.Simulation
             if (target.Dead) return;
             target.Dead = true;
             Emit(SimulationEventType.Death, attacker != null ? attacker.Id : null, target.Id,
-                $"{target.Name} destroyed.", position: target.Position);
+                Tr("{0} destroyed.", TrName(target.Name)), position: target.Position);
             if (target.Kind == EntityKind.Player)
             {
                 SyncPlayerShip();
                 State.PlayerDead = true;
-                Log($"Your {catalog.Ships[target.ShipId].Name} was destroyed!");
+                Log(Tr("Your {0} was destroyed!", Tr(catalog.Ships[target.ShipId].Name)));
                 return;
             }
             if (attacker == null || attacker.Kind != EntityKind.Player) return;
@@ -469,7 +471,7 @@ namespace Starfall.Simulation
                 var security = CurrentSystem().Security;
                 var bounty = (long)JsMath.Round(baseBounty * (1d + Math.Max(0d, 0.5d - security)));
                 State.Player.Credits += bounty;
-                Log($"Bounty: +{bounty:N0} ISK for destroying {target.Name}.");
+                Log(Tr("Bounty: +{0} ISK for destroying {1}.", bounty.ToString("N0", Inv), TrName(target.Name)));
             }
             ModifyStanding(target.FactionId, catalog.Ships[target.ShipId].Class == ShipClass.Frigate ? -0.1d : -0.25d);
             if (!string.IsNullOrEmpty(target.MissionId)) OnMissionKill(target.MissionId);
@@ -484,7 +486,7 @@ namespace Starfall.Simulation
             if (used + volume > CargoCapacity() + 1e-9d)
             {
                 runtime.Active = false;
-                Log("Cargo hold full!");
+                Log(Tr("Cargo hold full!"));
                 return;
             }
             runtime.Cooldown = Math.Max(0.1d, module.CycleTime);
@@ -492,13 +494,13 @@ namespace Starfall.Simulation
             AddQuantity(State.Player.Cargo, asteroid.OreId, quantity);
             State.Player.Stats.OreMined += quantity;
             Emit(SimulationEventType.Weapon, player.Id, asteroid.Id, module.Name, quantity, "mining:" + asteroid.OreId);
-            Emit(SimulationEventType.Inventory, asteroid.Id, player.Id, $"+{quantity:0} {catalog.Items[asteroid.OreId].Name}", quantity, asteroid.OreId);
+            Emit(SimulationEventType.Inventory, asteroid.Id, player.Id, "+" + quantity.ToString("0", Inv) + " " + Tr(catalog.Items[asteroid.OreId].Name), quantity, asteroid.OreId);
             if (asteroid.Amount <= 0d)
             {
                 runtime.Active = false;
                 ClearTargetReferences(asteroid.Id);
                 State.asteroids.Remove(asteroid);
-                Emit(SimulationEventType.Despawn, asteroid.Id, message: "Asteroid depleted.");
+                Emit(SimulationEventType.Despawn, asteroid.Id, message: Tr("Asteroid depleted."));
             }
         }
 
@@ -585,7 +587,7 @@ namespace Starfall.Simulation
                     entity.Position = entity.WarpTarget;
                     entity.Speed = 0d;
                     entity.Movement = MovementMode.Idle;
-                    Emit(SimulationEventType.Warp, entity.Id, message: "Warp drive deactivated.", detail: "end");
+                    Emit(SimulationEventType.Warp, entity.Id, message: Tr("Warp drive deactivated."), detail: "end");
                     return;
                 }
             }
@@ -606,7 +608,7 @@ namespace Starfall.Simulation
                 {
                     target = player;
                     npc.LockedTargetId = player.Id;
-                    Log($"{npc.Name} has engaged you!");
+                    Log(Tr("{0} has engaged you!", TrName(npc.Name)));
                 }
                 if (target == null)
                 {
@@ -642,7 +644,7 @@ namespace Starfall.Simulation
                     if (npc.AiTime > 4d)
                     {
                         npc.Dead = true;
-                        Emit(SimulationEventType.Despawn, npc.Id, message: "Hostile warped away.");
+                        Emit(SimulationEventType.Despawn, npc.Id, message: Tr("Hostile warped away."));
                     }
                 }
             }
@@ -715,7 +717,8 @@ namespace Starfall.Simulation
                 SpawnPatrol(FactionIds.Sisters, NavyHulls[FactionIds.Sisters], 2, "sisters", points, populationRandom);
             }
             SpawnMissionTargets(populationRandom);
-            Emit(SimulationEventType.SystemPopulated, system.Id, message: $"{system.Name}: {State.entities.Count - (player == null ? 0 : 1)} traffic contacts.");
+            Emit(SimulationEventType.SystemPopulated, system.Id,
+                message: Tr("{0}: {1} traffic contacts.", TrName(system.Name), State.entities.Count - (player == null ? 0 : 1)));
         }
 
         private void SpawnPatrol(string factionId, string[] hulls, int count, string behavior,
@@ -856,7 +859,7 @@ namespace Starfall.Simulation
             var price = StationPrice(itemId);
             if (price <= 0 || State.Player.Credits < price)
             {
-                Log("Insufficient credits or item unavailable.");
+                Log(Tr("Insufficient credits or item unavailable."));
                 return;
             }
             if (catalog.Ships.ContainsKey(itemId))
@@ -866,13 +869,13 @@ namespace Starfall.Simulation
                 State.Player.Credits -= price;
                 var ship = CreateShipInstance(itemId, NextId("shipinst"));
                 State.Player.Ships.Add(ship);
-                Emit(SimulationEventType.Inventory, message: $"Purchased {definition.Name} for {price:N0} ISK.", detail: itemId);
+                Emit(SimulationEventType.Inventory, message: Tr("Purchased {0} for {1} ISK.", Tr(definition.Name), price.ToString("N0", Inv)), detail: itemId);
             }
             else if (catalog.Modules.ContainsKey(itemId))
             {
                 State.Player.Credits -= price;
                 AddQuantity(State.Player.Hangar, itemId, 1);
-                Emit(SimulationEventType.Inventory, message: $"Purchased {catalog.Modules[itemId].Name}.", detail: itemId);
+                Emit(SimulationEventType.Inventory, message: Tr("Purchased {0}.", Tr(catalog.Modules[itemId].Name)), detail: itemId);
             }
         }
 
@@ -884,14 +887,14 @@ namespace Starfall.Simulation
                 var price = Math.Max(1L, (long)JsMath.Round(StationPrice(itemId) * 0.85d));
                 State.Player.Credits += (long)JsMath.Round(price * quantity);
                 State.Player.Cargo.Remove(itemId);
-                Emit(SimulationEventType.Inventory, message: $"Sold {quantity:0}x {catalog.Items[itemId].Name}.", detail: itemId);
+                Emit(SimulationEventType.Inventory, message: Tr("Sold {0}x {1}.", quantity.ToString("0", Inv), Tr(catalog.Items[itemId].Name)), detail: itemId);
             }
             else if (catalog.Modules.ContainsKey(itemId) && State.Player.Hangar.TryGetValue(itemId, out var count) && count > 0)
             {
                 State.Player.Hangar[itemId] = count - 1;
                 if (count == 1) State.Player.Hangar.Remove(itemId);
                 State.Player.Credits += Math.Max(1L, (long)JsMath.Round(StationPrice(itemId) * 0.85d));
-                Emit(SimulationEventType.Inventory, message: $"Sold {catalog.Modules[itemId].Name}.", detail: itemId);
+                Emit(SimulationEventType.Inventory, message: Tr("Sold {0}.", Tr(catalog.Modules[itemId].Name)), detail: itemId);
             }
         }
 
@@ -909,7 +912,7 @@ namespace Starfall.Simulation
             slots[index] = moduleId;
             State.Player.Hangar[moduleId] = count - 1;
             if (count == 1) State.Player.Hangar.Remove(moduleId);
-            Emit(SimulationEventType.Inventory, message: $"Fitted {module.Name}.", detail: moduleId);
+            Emit(SimulationEventType.Inventory, message: Tr("Fitted {0}.", Tr(module.Name)), detail: moduleId);
         }
 
         private void Unfit(string argument)
@@ -923,7 +926,7 @@ namespace Starfall.Simulation
             var moduleId = slots[index];
             slots[index] = null;
             AddQuantity(State.Player.Hangar, moduleId, 1);
-            Emit(SimulationEventType.Inventory, message: $"Unfitted {catalog.Modules[moduleId].Name}.", detail: moduleId);
+            Emit(SimulationEventType.Inventory, message: Tr("Unfitted {0}.", Tr(catalog.Modules[moduleId].Name)), detail: moduleId);
         }
 
         private void SwitchShip(string instanceId)
@@ -932,7 +935,7 @@ namespace Starfall.Simulation
             var ship = State.Player.Ships.Find(value => value.InstanceId == instanceId);
             if (ship == null) return;
             State.Player.ActiveShipInstanceId = ship.InstanceId;
-            Emit(SimulationEventType.Inventory, message: $"Active ship: {ship.Name}.", detail: ship.ShipId);
+            Emit(SimulationEventType.Inventory, message: Tr("Active ship: {0}.", Tr(ship.Name)), detail: ship.ShipId);
         }
 
         private void TalkToAgent(string agentId)
@@ -946,12 +949,12 @@ namespace Starfall.Simulation
             if (existing != null)
             {
                 if (existing.Status == MissionStatus.Offered) AcceptMission(existing.Id);
-                else Log(existing.Title + " — " + existing.ProgressText());
+                else Log(Tr("{0} — {1}", Tr(existing.Title), existing.ProgressText()));
                 return;
             }
             var mission = GenerateMission(agent);
             State.Player.Missions.Add(mission);
-            Emit(SimulationEventType.Mission, agent.Id, mission.Id, "Mission offered: " + mission.Title, detail: "offered");
+            Emit(SimulationEventType.Mission, agent.Id, mission.Id, Tr("Mission offered: {0}", Tr(mission.Title)), detail: "offered");
             AcceptMission(mission.Id);
         }
 
@@ -1015,11 +1018,11 @@ namespace Starfall.Simulation
             if (mission == null || mission.Status != MissionStatus.Offered) return;
             if ((mission.Type == MissionType.Distribution || mission.Type == MissionType.StorylineHaul) && !AddCargo(ItemIds.SealedCargo, mission.Quantity))
             {
-                Log($"Need {mission.Quantity:0} m3 free cargo space.");
+                Log(Tr("Need {0} m3 free cargo space.", mission.Quantity.ToString("0", Inv)));
                 return;
             }
             mission.Status = MissionStatus.Active;
-            Emit(SimulationEventType.Mission, mission.AgentId, mission.Id, "Mission accepted: " + mission.Title, detail: "active");
+            Emit(SimulationEventType.Mission, mission.AgentId, mission.Id, Tr("Mission accepted: {0}", Tr(mission.Title)), detail: "active");
             if (!State.Docked) PopulateSystem();
         }
 
@@ -1033,7 +1036,8 @@ namespace Starfall.Simulation
             ModifyStanding(mission.FactionId, mission.RewardStanding);
             State.Player.Stats.MissionsDone++;
             Emit(SimulationEventType.Mission, mission.AgentId, mission.Id,
-                $"Mission complete: {mission.Title}. +{mission.RewardCredits:N0} ISK, +{mission.RewardLoyaltyPoints} LP.", detail: "done");
+                Tr("Mission complete: {0}. +{1} ISK, +{2} LP.", Tr(mission.Title),
+                    mission.RewardCredits.ToString("N0", Inv), mission.RewardLoyaltyPoints), detail: "done");
             if (mission.Type != MissionType.StorylineKill && mission.Type != MissionType.StorylineHaul)
             {
                 AddQuantity(State.Player.MissionCounts, mission.FactionId, 1);
@@ -1049,7 +1053,7 @@ namespace Starfall.Simulation
                 RemoveCargo(ItemIds.SealedCargo, mission.Quantity);
             mission.Status = MissionStatus.Done;
             ModifyStanding(mission.FactionId, -0.2d);
-            Emit(SimulationEventType.Mission, targetId: mission.Id, message: "Mission abandoned: " + mission.Title, detail: "done");
+            Emit(SimulationEventType.Mission, targetId: mission.Id, message: Tr("Mission abandoned: {0}", Tr(mission.Title)), detail: "done");
         }
 
         private void CompleteDockObjectives(string stationId)
@@ -1083,7 +1087,7 @@ namespace Starfall.Simulation
             if (mission.Kills >= mission.KillsRequired)
             {
                 mission.Status = MissionStatus.ObjectivesMet;
-                Emit(SimulationEventType.Mission, targetId: mission.Id, message: "Objectives complete: " + mission.Title, detail: "objectives_met");
+                Emit(SimulationEventType.Mission, targetId: mission.Id, message: Tr("Objectives complete: {0}", Tr(mission.Title)), detail: "objectives_met");
             }
         }
 
@@ -1125,7 +1129,7 @@ namespace Starfall.Simulation
                 mission.TargetFactionId = catalog.Factions[factionId].HomePirateId ?? FactionIds.BloodReavers;
             }
             State.Player.Missions.Add(mission);
-            Emit(SimulationEventType.Mission, targetId: mission.Id, message: "STORYLINE MISSION available: " + mission.Title, detail: "offered");
+            Emit(SimulationEventType.Mission, targetId: mission.Id, message: Tr("STORYLINE MISSION available: {0}", Tr(mission.Title)), detail: "offered");
         }
 
         private void SetDestination(string systemId)
@@ -1133,7 +1137,8 @@ namespace Starfall.Simulation
             if (!State.Universe.Systems.ContainsKey(systemId)) return;
             State.Player.DestinationSystemId = systemId;
             var route = UniverseRoutes.FindRoute(State.Universe, State.Player.CurrentSystemId, systemId);
-            Log(route == null ? "No route available." : $"Route set: {route.Count - 1} jumps to {State.Universe.Systems[systemId].Name}.");
+            Log(route == null ? Tr("No route available.")
+                : Tr("Route set: {0} jumps to {1}.", route.Count - 1, TrName(State.Universe.Systems[systemId].Name)));
         }
 
         private void Repair()
@@ -1145,7 +1150,7 @@ namespace Starfall.Simulation
             ship.Shield = definition.HitPoints.Shield;
             ship.Armor = definition.HitPoints.Armor;
             ship.Hull = definition.HitPoints.Hull;
-            Emit(SimulationEventType.Inventory, message: ship.Name + " fully repaired.", detail: "repair");
+            Emit(SimulationEventType.Inventory, message: Tr("{0} fully repaired.", Tr(ship.Name)), detail: "repair");
         }
 
         private void ExchangeLoyalty()
@@ -1156,14 +1161,14 @@ namespace Starfall.Simulation
             State.Player.LoyaltyPoints.TryGetValue(factionId, out var available);
             if (available < cost)
             {
-                Log("Insufficient loyalty points. The module cache requires 100 LP.");
+                Log(Tr("Insufficient loyalty points. The module cache requires 100 LP."));
                 return;
             }
 
             State.Player.LoyaltyPoints[factionId] = available - cost;
             AddQuantity(State.Player.Hangar, ModuleIds.DamageAmp, 1);
             Emit(SimulationEventType.Inventory,
-                message: $"Exchanged 100 LP for {catalog.Modules[ModuleIds.DamageAmp].Name}.",
+                message: Tr("Exchanged 100 LP for {0}.", Tr(catalog.Modules[ModuleIds.DamageAmp].Name)),
                 detail: ModuleIds.DamageAmp);
         }
 
@@ -1177,7 +1182,7 @@ namespace Starfall.Simulation
                 var rookie = CreateShipInstance(EmpireStarterShips[State.Player.EmpireId], NextId("shipinst"));
                 rookie.Fitting.High[0] = FactionWeapons[State.Player.EmpireId];
                 State.Player.Ships.Add(rookie);
-                Log("The Directorate issued you a rookie frigate.");
+                Log(Tr("The Directorate issued you a rookie frigate."));
             }
             State.Player.ActiveShipInstanceId = State.Player.Ships[0].InstanceId;
             State.Player.CriminalTimer = 0d;
@@ -1189,7 +1194,7 @@ namespace Starfall.Simulation
             State.PlayerDead = false;
             State.entities.Clear();
             State.asteroids.Clear();
-            Emit(SimulationEventType.Dock, "player", station.Id, "Clone activated at home station.", detail: "respawn");
+            Emit(SimulationEventType.Dock, "player", station.Id, Tr("Clone activated at home station."), detail: "respawn");
             Emit(SimulationEventType.SaveRequested, detail: "auto");
         }
 
@@ -1207,7 +1212,7 @@ namespace Starfall.Simulation
                 response.AggroRange = 99999d;
                 Emit(SimulationEventType.Spawn, response.Id, message: response.Name, detail: response.ShipId);
             }
-            Log("Directorate response units have warped in!");
+            Log(Tr("Directorate response units have warped in!"));
         }
 
         private bool IsCriminalAttack(string targetFactionId)
@@ -1223,7 +1228,7 @@ namespace Starfall.Simulation
             State.Player.CriminalTimer = Math.Max(State.Player.CriminalTimer, 120d);
             ModifyStanding(targetFactionId, -0.5d);
             ModifyStanding(FactionIds.Directorate, -0.2d);
-            Log("CRIMINAL ACT! The Directorate has been alerted.");
+            Log(Tr("CRIMINAL ACT! The Directorate has been alerted."));
         }
 
         private void ModifyStanding(string factionId, double amount)
@@ -1466,7 +1471,7 @@ namespace Starfall.Simulation
             entity.AfterburnerOn = false;
             for (var i = 0; i < entity.Modules.Count; i++) entity.Modules[i].Active = false;
             if (recomputeSpeed) RecomputeDerived(entity);
-            Log("Target lost. Active modules deactivated.");
+            Log(Tr("Target lost. Active modules deactivated."));
         }
 
         private double MaxWeaponRange(EntityState entity)

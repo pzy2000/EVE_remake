@@ -89,12 +89,12 @@ namespace Starfall.Simulation
             {
                 case MissionType.Security:
                 case MissionType.StorylineKill:
-                    return $"Hostiles destroyed: {Kills}/{KillsRequired}";
+                    return L10n.Tr("Hostiles destroyed: {0}/{1}", Kills, KillsRequired);
                 case MissionType.Distribution:
                 case MissionType.StorylineHaul:
-                    return "Deliver the sealed cargo to the destination station";
+                    return L10n.Tr("Deliver the sealed cargo to the destination station");
                 case MissionType.Mining:
-                    return $"Deliver {Quantity:0} units of ore to the agent";
+                    return L10n.Tr("Deliver {0} units of ore to the agent", Quantity.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
                 default:
                     return string.Empty;
             }

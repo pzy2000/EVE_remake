@@ -2,6 +2,7 @@
   "name": "Starfall.UI",
   "rootNamespace": "Starfall.UI",
   "references": [
+    "Starfall.Domain",
     "Unity.InputSystem",
     "Starfall.Presentation"
   ],

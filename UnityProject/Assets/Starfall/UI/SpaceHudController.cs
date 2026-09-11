@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.UI
 {
@@ -84,10 +86,13 @@ namespace Starfall.UI
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             settingsPanel = new StarfallSettingsPanel(root);
+            L10n.LanguageChanged += OnLanguageChanged;
+            UiLocalizer.Apply(root);
         }
 
         private void OnDisable()
         {
+            L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null)
             {
@@ -112,6 +117,14 @@ namespace Starfall.UI
                 host.SnapshotChanged += Refresh;
                 host.TelemetryChanged += RefreshTelemetry;
             }
+            Refresh();
+        }
+
+        private void OnLanguageChanged()
+        {
+            UiLocalizer.Apply(root);
+            ResetAuxiliaryListCaches();
+            UpdateSortButtons();
             Refresh();
         }
 
@@ -218,11 +231,11 @@ namespace Starfall.UI
             if (root == null || host?.Snapshot == null) return;
             var snapshot = host.Snapshot;
             SetText("system-name", snapshot.SystemName);
-            SetText("security", $"SEC {snapshot.Security:0.0}");
+            SetText("security", Tr("SEC {0}", snapshot.Security.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("pilot-name", snapshot.PilotName);
-            SetText("credits", $"{snapshot.Credits:N0} ISK");
+            SetText("credits", Tr("{0} ISK", snapshot.Credits.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("ship-name", $"{snapshot.ShipName} · {snapshot.ShipClass}");
-            SetText("speed", $"{snapshot.Speed:0} m/s");
+            SetText("speed", Tr("{0} m/s", snapshot.Speed.ToString("0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("target-name", snapshot.SelectedName);
             SetText("target-detail", snapshot.SelectedDetail);
             SetText("mission", snapshot.MissionSummary);
@@ -269,7 +282,7 @@ namespace Starfall.UI
         {
             if (root == null || host?.Snapshot == null) return;
             var snapshot = host.Snapshot;
-            SetText("speed", $"{snapshot.Speed:0} m/s");
+            SetText("speed", Tr("{0} m/s", snapshot.Speed.ToString("0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("target-name", snapshot.SelectedName);
             SetText("target-detail", snapshot.SelectedDetail);
             SetBar("shield", snapshot.Shield01);
@@ -299,8 +312,8 @@ namespace Starfall.UI
 
             if (overviewCount != null)
                 overviewCount.text = filteredOverview.Count == 1
-                    ? "1 CONTACT"
-                    : $"{filteredOverview.Count} CONTACTS";
+                    ? Tr("1 CONTACT")
+                    : Tr("{0} CONTACTS", filteredOverview.Count);
             if (overviewEmpty != null)
                 overviewEmpty.style.display = visibleOverview.Count == 0
                     ? DisplayStyle.Flex
@@ -337,7 +350,7 @@ namespace Starfall.UI
                           distance <= JumpInteractionDistance &&
                           (actions & OverviewActionFlags.Jump) != 0;
             dockButton.SetEnabled(canDock || canJump);
-            dockButton.text = "DOCK/JUMP [D]";
+            dockButton.text = Tr("DOCK/JUMP [D]");
         }
 
         private void ReplaceVisibleOverview()
@@ -519,13 +532,13 @@ namespace Starfall.UI
                 case OverviewSortColumn.Threat:
                     return "!";
                 case OverviewSortColumn.Distance:
-                    return "DIST";
+                    return Tr("DIST");
                 case OverviewSortColumn.Name:
-                    return "NAME";
+                    return Tr("NAME");
                 case OverviewSortColumn.Type:
-                    return "TYPE";
+                    return Tr("TYPE");
                 case OverviewSortColumn.Velocity:
-                    return "SPEED";
+                    return Tr("SPEED");
                 default:
                     return string.Empty;
             }
@@ -759,15 +772,15 @@ namespace Starfall.UI
                 switch (key)
                 {
                     case 1: return "!";
-                    case 2: return "M";
-                    case 3: return "!M";
-                    case 4: return "L";
-                    case 5: return "!L";
-                    case 6: return "ML";
-                    case 7: return "!ML";
+                    case 2: return Tr("M");
+                    case 3: return Tr("!M");
+                    case 4: return Tr("L");
+                    case 5: return Tr("!L");
+                    case 6: return Tr("ML");
+                    case 7: return Tr("!ML");
                     default:
-                        if (lawEnforcement) return "P";
-                        return elite ? "E" : string.Empty;
+                        if (lawEnforcement) return Tr("P");
+                        return elite ? Tr("E") : string.Empty;
                 }
             }
 
@@ -775,11 +788,11 @@ namespace Starfall.UI
             {
                 if (double.IsNaN(meters) || double.IsInfinity(meters) || meters < 0d) return "—";
                 const double astronomicalUnit = 149_597_870_700d;
-                if (meters >= astronomicalUnit * 0.1d) return $"{meters / astronomicalUnit:0.0} AU";
-                if (meters >= 10_000_000d) return $"{meters / 1000d:N0} km";
-                if (meters >= 10_000d) return $"{meters / 1000d:0} km";
-                if (meters >= 1000d) return $"{meters / 1000d:0.0} km";
-                return $"{meters:0} m";
+                if (meters >= astronomicalUnit * 0.1d) return Tr("{0} AU", (meters / astronomicalUnit).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                if (meters >= 10_000_000d) return Tr("{0} km", (meters / 1000d).ToString("N0", System.Globalization.CultureInfo.InvariantCulture));
+                if (meters >= 10_000d) return Tr("{0} km", (meters / 1000d).ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+                if (meters >= 1000d) return Tr("{0} km", (meters / 1000d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                return Tr("{0} m", meters.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
             }
 
             private static string FormatVelocity(double metersPerSecond)
@@ -787,8 +800,8 @@ namespace Starfall.UI
                 if (double.IsNaN(metersPerSecond) || double.IsInfinity(metersPerSecond) ||
                     metersPerSecond < 0d)
                     return "—";
-                if (metersPerSecond >= 1000d) return $"{metersPerSecond / 1000d:0.0}k";
-                return $"{metersPerSecond:0} m/s";
+                if (metersPerSecond >= 1000d) return (metersPerSecond / 1000d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "k";
+                return Tr("{0} m/s", metersPerSecond.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
             }
         }
     }

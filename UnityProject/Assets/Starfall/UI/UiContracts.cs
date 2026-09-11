@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Starfall.Domain;
 
 namespace Starfall.UI
 {
@@ -72,6 +73,7 @@ namespace Starfall.UI
         void Execute(string command, string argument = null);
         void SetMusicVolume(float value);
         void SetMusicMuted(bool value);
+        void SetLanguage(L10nLanguage language);
         void CycleQuality();
     }
 

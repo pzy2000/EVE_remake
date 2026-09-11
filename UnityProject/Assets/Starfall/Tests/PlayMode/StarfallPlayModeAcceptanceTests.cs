@@ -68,6 +68,11 @@ namespace Starfall.Tests.PlayMode
             Assert.That(saveServiceField, Is.Not.Null,
                 "The acceptance fixture could not isolate AppRoot's save service.");
             saveServiceField.SetValue(app, new FileSaveService(temporarySaveDirectory));
+
+            // This suite asserts canonical English UI text; pin the language no
+            // matter what preference the AppRoot picked up at startup.
+            PlayerPrefs.DeleteKey("starfall.language");
+            L10n.SetLanguage(L10nLanguage.English);
         }
 
         [UnityTearDown]
