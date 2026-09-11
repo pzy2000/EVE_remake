@@ -3,7 +3,7 @@
 .header-spacer { flex-grow: 1; }
 .station-header Button { width: 104px; margin-left: 7px; }
 .station-header .undock { background-color: rgb(21, 103, 137); height: 42px; }
-.station-services { position: absolute; right: 18px; top: 104px; bottom: 54px; width: 480px; }
+.station-services { position: absolute; right: 18px; top: 104px; bottom: 54px; width: 480px; max-width: 92%; }
 .tabbar { flex-direction: row; }
 .tabbar Button { flex-grow: 1; font-size: 14px; margin-right: 3px; }
 .service-panel { flex-grow: 1; margin-top: 12px; }

@@ -12,6 +12,8 @@ namespace Starfall.UI
         private readonly Button closeButton;
         private readonly Button qualityButton;
         private readonly Button languageButton;
+        private readonly Slider uiScaleSlider;
+        private readonly Label uiScaleValue;
         private readonly Slider volumeSlider;
         private readonly Label volumeValue;
         private readonly Toggle muteToggle;
@@ -39,6 +41,16 @@ namespace Starfall.UI
             qualityButton = new Button(() => host?.CycleQuality()) { name = "quality-cycle" };
             qualityButton.AddToClassList("settings-control");
             card.Add(qualityButton);
+
+            var uiScaleRow = new VisualElement();
+            uiScaleRow.AddToClassList("settings-volume-row");
+            uiScaleSlider = new Slider("UI SCALE", StarfallResponsiveUi.MinUiScale, StarfallResponsiveUi.MaxUiScale) { name = "ui-scale" };
+            uiScaleSlider.AddToClassList("settings-slider");
+            uiScaleValue = new Label("100%") { name = "ui-scale-value" };
+            uiScaleValue.AddToClassList("settings-value");
+            uiScaleRow.Add(uiScaleSlider);
+            uiScaleRow.Add(uiScaleValue);
+            card.Add(uiScaleRow);
 
             card.Add(new Label("LANGUAGE") { name = "settings-language-heading" });
             languageButton = new Button(CycleLanguage) { name = "language-cycle" };
@@ -70,6 +82,7 @@ namespace Starfall.UI
             if (openButton != null) openButton.clicked += Open;
             volumeSlider.RegisterValueChangedCallback(OnVolumeChanged);
             muteToggle.RegisterValueChangedCallback(OnMutedChanged);
+            uiScaleSlider.RegisterValueChangedCallback(OnUiScaleChanged);
             StarfallUiBridge.HostChanged += BindHost;
             L10n.LanguageChanged += OnLanguageChanged;
             BindHost();
@@ -87,6 +100,7 @@ namespace Starfall.UI
             if (openButton != null) openButton.clicked -= Open;
             volumeSlider.UnregisterValueChangedCallback(OnVolumeChanged);
             muteToggle.UnregisterValueChangedCallback(OnMutedChanged);
+            uiScaleSlider.UnregisterValueChangedCallback(OnUiScaleChanged);
             overlay.RemoveFromHierarchy();
             host = null;
         }
@@ -117,6 +131,8 @@ namespace Starfall.UI
             volumeSlider.SetValueWithoutNotify(host.MusicVolume);
             volumeValue.text = FormattableString.Invariant($"{host.MusicVolume * 100f:0}%");
             muteToggle.SetValueWithoutNotify(host.MusicMuted);
+            uiScaleSlider.SetValueWithoutNotify(host.UiScale);
+            uiScaleValue.text = FormattableString.Invariant($"{host.UiScale * 100f:0}%");
             qualityButton.text = Tr("QUALITY · {0}", Tr(host.QualityPreset));
             refreshing = false;
         }
@@ -147,6 +163,13 @@ namespace Starfall.UI
         private void OnMutedChanged(ChangeEvent<bool> evt)
         {
             if (!refreshing) host?.SetMusicMuted(evt.newValue);
+        }
+
+        private void OnUiScaleChanged(ChangeEvent<float> evt)
+        {
+            if (refreshing) return;
+            uiScaleValue.text = FormattableString.Invariant($"{evt.newValue * 100f:0}%");
+            host?.SetUiScale(evt.newValue);
         }
     }
 }

@@ -152,8 +152,8 @@
 .module-rack Button.active { background-color: rgb(144, 73, 27); border-top-color: rgb(255, 181, 72); }
 .combat-log { position: absolute; right: 16px; bottom: 16px; width: 335px; min-height: 112px; color: rgb(170, 211, 229); font-size: 14px; }
 .modal-overlay { display: none; background-color: rgba(0, 3, 12, 0.78); align-items: center; justify-content: center; }
-.modal-card { width: 700px; height: 610px; padding: 18px; }
-.starmap-card { width: 920px; }
+.modal-card { width: 700px; height: 610px; max-width: 96%; max-height: 88%; padding: 18px; }
+.starmap-card { width: 920px; max-width: 96%; }
 .modal-header { flex-direction: row; align-items: center; }
 .modal-header Button { width: 112px; }
 .modal-title { flex-grow: 1; font-size: 23px; -unity-text-align: middle-left; }
@@ -162,3 +162,91 @@
 .death-overlay { display: none; background-color: rgba(20, 0, 3, 0.78); align-items: center; justify-content: center; }
 .death-card { width: 470px; align-items: center; }
 .death-card Button { width: 220px; margin-top: 16px; }
+
+/* ---- slim scrollbars (all layouts) ---- */
+.overview-list .unity-scroller--vertical,
+.modal-list .unity-scroller--vertical { width: 8px; }
+.overview-list .unity-scroller__low-button,
+.overview-list .unity-scroller__high-button,
+.modal-list .unity-scroller__low-button,
+.modal-list .unity-scroller__high-button { display: none; }
+.overview-list .unity-scroller--vertical .unity-base-slider__tracker,
+.modal-list .unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(1, 5, 12, 0.45);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+}
+.overview-list .unity-scroller--vertical .unity-base-slider__dragger,
+.modal-list .unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgba(67, 190, 235, 0.5);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+/* ---- compact layout: foldable / small screens (class toggled by StarfallResponsiveUi) ---- */
+/* topbar keeps a 132px right inset so the WeChat webview capsule cannot cover the buttons */
+.hud-compact .topbar { left: 10px; right: 132px; top: 8px; height: 44px; }
+.hud-compact .system-title { font-size: 16px; width: 168px; }
+.hud-compact .security { width: 60px; font-size: 13px; }
+.hud-compact .mission { font-size: 13px; }
+.hud-compact .topbar Button { min-width: 56px; min-height: 26px; margin-left: 4px; padding-left: 8px; padding-right: 8px; font-size: 12px; }
+.hud-compact .overview { left: 10px; top: 58px; width: 24%; min-width: 286px; max-width: 372px; bottom: 272px; padding: 6px; }
+.hud-compact .overview-heading { height: 20px; }
+.hud-compact .overview-count { font-size: 10px; }
+.hud-compact .overview-tabs { height: 25px; margin-top: 3px; }
+.hud-compact .overview-tabs Button { min-height: 23px; height: 23px; font-size: 11px; margin-right: 2px; }
+.hud-compact .overview-columns { height: 24px; }
+.hud-compact .overview-column { min-height: 23px; height: 23px; font-size: 11px; }
+.hud-compact .overview-column-state { width: 30px; }
+.hud-compact .overview-column-distance { width: 52px; }
+.hud-compact .overview-column-name { min-width: 60px; }
+.hud-compact .overview-column-type { width: 72px; }
+.hud-compact .overview-column-velocity { width: 46px; }
+.hud-compact .overview-row { height: 26px; }
+.hud-compact .overview-cell { height: 26px; font-size: 12px; }
+.hud-compact .overview-state-cell { width: 30px; }
+.hud-compact .overview-object-icon { width: 16px; height: 16px; }
+.hud-compact .overview-badges { font-size: 10px; }
+.hud-compact .overview-distance { width: 52px; }
+.hud-compact .overview-type { width: 72px; }
+.hud-compact .overview-velocity { width: 46px; }
+.hud-compact .overview-empty { top: 102px; font-size: 12px; }
+.hud-compact .target { right: 10px; top: 58px; width: 238px; padding: 8px; }
+.hud-compact .target-name { font-size: 17px; margin-top: 3px; }
+.hud-compact .target .muted { font-size: 12px; }
+.hud-compact .button-row { margin-top: 5px; }
+.hud-compact .button-row Button { min-height: 26px; font-size: 11px; }
+.hud-compact .ship-status { left: 10px; bottom: 10px; width: 206px; padding: 8px; }
+.hud-compact .ship-status Label { font-size: 13px; }
+.hud-compact .ship-status .eyebrow { font-size: 11px; }
+.hud-compact .bar-track { height: 7px; margin-top: 3px; }
+.hud-compact .bar-fill { height: 7px; }
+/* Ultra-narrow compact (portrait phones, panel space < ~1000): the module rack
+   leaves the squeezed bottom row and becomes its own full-width row above the
+   pilot/log panels, and buttons flex instead of spilling over the neighbours. */
+.hud-compact .module-rack { left: 10px; right: 10px; bottom: 206px; height: 60px; padding-left: 4px; padding-right: 4px; }
+.hud-compact .module-rack Button {
+    width: auto;
+    min-width: 44px;
+    max-width: 60px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-right: 3px;
+    font-size: 9px;
+    min-height: 0;
+}
+.hud-compact .combat-log { right: 10px; bottom: 10px; width: 254px; min-height: 76px; font-size: 12px; padding: 8px; }
+.hud-compact .modal-card { width: 94%; height: auto; max-height: 90%; padding: 12px; }
+.hud-compact .modal-title { font-size: 18px; }
+.hud-compact .modal-header Button { width: 96px; min-height: 26px; }
+.hud-compact .modal-list Button { min-height: 30px; }
+.hud-compact .death-card { width: 400px; }
+.hud-compact .death-card Button { width: 200px; }

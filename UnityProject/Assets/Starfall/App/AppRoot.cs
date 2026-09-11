@@ -13,6 +13,7 @@ using Starfall.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 using static Starfall.Domain.L10n;
 
 namespace Starfall.App
@@ -27,6 +28,7 @@ namespace Starfall.App
         private const string FitModuleActionPrefix = "fit-module|";
         private const string UnfitActionPrefix = "unfit|";
         private const string LanguagePreferenceKey = "starfall.language";
+        private const string UiScalePreferenceKey = "starfall.uiscale";
         private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
         private static AppRoot instance;
         private readonly UiSnapshot snapshot = new UiSnapshot();
@@ -56,6 +58,7 @@ namespace Starfall.App
         private bool telemetryDirty = true;
         private bool stationVisualDirty = true;
         private float uiTelemetryElapsed;
+        private float uiScale = 1f;
         private string presentedStationShipInstanceId = string.Empty;
 
         public UiSnapshot Snapshot => snapshot;
@@ -70,6 +73,7 @@ namespace Starfall.App
                 return names.Length > 0 && index >= 0 && index < names.Length ? names[index] : "Default";
             }
         }
+        public float UiScale => uiScale;
         public event Action SnapshotChanged;
         public event Action TelemetryChanged;
         public event Action SettingsChanged;
@@ -99,6 +103,8 @@ namespace Starfall.App
             L10n.SetLanguage(preferredLanguage);
             L10n.LanguageChanged += OnLanguageChanged;
             ApplyLocalizedSnapshotDefaults();
+            uiScale = Mathf.Clamp(PlayerPrefs.GetFloat(UiScalePreferenceKey, 1f), StarfallResponsiveUi.MinUiScale, StarfallResponsiveUi.MaxUiScale);
+            ApplyUiScale();
             catalog = GameContentCatalog.Default;
             generator = new UniverseGenerator();
             saves = new FileSaveService();
@@ -318,6 +324,23 @@ namespace Starfall.App
             if (musicDirector) musicDirector.SetMuted(value);
         }
 
+        public void SetUiScale(float value)
+        {
+            uiScale = Mathf.Clamp(value, StarfallResponsiveUi.MinUiScale, StarfallResponsiveUi.MaxUiScale);
+            PlayerPrefs.SetFloat(UiScalePreferenceKey, uiScale);
+            PlayerPrefs.Save();
+            ApplyUiScale();
+            SettingsChanged?.Invoke();
+        }
+
+        // Every scene's UIDocument shares the StarfallPanelSettings asset, so one
+        // write covers the whole UI across scene switches.
+        private void ApplyUiScale()
+        {
+            if (FindFirstObjectByType<UIDocument>() is { } document && document.panelSettings)
+                document.panelSettings.scale = uiScale;
+        }
+
         public void CycleQuality()
         {
             var next = NextQualityLevel();
@@ -432,6 +455,7 @@ namespace Starfall.App
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             sceneTransitionQueued = false;
+            ApplyUiScale();
             if (musicDirector) musicDirector.PlayForScene(scene.name);
             loadedGameplayScene = scene.name == "Space" || scene.name == "Station" ? scene.name : string.Empty;
             spacePresenter = FindFirstObjectByType<SpaceWorldPresenter>();

@@ -1,0 +1,10 @@
+# ninja log v5
+1	391	1789102724216684239	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	a663153061abe947
+0	393	1789102724217894283	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	29bcbe876e883182
+0	403	1789102724229123098	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	83965dd242682c0b
+1	408	1789102724232708147	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	7285924be7684da5
+0	435	1789102724260745329	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	583818a8bcf85ad
+1	466	1789102724290365390	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	701e1fc6be05ca11
+0	545	1789102724370119261	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	b6f44b0fd397c28f
+0	603	1789102724428485296	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	f60306c7b0c5620b
+603	651	1789102724476341269	/Users/pzy/Desktop/EVE_remake/UnityProject/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/3t71a6t4/obj/arm64-v8a/libgame.so	dfeaf2632b8af7ec

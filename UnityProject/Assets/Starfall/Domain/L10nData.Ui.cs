@@ -90,6 +90,7 @@ namespace Starfall.Domain
             ("MUTE MUSIC", "音乐静音"),
             ("Music settings are saved automatically.", "音乐设置会自动保存。"),
             ("QUALITY · {0}", "画质 · {0}"),
+            ("UI SCALE", "界面缩放"),
             ("LANGUAGE", "语言 / LANGUAGE"),
             ("PC", "PC"),
             ("Mobile", "移动端"),

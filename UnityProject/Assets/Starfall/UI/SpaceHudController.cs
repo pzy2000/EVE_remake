@@ -42,6 +42,7 @@ namespace Starfall.UI
         private Button lockButton;
         private Button dockButton;
         private StarfallSettingsPanel settingsPanel;
+        private IDisposable responsiveUi;
         private OverviewPresetId activePreset;
         private string selectedContactId = string.Empty;
         private bool controlsBound;
@@ -86,6 +87,8 @@ namespace Starfall.UI
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             settingsPanel = new StarfallSettingsPanel(root);
+            responsiveUi?.Dispose();
+            responsiveUi = StarfallResponsiveUi.Attach(document, overviewList);
             L10n.LanguageChanged += OnLanguageChanged;
             UiLocalizer.Apply(root);
         }
@@ -101,6 +104,8 @@ namespace Starfall.UI
             }
             settingsPanel?.Dispose();
             settingsPanel = null;
+            responsiveUi?.Dispose();
+            responsiveUi = null;
             PlayerPrefs.Save();
         }
 

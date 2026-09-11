@@ -185,3 +185,12 @@ Button:hover, Button.active, Button.chosen {
 .lang-zh Button {
     font-size: 15px;
 }
+
+/* ---- compact visual tuning (foldable / small screens; class toggled by StarfallResponsiveUi) ----
+   Lighter panel fill + fainter borders so HUD panels read as translucent overlays
+   over the star field, in the spirit of EVE Echoes. */
+.hud-compact {
+    --panel: rgba(6, 14, 30, 0.78);
+    --line: rgba(67, 190, 235, 0.30);
+}
+.hud-compact .service-row { min-height: 34px; }

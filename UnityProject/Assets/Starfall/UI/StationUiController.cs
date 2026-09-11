@@ -14,6 +14,7 @@ namespace Starfall.UI
         private VisualElement root;
         private IStarfallUiHost host;
         private StarfallSettingsPanel settingsPanel;
+        private IDisposable responsiveUi;
         private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
 
         private void OnEnable()
@@ -34,6 +35,8 @@ namespace Starfall.UI
             BindHost();
             ShowTab("agents");
             settingsPanel = new StarfallSettingsPanel(root);
+            responsiveUi?.Dispose();
+            responsiveUi = StarfallResponsiveUi.Attach(document);
             L10n.LanguageChanged += OnLanguageChanged;
             UiLocalizer.Apply(root);
         }
@@ -45,6 +48,8 @@ namespace Starfall.UI
             if (host != null) host.SnapshotChanged -= Refresh;
             settingsPanel?.Dispose();
             settingsPanel = null;
+            responsiveUi?.Dispose();
+            responsiveUi = null;
         }
 
         private void BindHost()

@@ -64,6 +64,7 @@ namespace Starfall.UI
         float MusicVolume { get; }
         bool MusicMuted { get; }
         string QualityPreset { get; }
+        float UiScale { get; }
         event Action SnapshotChanged;
         event Action TelemetryChanged;
         event Action SettingsChanged;
@@ -74,6 +75,7 @@ namespace Starfall.UI
         void SetMusicVolume(float value);
         void SetMusicMuted(bool value);
         void SetLanguage(L10nLanguage language);
+        void SetUiScale(float value);
         void CycleQuality();
     }
 

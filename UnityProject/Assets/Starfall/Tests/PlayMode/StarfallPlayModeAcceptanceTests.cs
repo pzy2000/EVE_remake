@@ -741,10 +741,10 @@ namespace Starfall.Tests.PlayMode
                 $"{sceneName} UIDocument must reference a UXML asset.");
             Assert.That(document.panelSettings, Is.Not.Null,
                 $"{sceneName} UIDocument must reference shared panel settings.");
-            Assert.That(document.panelSettings.scaleMode, Is.EqualTo(PanelScaleMode.ConstantPixelSize),
-                $"{sceneName} UI must render at one-to-one pixel scale for crisp text.");
-            Assert.That(document.panelSettings.scale, Is.EqualTo(1f),
-                $"{sceneName} UI must not apply fractional panel scaling.");
+            Assert.That(document.panelSettings.scaleMode, Is.EqualTo(PanelScaleMode.ScaleWithScreenSize),
+                $"{sceneName} UI must scale with screen size so foldable and small displays keep panels compact.");
+            Assert.That(document.panelSettings.referenceResolution, Is.EqualTo(new Vector2Int(1920, 1080)),
+                $"{sceneName} UI must target the 1920x1080 design reference.");
             Assert.That(document.rootVisualElement, Is.Not.Null,
                 $"{sceneName} UIDocument must create a visual tree.");
             Assert.That(document.rootVisualElement.childCount, Is.GreaterThan(0),

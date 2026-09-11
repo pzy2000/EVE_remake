@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Starfall.Domain;
@@ -12,6 +13,7 @@ namespace Starfall.UI
         private TextField pilotName;
         private Label empireDescription;
         private StarfallSettingsPanel settingsPanel;
+        private IDisposable responsiveUi;
         private string empireId = "aurelian";
 
         private void OnEnable()
@@ -29,6 +31,8 @@ namespace Starfall.UI
             root.Q<Button>("continue")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.ContinueGame());
             root.Q<Button>("import")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.ImportLegacy());
             settingsPanel = new StarfallSettingsPanel(root);
+            responsiveUi?.Dispose();
+            responsiveUi = StarfallResponsiveUi.Attach(document);
             L10n.LanguageChanged += OnLanguageChanged;
             UiLocalizer.Apply(root);
         }
@@ -38,6 +42,8 @@ namespace Starfall.UI
             L10n.LanguageChanged -= OnLanguageChanged;
             settingsPanel?.Dispose();
             settingsPanel = null;
+            responsiveUi?.Dispose();
+            responsiveUi = null;
         }
 
         private void OnLanguageChanged()
