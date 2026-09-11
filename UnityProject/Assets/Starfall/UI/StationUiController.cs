@@ -16,6 +16,9 @@ namespace Starfall.UI
         private StarfallSettingsPanel settingsPanel;
         private IDisposable responsiveUi;
         private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
+        private ulong listsFingerprint = ulong.MaxValue;
+        private static readonly ulong FingerprintOffset = 14695981039346656037UL;
+        private static readonly ulong FingerprintPrime = 1099511628211UL;
 
         private void OnEnable()
         {
@@ -82,11 +85,39 @@ namespace Starfall.UI
             var s = host.Snapshot;
             root.Q<Label>("station-title").text = Tr("{0} ORBITAL", s.SystemName);
             root.Q<Label>("pilot-summary").text = $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP";
-            Fill("agents-list", s.Agents, "agent");
-            Fill("market-list", s.Market, "market");
-            Fill("ships-list", s.Ships, "ship");
-            Fill("fitting-list", s.Inventory, "fit");
+            // SnapshotChanged fires on every damage/log event; the four lists
+            // only change when their contents actually differ, so guard the
+            // rebuild behind a fingerprint like the HUD lists do.
+            var fingerprint = Fingerprint(s);
+            if (fingerprint != listsFingerprint)
+            {
+                listsFingerprint = fingerprint;
+                Fill("agents-list", s.Agents, "agent");
+                Fill("market-list", s.Market, "market");
+                Fill("ships-list", s.Ships, "ship");
+                Fill("fitting-list", s.Inventory, "fit");
+            }
             root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
+        }
+
+        private static ulong Fingerprint(UiSnapshot s)
+        {
+            var hash = FingerprintOffset;
+            void Mix(IReadOnlyList<UiListItem> list)
+            {
+                hash = (hash ^ (ulong)list.Count) * FingerprintPrime;
+                for (var i = 0; i < list.Count; i++)
+                {
+                    hash = (hash ^ (ulong)System.StringComparer.Ordinal.GetHashCode(list[i].Id)) * FingerprintPrime;
+                    hash = (hash ^ (ulong)System.StringComparer.Ordinal.GetHashCode(list[i].Title)) * FingerprintPrime;
+                    hash = (hash ^ (ulong)System.StringComparer.Ordinal.GetHashCode(list[i].Detail)) * FingerprintPrime;
+                }
+            }
+            Mix(s.Agents);
+            Mix(s.Market);
+            Mix(s.Ships);
+            Mix(s.Inventory);
+            return hash;
         }
 
         private void Fill(string elementName, IReadOnlyList<UiListItem> items, string command)

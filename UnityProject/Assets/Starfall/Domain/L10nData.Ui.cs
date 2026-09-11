@@ -23,6 +23,8 @@ namespace Starfall.Domain
             ("CONTINUE", "继续游戏"),
             ("IMPORT LEGACY V1", "导入旧版 V1 存档"),
             ("SETTINGS", "设置"),
+            ("Loading…", "加载中…"),
+            ("SFX VOLUME", "音效音量"),
             ("UNITY 6 · 3D REMASTER · v1.0", "UNITY 6 · 3D 重制版 · v1.0"),
 
             // --- SpaceHud.uxml ---

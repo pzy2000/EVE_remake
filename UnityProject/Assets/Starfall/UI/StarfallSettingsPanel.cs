@@ -7,6 +7,7 @@ namespace Starfall.UI
 {
     public sealed class StarfallSettingsPanel : IDisposable
     {
+        private readonly VisualElement documentRoot;
         private readonly VisualElement overlay;
         private readonly Button openButton;
         private readonly Button closeButton;
@@ -16,12 +17,15 @@ namespace Starfall.UI
         private readonly Label uiScaleValue;
         private readonly Slider volumeSlider;
         private readonly Label volumeValue;
+        private readonly Slider sfxVolumeSlider;
+        private readonly Label sfxVolumeValue;
         private readonly Toggle muteToggle;
         private IStarfallUiHost host;
         private bool refreshing;
 
         public StarfallSettingsPanel(VisualElement documentRoot)
         {
+            this.documentRoot = documentRoot;
             overlay = new VisualElement { name = "settings-overlay", pickingMode = PickingMode.Position };
             overlay.AddToClassList("screen");
             overlay.AddToClassList("settings-overlay");
@@ -70,6 +74,16 @@ namespace Starfall.UI
             volumeRow.Add(volumeValue);
             card.Add(volumeRow);
 
+            var sfxRow = new VisualElement();
+            sfxRow.AddToClassList("settings-volume-row");
+            sfxVolumeSlider = new Slider("SFX VOLUME", 0f, 1f) { name = "sfx-volume" };
+            sfxVolumeSlider.AddToClassList("settings-slider");
+            sfxVolumeValue = new Label("70%") { name = "sfx-volume-value" };
+            sfxVolumeValue.AddToClassList("settings-value");
+            sfxRow.Add(sfxVolumeSlider);
+            sfxRow.Add(sfxVolumeValue);
+            card.Add(sfxRow);
+
             muteToggle = new Toggle("MUTE MUSIC") { name = "music-muted" };
             muteToggle.AddToClassList("settings-control");
             card.Add(muteToggle);
@@ -85,6 +99,14 @@ namespace Starfall.UI
             uiScaleSlider.RegisterValueChangedCallback(OnUiScaleChanged);
             StarfallUiBridge.HostChanged += BindHost;
             L10n.LanguageChanged += OnLanguageChanged;
+            volumeSlider.RegisterCallback<PointerUpEvent>(OnSliderReleased);
+            uiScaleSlider.RegisterCallback<PointerUpEvent>(OnSliderReleased);
+            sfxVolumeSlider.RegisterCallback<PointerUpEvent>(OnSliderReleased);
+            documentRoot.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
+            // Android delivers the back gesture as an Escape key press through
+            // the Input System; poll it because UI Toolkit key events require
+            // element focus which the overlay never gets on touch devices.
+            documentRoot.schedule.Execute(PollAndroidBack).Every(120);
             BindHost();
             UpdateLanguageButton();
             Close();
@@ -101,6 +123,9 @@ namespace Starfall.UI
             volumeSlider.UnregisterValueChangedCallback(OnVolumeChanged);
             muteToggle.UnregisterValueChangedCallback(OnMutedChanged);
             uiScaleSlider.UnregisterValueChangedCallback(OnUiScaleChanged);
+            volumeSlider.UnregisterCallback<PointerUpEvent>(OnSliderReleased);
+            uiScaleSlider.UnregisterCallback<PointerUpEvent>(OnSliderReleased);
+            documentRoot.UnregisterCallback<KeyDownEvent>(OnKeyDown);
             overlay.RemoveFromHierarchy();
             host = null;
         }
@@ -131,6 +156,8 @@ namespace Starfall.UI
             volumeSlider.SetValueWithoutNotify(host.MusicVolume);
             volumeValue.text = FormattableString.Invariant($"{host.MusicVolume * 100f:0}%");
             muteToggle.SetValueWithoutNotify(host.MusicMuted);
+            sfxVolumeSlider.SetValueWithoutNotify(host.SfxVolume);
+            sfxVolumeValue.text = FormattableString.Invariant($"{host.SfxVolume * 100f:0}%");
             uiScaleSlider.SetValueWithoutNotify(host.UiScale);
             uiScaleValue.text = FormattableString.Invariant($"{host.UiScale * 100f:0}%");
             qualityButton.text = Tr("QUALITY · {0}", Tr(host.QualityPreset));
@@ -170,6 +197,31 @@ namespace Starfall.UI
             if (refreshing) return;
             uiScaleValue.text = FormattableString.Invariant($"{evt.newValue * 100f:0}%");
             host?.SetUiScale(evt.newValue);
+        }
+
+        private void OnSfxVolumeChanged(ChangeEvent<float> evt)
+        {
+            if (refreshing) return;
+            sfxVolumeValue.text = FormattableString.Invariant($"{evt.newValue * 100f:0}%");
+            host?.SetSfxVolume(evt.newValue);
+        }
+
+        // Sliders only stage their value while dragging; flash storage takes a
+        // single PlayerPrefs flush when the finger lifts.
+        private void OnSliderReleased(PointerUpEvent evt)
+        {
+            UnityEngine.PlayerPrefs.Save();
+        }
+
+        private void OnKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode == UnityEngine.KeyCode.Escape && IsOpen) Close();
+        }
+
+        private void PollAndroidBack()
+        {
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && IsOpen) Close();
         }
     }
 }

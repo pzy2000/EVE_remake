@@ -13,8 +13,8 @@ namespace Starfall.UI
     public static class StarfallResponsiveUi
     {
         public const string CompactClass = "hud-compact";
-        public const float DefaultOverviewRowHeight = 30f;
-        public const float CompactOverviewRowHeight = 26f;
+        public const float DefaultOverviewRowHeight = 40f;
+        public const float CompactOverviewRowHeight = 34f;
         public const float MinUiScale = 0.75f;
         public const float MaxUiScale = 1.25f;
 

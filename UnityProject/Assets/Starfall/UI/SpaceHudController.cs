@@ -10,7 +10,7 @@ namespace Starfall.UI
     [RequireComponent(typeof(UIDocument))]
     public sealed class SpaceHudController : MonoBehaviour
     {
-        private const float OverviewRowHeight = 30f;
+        private const float OverviewRowHeight = 40f;
         private const double DockInteractionDistance = 40d;
         private const double JumpInteractionDistance = 35d;
         private const string OverviewPreferencePrefix = "starfall.overview.v1";
@@ -43,6 +43,8 @@ namespace Starfall.UI
         private Button dockButton;
         private StarfallSettingsPanel settingsPanel;
         private WorldBackdropInput worldBackdropInput;
+        private VisualElement hudElement;
+        private Vector4 appliedSafeArea = new Vector4(-1f, -1f, -1f, -1f);
         private IDisposable responsiveUi;
         private OverviewPresetId activePreset;
         private string selectedContactId = string.Empty;
@@ -79,6 +81,8 @@ namespace Starfall.UI
             if (root.Q<VisualElement>(className: "hud") is { } hud)
             {
                 hud.pickingMode = PickingMode.Position;
+                hudElement = hud;
+                hud.RegisterCallback<GeometryChangedEvent>(OnHudGeometryChanged);
                 worldBackdropInput = new WorldBackdropInput(hud);
             }
             if (root.Q<VisualElement>("map-overlay") is { } mapOverlay) mapOverlay.pickingMode = PickingMode.Position;
@@ -105,6 +109,7 @@ namespace Starfall.UI
         {
             L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
+            if (hudElement != null) hudElement.UnregisterCallback<GeometryChangedEvent>(OnHudGeometryChanged);
             if (host != null)
             {
                 host.SnapshotChanged -= Refresh;
@@ -115,6 +120,26 @@ namespace Starfall.UI
             responsiveUi?.Dispose();
             responsiveUi = null;
             PlayerPrefs.Save();
+        }
+
+        // Keep the HUD out of camera cutouts and status bars. Re-evaluated on
+        // every layout pass; margins are idempotent so this converges.
+        private void OnHudGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (hudElement == null || hudElement.panel == null) return;
+            var area = Screen.safeArea;
+            var pixelsPerPoint = hudElement.panel.scaledPixelsPerPoint;
+            if (pixelsPerPoint <= 0f) pixelsPerPoint = 1f;
+            var left = area.x / pixelsPerPoint;
+            var top = area.y / pixelsPerPoint;
+            var right = (Screen.width - area.xMax) / pixelsPerPoint;
+            var bottom = (Screen.height - area.yMax) / pixelsPerPoint;
+            if (appliedSafeArea == new Vector4(left, top, right, bottom)) return;
+            appliedSafeArea = new Vector4(left, top, right, bottom);
+            hudElement.style.marginLeft = left;
+            hudElement.style.marginTop = top;
+            hudElement.style.marginRight = right;
+            hudElement.style.marginBottom = bottom;
         }
 
         private void BindHost()
@@ -704,6 +729,29 @@ namespace Starfall.UI
                 Add(velocity);
 
                 RegisterCallback<PointerDownEvent>(OnPointerDown);
+                RegisterCallback<PointerUpEvent>(OnPointerUp);
+            }
+
+            // Rows select on pointer-up after a slop check: selecting on
+            // pointer-down turned every scroll swipe into an accidental target
+            // lock, which is punishing with a touch screen.
+            private static readonly Vector2 TapSlop = new Vector2(18f, 18f);
+            private Vector3 pointerDownPosition;
+            private bool pointerPressValid;
+
+            private void OnPointerDown(PointerDownEvent evt)
+            {
+                pointerPressValid = evt.button == 0 && contact != null && !stale;
+                pointerDownPosition = evt.position;
+            }
+
+            private void OnPointerUp(PointerUpEvent evt)
+            {
+                if (!pointerPressValid || evt.button != 0 || contact == null || stale) return;
+                pointerPressValid = false;
+                var delta = evt.position - pointerDownPosition;
+                if (Mathf.Abs(delta.x) > TapSlop.x || Mathf.Abs(delta.y) > TapSlop.y) return;
+                selectRequested?.Invoke(contact.Id);
             }
 
             public void Bind(UiOverviewContact value, bool selected, bool stale)
@@ -759,11 +807,6 @@ namespace Starfall.UI
                 EnableInClassList("locked", false);
                 EnableInClassList("selected", false);
                 EnableInClassList("stale", false);
-            }
-
-            private void OnPointerDown(PointerDownEvent evt)
-            {
-                if (evt.button == 0 && contact != null && !stale) selectRequested?.Invoke(contact.Id);
             }
 
             private static Label CreateLabel(string className)

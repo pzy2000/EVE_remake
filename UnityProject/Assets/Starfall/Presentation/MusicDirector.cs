@@ -105,11 +105,18 @@ namespace Starfall.Presentation
 
         public void SetMusicVolume(float value)
         {
+            SetMusicVolume(value, persist: true);
+        }
+
+        // Dragging a slider used to fsync PlayerPrefs on every tick; the
+        // settings panel now applies live and persists once on pointer release.
+        public void SetMusicVolume(float value, bool persist)
+        {
             var next = Mathf.Clamp01(value);
-            if (Mathf.Approximately(next, musicVolume)) return;
+            if (Mathf.Approximately(next, musicVolume) && !persist) return;
             musicVolume = next;
             PlayerPrefs.SetFloat(VolumePreferenceKey, musicVolume);
-            PlayerPrefs.Save();
+            if (persist) PlayerPrefs.Save();
             ApplyVolumes();
             SettingsChanged?.Invoke();
         }

@@ -260,13 +260,22 @@ namespace Starfall.Presentation
             return light;
         }
 
+        private VolumeProfile hangarProfile;
+
+        private void OnDestroy()
+        {
+            if (hangarProfile) Destroy(hangarProfile);
+        }
+
         private void CreatePostProcessing()
         {
             var volumeObject = new GameObject("Hangar Volume");
             volumeObject.transform.SetParent(transform, false);
             var volume = volumeObject.AddComponent<Volume>();
             volume.isGlobal = true;
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            // Tracked so OnDestroy can destroy it: runtime profiles survive
+            // scene unloads and would otherwise leak on every dock.
+            var profile = hangarProfile = ScriptableObject.CreateInstance<VolumeProfile>();
             var bloom = profile.Add<Bloom>();
             bloom.active = true;
             bloom.intensity.Override(0.32f);

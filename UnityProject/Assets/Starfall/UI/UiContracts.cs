@@ -62,6 +62,7 @@ namespace Starfall.UI
     {
         UiSnapshot Snapshot { get; }
         float MusicVolume { get; }
+        float SfxVolume { get; }
         bool MusicMuted { get; }
         string QualityPreset { get; }
         float UiScale { get; }
@@ -73,6 +74,7 @@ namespace Starfall.UI
         void ImportLegacy();
         void Execute(string command, string argument = null);
         void SetMusicVolume(float value);
+        void SetSfxVolume(float value);
         void SetMusicMuted(bool value);
         void SetLanguage(L10nLanguage language);
         void SetUiScale(float value);

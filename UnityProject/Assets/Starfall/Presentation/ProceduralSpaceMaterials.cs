@@ -53,8 +53,31 @@ namespace Starfall.Presentation
     public static class ProceduralSpaceMaterials
     {
         private const int MaxCachedSkies = 8;
+        private const int MaxCachedTextures = 32;
         private static readonly Dictionary<string, Material> Materials = new(StringComparer.Ordinal);
         private static readonly Dictionary<string, Texture2D> Textures = new(StringComparer.Ordinal);
+        private static readonly Queue<string> TextureInsertionOrder = new();
+
+        /// <summary>
+        /// Caps non-sky textures (planet/rock). Skies manage their own smaller
+        /// trim via <see cref="SkyCacheKeys"/> and are skipped here.
+        /// </summary>
+        private static void TrackTexture(string key, Texture2D texture)
+        {
+            if (Textures.ContainsKey(key)) return;
+            Textures[key] = texture;
+            TextureInsertionOrder.Enqueue(key);
+            while (TextureInsertionOrder.Count > MaxCachedTextures && TextureInsertionOrder.Count > SkyCacheKeys.Count)
+            {
+                var oldest = TextureInsertionOrder.Dequeue();
+                if (SkyCacheKeys.Contains(oldest))
+                {
+                    TextureInsertionOrder.Enqueue(oldest);
+                    continue;
+                }
+                if (Textures.Remove(oldest, out var stale) && stale != null) UnityEngine.Object.Destroy(stale);
+            }
+        }
         private static readonly Queue<string> SkyCacheKeys = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -213,6 +236,7 @@ namespace Starfall.Presentation
             var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             var material = new Material(shader) { name = $"M_{key}" };
             var texture = CreatePlanetTexture(key, StableSeed(id), baseColor, moon);
+            TrackTexture(key, texture);
             SetBaseTexture(material, texture);
             SetBaseColor(material, Color.white);
             SetFloatIfPresent(material, "_Smoothness", moon ? 0.16f : 0.42f);
@@ -283,8 +307,11 @@ namespace Starfall.Presentation
         private static Texture2D CreateSkyTexture(string key, SystemSkyStyle style)
         {
             if (Textures.TryGetValue(key, out var cached) && cached) return cached;
-            const int width = 1536;
-            const int height = 768;
+            // Quarter resolution of the original 1536x768: the dome hides the
+            // difference while the main-thread pixel loop and the Color[] dump
+            // (about 7 MB managed) dropped to a quarter of that cost.
+            const int width = 768;
+            const int height = 384;
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false, false)
             {
                 name = $"T_{key}",
@@ -408,7 +435,7 @@ namespace Starfall.Presentation
 
             texture.SetPixels(pixels);
             texture.Apply(true, true);
-            Textures[key] = texture;
+            TrackTexture(key, texture);
             return texture;
         }
 

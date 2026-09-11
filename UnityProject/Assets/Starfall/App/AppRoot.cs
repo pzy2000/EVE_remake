@@ -48,6 +48,7 @@ namespace Starfall.App
         private ILegacyV1Importer legacyImporter;
         private GameSession session;
         private MusicDirector musicDirector;
+        private StarfallSfx sfx;
         private SpaceWorldPresenter spacePresenter;
         private StationHangarPresenter stationPresenter;
         private string loadedGameplayScene = string.Empty;
@@ -66,6 +67,7 @@ namespace Starfall.App
 
         public UiSnapshot Snapshot => snapshot;
         public float MusicVolume => musicDirector ? musicDirector.MusicVolume : MusicDirector.DefaultMusicVolume;
+        public float SfxVolume => StarfallSfx.Current ? StarfallSfx.Current.Volume : StarfallSfx.DefaultVolume;
         public bool MusicMuted => musicDirector && musicDirector.Muted;
         public string QualityPreset
         {
@@ -116,6 +118,8 @@ namespace Starfall.App
             musicDirector = GetComponent<MusicDirector>();
             if (!musicDirector) musicDirector = gameObject.AddComponent<MusicDirector>();
             musicDirector.SettingsChanged += OnMusicSettingsChanged;
+            sfx = GetComponent<StarfallSfx>();
+            if (!sfx) sfx = gameObject.AddComponent<StarfallSfx>();
             StarfallUiBridge.Bind(this);
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
@@ -360,7 +364,12 @@ namespace Starfall.App
 
         public void SetMusicVolume(float value)
         {
-            if (musicDirector) musicDirector.SetMusicVolume(value);
+            if (musicDirector) musicDirector.SetMusicVolume(value, persist: false);
+        }
+
+        public void SetSfxVolume(float value)
+        {
+            if (StarfallSfx.Current) StarfallSfx.Current.SetVolume(value);
         }
 
         public void SetMusicMuted(bool value)
@@ -371,14 +380,13 @@ namespace Starfall.App
         public void SetUiScale(float value)
         {
             uiScale = Mathf.Clamp(value, StarfallResponsiveUi.MinUiScale, StarfallResponsiveUi.MaxUiScale);
+            // The preference is flushed on slider release (PlayerPrefs.Save is
+            // expensive on flash storage); here we only stage the value.
             PlayerPrefs.SetFloat(UiScalePreferenceKey, uiScale);
-            PlayerPrefs.Save();
             ApplyUiScale();
             SettingsChanged?.Invoke();
         }
 
-        // Every scene's UIDocument shares the StarfallPanelSettings asset, so one
-        // write covers the whole UI across scene switches.
         private void ApplyUiScale()
         {
             if (FindFirstObjectByType<UIDocument>() is { } document && document.panelSettings)
@@ -455,6 +463,13 @@ namespace Starfall.App
             if (keyboard.jKey.wasPressedThisFrame) Execute("journal");
             if (keyboard.cKey.wasPressedThisFrame) Execute("pilot");
             if (keyboard.hKey.wasPressedThisFrame) AddLog(Tr("Help: click to select · double-click approach · W warp · L lock · D dock/jump · V/X focus · 1–9 modules."));
+            // Android's back gesture arrives as Escape: close the topmost HUD
+            // overlay instead of letting the system back the app out.
+            if (keyboard.escapeKey.wasPressedThisFrame)
+            {
+                if (mapVisible) Execute("map");
+                else if (journalVisible) Execute("journal");
+            }
             for (var i = 0; i < 9; i++)
             {
                 var key = i == 0 ? keyboard.digit1Key : i == 1 ? keyboard.digit2Key : i == 2 ? keyboard.digit3Key :
@@ -500,14 +515,23 @@ namespace Starfall.App
                 if (evt.Type == SimulationEventType.SaveRequested)
                     Save(evt.Detail == "auto" ? SaveSlot.Auto : SaveSlot.Slot1);
                 if (evt.Type == SimulationEventType.Inventory) stationVisualDirty = true;
+                if (sfx && evt.Type == SimulationEventType.Weapon)
+                    sfx.PlayMining();
+                if (sfx && evt.Type == SimulationEventType.Dock)
+                    sfx.PlayDock();
+                if (sfx && evt.Type == SimulationEventType.Jump)
+                    sfx.PlayJump();
                 if (spacePresenter && evt.Type == SimulationEventType.Weapon)
                 {
                     var color = evt.Detail != null && evt.Detail.StartsWith("mining", StringComparison.Ordinal)
                         ? new Color(0.35f, 1f, 0.42f) : new Color(1f, 0.68f, 0.18f);
                     spacePresenter.FireBeam(evt.SourceId, evt.TargetId, color);
+                    if (sfx && !(evt.Detail != null && evt.Detail.StartsWith("mining", StringComparison.Ordinal)))
+                        sfx.PlayLaser();
                 }
                 if (spacePresenter && evt.Type == SimulationEventType.Death)
                 {
+                    if (sfx) sfx.PlayExplosion();
                     var hasPosition = evt.Position.HasValue;
                     var position = evt.Position.GetValueOrDefault();
                     if (!hasPosition) hasPosition = TryWorldPosition(evt.TargetId, out position);
@@ -524,6 +548,7 @@ namespace Starfall.App
             ApplyUiScale();
             if (musicDirector) musicDirector.PlayForScene(scene.name);
             loadedGameplayScene = scene.name == "Space" || scene.name == "Station" ? scene.name : string.Empty;
+            HideSceneCover();
             spacePresenter = FindFirstObjectByType<SpaceWorldPresenter>();
             stationPresenter = FindFirstObjectByType<StationHangarPresenter>();
             presentedStationShipInstanceId = string.Empty;
@@ -567,7 +592,60 @@ namespace Starfall.App
         {
             if (sceneTransitionQueued || SceneManager.GetActiveScene().name == sceneName) return;
             sceneTransitionQueued = true;
+            StartCoroutine(SceneTransitionRoutine(sceneName));
+        }
+
+        // Scene swaps used to be raw synchronous loads: on Android each
+        // dock/undock/jump froze the frame with no feedback. The cover is
+        // attached to the OUTGOING scene's own UI document, so it renders one
+        // frame before the load stalls the thread and dies with that scene —
+        // no persistent UIDocument that could shadow the real scene UI.
+        private System.Collections.IEnumerator SceneTransitionRoutine(string sceneName)
+        {
+            ShowSceneCover();
+            if (fadeCover != null) yield return null;
             SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+        }
+
+        private VisualElement fadeCover;
+
+        private void ShowSceneCover()
+        {
+            if (fadeCover != null) return;
+            foreach (var document in FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+            {
+                var element = document.rootVisualElement;
+                if (element == null) continue;
+                var scene = document.gameObject.scene;
+                if (!scene.IsValid() || !scene.isLoaded) continue; // skip DontDestroyOnLoad objects
+                fadeCover = BuildSceneCover();
+                element.Add(fadeCover);
+                return;
+            }
+        }
+
+        private void HideSceneCover()
+        {
+            if (fadeCover == null) return;
+            fadeCover.RemoveFromHierarchy();
+            fadeCover = null;
+        }
+
+        private static VisualElement BuildSceneCover()
+        {
+            var cover = new VisualElement();
+            cover.style.position = Position.Absolute;
+            cover.style.left = 0f; cover.style.right = 0f; cover.style.top = 0f; cover.style.bottom = 0f;
+            cover.style.backgroundColor = new Color(0.001f, 0.004f, 0.012f, 1f);
+            cover.style.alignItems = Align.Center;
+            cover.style.justifyContent = Justify.Center;
+            var label = new Label(Tr("Loading…"));
+            label.style.fontSize = 34;
+            label.style.color = new Color(0.31f, 0.88f, 1f);
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            label.style.letterSpacing = 8f;
+            cover.Add(label);
+            return cover;
         }
 
         private void PresentStation()
@@ -588,24 +666,40 @@ namespace Starfall.App
             spacePresenter.Present(BuildSpaceSnapshot());
         }
 
+        // The space snapshot used to be rebuilt (allocated) at sim rate, ~20
+        // times per second while flying. These slots are reused instead; the
+        // presenter only reads them, so in-place mutation is safe.
+        private readonly SpaceSnapshot spaceSnapshot = new SpaceSnapshot();
+        private readonly List<WorldObjectViewData> spaceObjectPool = new List<WorldObjectViewData>();
+        private int spaceObjectCount;
+
+        private WorldObjectViewData NextSpaceObject()
+        {
+            if (spaceObjectCount < spaceObjectPool.Count) return spaceObjectPool[spaceObjectCount];
+            var created = new WorldObjectViewData();
+            spaceObjectPool.Add(created);
+            spaceObjectCount++;
+            return created;
+        }
+
         private SpaceSnapshot BuildSpaceSnapshot()
         {
             var state = session.State;
             var system = state.Universe.Systems[state.Player.CurrentSystemId];
-            var result = new SpaceSnapshot
-            {
-                SystemId = system.Id,
-                SystemName = system.Name,
-                FactionId = system.FactionId,
-                Security = (float)system.Security,
-                FactionColor = FactionColor(system.FactionId),
-                SelectedId = state.SelectedId,
-            };
-            result.Objects.Add(new WorldObjectViewData
-            {
-                Id = system.Id + "_star", Name = system.Name + " Star", Kind = WorldViewKind.Star,
-                Position = Vector3.zero, Radius = Mathf.Max(18f, (float)system.Star.Radius * 0.3f), Color = ParseColor(system.Star.Color),
-            });
+            var result = spaceSnapshot;
+            result.SystemId = system.Id;
+            result.SystemName = system.Name;
+            result.FactionId = system.FactionId;
+            result.Security = (float)system.Security;
+            result.FactionColor = FactionColor(system.FactionId);
+            result.SelectedId = state.SelectedId;
+            result.Objects.Clear();
+            spaceObjectCount = 0;
+
+            var star = NextSpaceObject();
+            star.Id = system.Id + "_star"; star.Name = system.Name + " Star"; star.Kind = WorldViewKind.Star;
+            star.Position = Vector3.zero; star.Radius = Mathf.Max(18f, (float)system.Star.Radius * 0.3f); star.Color = ParseColor(system.Star.Color);
+            result.Objects.Add(star);
             foreach (var planet in system.Planets)
             {
                 result.Objects.Add(WorldObject(planet.Id, planet.Name, WorldViewKind.Planet, planet.Position,
@@ -626,24 +720,23 @@ namespace Starfall.App
             foreach (var entity in state.Entities)
             {
                 var definition = catalog.Ships[entity.ShipId];
-                result.Objects.Add(new WorldObjectViewData
-                {
-                    Id = entity.Id,
-                    Name = entity.Name,
-                    Kind = WorldViewKind.Ship,
-                    Position = new Vector3((float)entity.Position.X, 0f, (float)entity.Position.Z),
-                    Radius = definition.Class == ShipClass.Battleship ? 10f : definition.Class == ShipClass.Cruiser ? 7f : definition.Class == ShipClass.Destroyer ? 5f : 3f,
-                    Color = FactionColor(entity.FactionId),
-                    ShipId = entity.ShipId,
-                    ShipClass = definition.Class.ToString().ToLowerInvariant(),
-                    FactionId = entity.FactionId,
-                    IsPlayer = entity.Kind == EntityKind.Player,
-                    IsHostile = IsHostile(entity),
-                    HeadingDegrees = (float)(-entity.HeadingRadians * Mathf.Rad2Deg + 90f),
-                    Shield01 = (float)(entity.Shield / Math.Max(1d, entity.MaxShield)),
-                    Armor01 = (float)(entity.Armor / Math.Max(1d, entity.MaxArmor)),
-                    Hull01 = (float)(entity.Hull / Math.Max(1d, entity.MaxHull)),
-                });
+                var ship = NextSpaceObject();
+                ship.Id = entity.Id;
+                ship.Name = entity.Name;
+                ship.Kind = WorldViewKind.Ship;
+                ship.Position = new Vector3((float)entity.Position.X, 0f, (float)entity.Position.Z);
+                ship.Radius = definition.Class == ShipClass.Battleship ? 10f : definition.Class == ShipClass.Cruiser ? 7f : definition.Class == ShipClass.Destroyer ? 5f : 3f;
+                ship.Color = FactionColor(entity.FactionId);
+                ship.ShipId = entity.ShipId;
+                ship.ShipClass = definition.Class.ToString().ToLowerInvariant();
+                ship.FactionId = entity.FactionId;
+                ship.IsPlayer = entity.Kind == EntityKind.Player;
+                ship.IsHostile = IsHostile(entity);
+                ship.HeadingDegrees = (float)(-entity.HeadingRadians * Mathf.Rad2Deg + 90f);
+                ship.Shield01 = (float)(entity.Shield / Math.Max(1d, entity.MaxShield));
+                ship.Armor01 = (float)(entity.Armor / Math.Max(1d, entity.MaxArmor));
+                ship.Hull01 = (float)(entity.Hull / Math.Max(1d, entity.MaxHull));
+                result.Objects.Add(ship);
             }
             return result;
         }
@@ -1210,7 +1303,32 @@ namespace Starfall.App
 
         private static WorldObjectViewData WorldObject(string id, string name, WorldViewKind kind, SimVec2 position, float radius, Color color)
         {
-            return new WorldObjectViewData { Id = id, Name = name, Kind = kind, Position = new Vector3((float)position.X, 0f, (float)position.Z), Radius = radius, Color = color };
+            // Slot reuse means every field must be (re)written: the slot may
+            // have held a ship on the previous frame.
+            var view = NextSpaceObjectInstance();
+            view.Id = id;
+            view.Name = name;
+            view.Kind = kind;
+            view.Position = new Vector3((float)position.X, 0f, (float)position.Z);
+            view.Radius = radius;
+            view.Color = color;
+            view.ShipId = string.Empty;
+            view.ShipClass = "frigate";
+            view.FactionId = string.Empty;
+            view.IsPlayer = false;
+            view.IsHostile = false;
+            view.HeadingDegrees = 0f;
+            view.Shield01 = 1f;
+            view.Armor01 = 1f;
+            view.Hull01 = 1f;
+            return view;
+        }
+
+        private static WorldObjectViewData NextSpaceObjectInstance()
+        {
+            // Static relay into the instance pool; BuildSpaceSnapshot resets
+            // the counter right before it starts consuming slots.
+            return instance.NextSpaceObject();
         }
 
         private static UiListItem Item(string id, string title, string detail)
