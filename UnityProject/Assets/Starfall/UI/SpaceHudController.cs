@@ -42,6 +42,7 @@ namespace Starfall.UI
         private Button lockButton;
         private Button dockButton;
         private StarfallSettingsPanel settingsPanel;
+        private WorldBackdropInput worldBackdropInput;
         private IDisposable responsiveUi;
         private OverviewPresetId activePreset;
         private string selectedContactId = string.Empty;
@@ -72,7 +73,14 @@ namespace Starfall.UI
             journalList = root.Q<ScrollView>("journal-list");
             ResetAuxiliaryListCaches();
 
-            if (root.Q<VisualElement>(className: "hud") is { } hud) hud.pickingMode = PickingMode.Ignore;
+            // The HUD root doubles as the world-gesture backdrop: it must stay
+            // pickable so taps in empty space reach WorldBackdropInput, while the
+            // panels above it keep consuming their own events.
+            if (root.Q<VisualElement>(className: "hud") is { } hud)
+            {
+                hud.pickingMode = PickingMode.Position;
+                worldBackdropInput = new WorldBackdropInput(hud);
+            }
             if (root.Q<VisualElement>("map-overlay") is { } mapOverlay) mapOverlay.pickingMode = PickingMode.Position;
             if (root.Q<VisualElement>("journal-overlay") is { } journalOverlay) journalOverlay.pickingMode = PickingMode.Position;
             if (root.Q<VisualElement>("death-overlay") is { } deathOverlay) deathOverlay.pickingMode = PickingMode.Position;

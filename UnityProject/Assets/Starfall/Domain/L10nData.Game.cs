@@ -89,6 +89,7 @@ namespace Starfall.Domain
             ("Legacy import failed: {0}", "旧版存档导入失败：{0}"),
             ("Quality preset: {0}.", "画质预设：{0}。"),
             ("Game saved to {0}.", "游戏已保存至{0}。"),
+            ("Save failed: {0}.", "存档失败：{0}。"),
             ("Save loaded.", "存档已加载。"),
             ("auto", "自动存档"),
             ("slot1", "存档位1"),

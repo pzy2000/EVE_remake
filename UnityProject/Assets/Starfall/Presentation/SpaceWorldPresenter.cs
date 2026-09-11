@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -22,8 +21,10 @@ namespace Starfall.Presentation
         private Light keyLight;
         private string presentedSkySystemId = string.Empty;
         private string selectedId = string.Empty;
-        private float lastClickTime = -10f;
-        private Vector2 lastClickPosition;
+
+        // World gestures arrive through the HUD backdrop (see WorldBackdropInput);
+        // this scene-scoped handle lets the HUD find the presenter without wiring.
+        public static SpaceWorldPresenter Current { get; private set; }
 
         public event Action<string> SelectionChanged;
         public event Action<Vector3, string> ApproachRequested;
@@ -35,13 +36,25 @@ namespace Starfall.Presentation
             EnsureEnvironment();
         }
 
+        private void OnEnable()
+        {
+            Current = this;
+        }
+
+        private void OnDisable()
+        {
+            if (Current == this) Current = null;
+        }
+
         private void Update()
         {
-            UpdatePicking();
             AnimateWorld();
             for (var i = transientVfx.Count - 1; i >= 0; i--)
                 if (!transientVfx[i]) transientVfx.RemoveAt(i);
         }
+
+        /// <summary>Camera controller passthrough so the HUD can drive the view.</summary>
+        public EveCameraController CameraController => cameraController;
 
         public void Present(SpaceSnapshot next)
         {
@@ -264,44 +277,66 @@ namespace Starfall.Presentation
             return view;
         }
 
-        private void UpdatePicking()
+        #region World gestures (touch + mouse via WorldBackdropInput)
+
+        private bool CanPick => cameraController && cameraController.Camera;
+
+        public void OrbitCamera(float deltaX, float deltaY)
         {
-            var mouse = Mouse.current;
-            if (mouse == null || !cameraController || !cameraController.Camera) return;
-            if (mouse.leftButton.wasPressedThisFrame)
+            if (cameraController) cameraController.AddOrbitInput(deltaX, deltaY);
+        }
+
+        public void BeginPinchZoom(float startDistancePixels)
+        {
+            if (cameraController) cameraController.BeginPinchZoom(startDistancePixels);
+        }
+
+        public void UpdatePinchZoom(float currentDistancePixels)
+        {
+            if (cameraController) cameraController.UpdatePinchZoom(currentDistancePixels);
+        }
+
+        public void ZoomWheel(float wheelDelta)
+        {
+            if (cameraController) cameraController.AddZoomInput(wheelDelta);
+        }
+
+        public void Tap(Vector2 screenPosition)
+        {
+            if (!CanPick) return;
+            if (RaycastSelectable(screenPosition, out var selectable))
+                Select(selectable.StableId);
+        }
+
+        public void DoubleTap(Vector2 screenPosition)
+        {
+            if (!CanPick) return;
+            var ray = cameraController.Camera.ScreenPointToRay(screenPosition);
+            var plane = new Plane(Vector3.up, Vector3.zero);
+            if (plane.Raycast(ray, out var enter))
+                ApproachRequested?.Invoke(ray.GetPoint(enter), selectedId);
+        }
+
+        public void LongPress(Vector2 screenPosition)
+        {
+            if (!CanPick) return;
+            if (RaycastSelectable(screenPosition, out var selectable))
             {
-                var position = mouse.position.ReadValue();
-                var ray = cameraController.Camera.ScreenPointToRay(position);
-                if (Physics.Raycast(ray, out var hit, 15000f))
-                {
-                    var selectable = hit.collider.GetComponentInParent<SelectableView>();
-                    if (selectable) Select(selectable.StableId);
-                }
-                var isDouble = Time.unscaledTime - lastClickTime < 0.32f && Vector2.Distance(position, lastClickPosition) < 12f;
-                if (isDouble)
-                {
-                    var plane = new Plane(Vector3.up, Vector3.zero);
-                    if (plane.Raycast(ray, out var enter))
-                        ApproachRequested?.Invoke(ray.GetPoint(enter), selectedId);
-                }
-                lastClickTime = Time.unscaledTime;
-                lastClickPosition = position;
-            }
-            if (mouse.rightButton.wasReleasedThisFrame && mouse.delta.ReadValue().sqrMagnitude < 12f)
-            {
-                var position = mouse.position.ReadValue();
-                var ray = cameraController.Camera.ScreenPointToRay(position);
-                if (Physics.Raycast(ray, out var hit, 15000f))
-                {
-                    var selectable = hit.collider.GetComponentInParent<SelectableView>();
-                    if (selectable)
-                    {
-                        Select(selectable.StableId);
-                        ContextRequested?.Invoke(selectable.StableId);
-                    }
-                }
+                Select(selectable.StableId);
+                ContextRequested?.Invoke(selectable.StableId);
             }
         }
+
+        private bool RaycastSelectable(Vector2 screenPosition, out SelectableView selectable)
+        {
+            selectable = null;
+            var ray = cameraController.Camera.ScreenPointToRay(screenPosition);
+            if (!Physics.Raycast(ray, out var hit, 15000f)) return false;
+            selectable = hit.collider.GetComponentInParent<SelectableView>();
+            return selectable != null;
+        }
+
+        #endregion
 
         private void AnimateWorld()
         {

@@ -23,6 +23,7 @@ namespace Starfall.App
     {
         private const uint DefaultSeed = 12345u;
         private const float UiTelemetryRefreshInterval = 0.1f;
+        private const float AutosaveIntervalSeconds = 60f;
         private const string SellItemActionPrefix = "sell-item|";
         private const string SellModuleActionPrefix = "sell-module|";
         private const string FitModuleActionPrefix = "fit-module|";
@@ -59,6 +60,7 @@ namespace Starfall.App
         private bool telemetryDirty = true;
         private bool stationVisualDirty = true;
         private float uiTelemetryElapsed;
+        private float autosaveElapsed;
         private float uiScale = 1f;
         private string presentedStationShipInstanceId = string.Empty;
 
@@ -133,6 +135,28 @@ namespace Starfall.App
             instance = null;
         }
 
+        // Android can kill a paused process at any moment, so the pause/quit
+        // hooks are the last line of defense for progress made since the last
+        // dock/jump autosave. Death is deliberately not saved here yet: the
+        // save envelope does not carry PlayerDead, and persisting the pre-death
+        // state would let a force-kill undo the loss.
+        private void OnApplicationPause(bool pause)
+        {
+            if (pause) AutosaveNow();
+            else autosaveElapsed = 0f;
+        }
+
+        private void OnApplicationQuit()
+        {
+            AutosaveNow();
+        }
+
+        private void AutosaveNow()
+        {
+            if (session == null || session.State.PlayerDead) return;
+            Save(SaveSlot.Auto, announce: false);
+        }
+
         public void SetLanguage(L10nLanguage value)
         {
             if (L10n.Language == value) return;
@@ -165,6 +189,12 @@ namespace Starfall.App
         {
             HandleKeyboard();
             if (session == null) return;
+            autosaveElapsed += Time.unscaledDeltaTime;
+            if (autosaveElapsed >= AutosaveIntervalSeconds)
+            {
+                autosaveElapsed = 0f;
+                AutosaveNow();
+            }
             var simulationTimeBeforeFrame = session.State.SimulationTime;
             var batch = session.AdvanceFrame(Time.unscaledDeltaTime);
             var simulationAdvanced = session.State.SimulationTime > simulationTimeBeforeFrame;
@@ -221,26 +251,38 @@ namespace Starfall.App
 
         public void ContinueGame()
         {
-            SaveEnvelopeV2 envelope = null;
-            foreach (var slot in new[] { SaveSlot.Auto, SaveSlot.Slot1, SaveSlot.Slot2, SaveSlot.Slot3 })
+            // Resume the most recently written slot instead of always preferring
+            // auto: a manual save made after an autosave must win. Equal
+            // timestamps tie-break toward manual slots.
+            var candidates = saves.List()
+                .Where(info => info.Exists && !info.IsCorrupt && info.LastWriteTimeUtc.HasValue)
+                .OrderByDescending(info => info.LastWriteTimeUtc.Value)
+                .ThenBy(info => ManualSlotPriority(info.Slot));
+            foreach (var candidate in candidates)
             {
                 try
                 {
-                    envelope = saves.Load(slot);
-                    break;
+                    LoadEnvelope(saves.Load(candidate.Slot));
+                    return;
                 }
                 catch (Exception exception) when (exception is IOException || exception is InvalidDataException || exception is InvalidOperationException)
                 {
-                    // Try the next explicit slot. FileSaveService already attempts .bak recovery.
+                    // Try the next slot. FileSaveService already attempts .bak recovery.
                 }
             }
-            if (envelope == null)
+            AddLog(Tr("No valid save slot was found."));
+            SnapshotChanged?.Invoke();
+        }
+
+        private static int ManualSlotPriority(SaveSlot slot)
+        {
+            switch (slot)
             {
-                AddLog(Tr("No valid save slot was found."));
-                SnapshotChanged?.Invoke();
-                return;
+                case SaveSlot.Slot1: return 0;
+                case SaveSlot.Slot2: return 1;
+                case SaveSlot.Slot3: return 2;
+                default: return 3;
             }
-            LoadEnvelope(envelope);
         }
 
         public void ImportLegacy()
@@ -355,13 +397,20 @@ namespace Starfall.App
 
         // Restores the quality level by name. Legacy installs stored a numeric
         // index picked when mobile only exposed the Mobile tier; those values do
-        // not resolve to a tier name, so they fall back to the PC tier.
+        // not resolve to a tier name, so fresh installs fall back to the tier
+        // matching the platform — shipping the PC pipeline on phones costs both
+        // battery and frame rate.
         private void ApplySavedQuality()
         {
             var names = QualitySettings.names;
             if (names.Length == 0) return;
             var saved = PlayerPrefs.GetString(QualityPreferenceKey, string.Empty);
             var index = Array.FindIndex(names, name => string.Equals(name, saved, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                var platformDefault = Application.isMobilePlatform ? "Mobile" : "PC";
+                index = Array.FindIndex(names, name => string.Equals(name, platformDefault, StringComparison.OrdinalIgnoreCase));
+            }
             if (index < 0)
                 index = Array.FindIndex(names, name => string.Equals(name, "PC", StringComparison.OrdinalIgnoreCase));
             if (index < 0) index = names.Length - 1;
@@ -913,29 +962,39 @@ namespace Starfall.App
             else AddLog(Tr("{0} — {1}", Tr(mission.Title), mission.ProgressText()));
         }
 
-        private void Save(SaveSlot slot)
+        private void Save(SaveSlot slot, bool announce = true)
         {
             if (session == null) return;
-            var state = session.State;
-            var player = JObject.FromObject(state.Player, serializer);
-            var payload = new JObject
+            try
             {
-                ["name"] = state.Player.Name,
-                ["credits"] = state.Player.Credits,
-                ["runtime"] = player,
-            };
-            saves.Save(slot, new SaveEnvelopeV2
+                var state = session.State;
+                var player = JObject.FromObject(state.Player, serializer);
+                var payload = new JObject
+                {
+                    ["name"] = state.Player.Name,
+                    ["credits"] = state.Player.Credits,
+                    ["runtime"] = player,
+                };
+                saves.Save(slot, new SaveEnvelopeV2
+                {
+                    Seed = state.Seed,
+                    SimulationTime = state.SimulationTime,
+                    PlayerLocation = new PlayerLocationV2(state.Player.CurrentSystemId,
+                        string.IsNullOrEmpty(state.Player.DockedAtStationId) ? null : state.Player.DockedAtStationId,
+                        state.Player.X, state.Player.Z),
+                    Player = payload,
+                    RngState = state.RngState,
+                    NextEntityId = state.NextEntityId,
+                });
+                if (announce) AddLog(Tr("Game saved to {0}.", Tr(slot.ToString().ToLowerInvariant())));
+            }
+            catch (Exception exception)
             {
-                Seed = state.Seed,
-                SimulationTime = state.SimulationTime,
-                PlayerLocation = new PlayerLocationV2(state.Player.CurrentSystemId,
-                    string.IsNullOrEmpty(state.Player.DockedAtStationId) ? null : state.Player.DockedAtStationId,
-                    state.Player.X, state.Player.Z),
-                Player = payload,
-                RngState = state.RngState,
-                NextEntityId = state.NextEntityId,
-            });
-            AddLog(Tr("Game saved to {0}.", Tr(slot.ToString().ToLowerInvariant())));
+                // Mobile storage can be temporarily unavailable (disk full,
+                // unmounted volume); a failed save must never take the app down.
+                Debug.LogException(exception);
+                AddLog(Tr("Save failed: {0}.", exception.Message));
+            }
         }
 
         private void LoadEnvelope(SaveEnvelopeV2 envelope)

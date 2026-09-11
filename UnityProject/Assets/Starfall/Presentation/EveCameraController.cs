@@ -19,9 +19,12 @@ namespace Starfall.Presentation
         private Transform selectedTarget;
         private Transform focusTarget;
         private Vector3 smoothedFocus;
+        private float pinchStartPixelDistance = 1f;
+        private float pinchStartOrbitDistance;
 
         public Camera Camera => controlledCamera;
         public Transform FocusTarget => focusTarget;
+        public float Distance => distance;
 
         private void Awake()
         {
@@ -63,27 +66,39 @@ namespace Starfall.Presentation
             if (focusTarget) smoothedFocus = focusTarget.position;
         }
 
+        // Orbit and zoom are fed by WorldBackdropInput (HUD pointer events), so
+        // touch, trackpad and mouse all share one sensitivity path. Units are
+        // screen pixels; wheelDelta follows UI Toolkit WheelEvent.delta.y.
+        public void AddOrbitInput(float deltaX, float deltaY)
+        {
+            yaw += deltaX * 0.18f;
+            pitch = Mathf.Clamp(pitch - deltaY * 0.14f, 8f, 78f);
+        }
+
+        public void AddZoomInput(float wheelDelta)
+        {
+            if (Mathf.Abs(wheelDelta) < 0.01f) return;
+            distance = Mathf.Clamp(distance * Mathf.Exp(-wheelDelta * 0.008f), minDistance, maxDistance);
+        }
+
+        public void BeginPinchZoom(float startPixelDistance)
+        {
+            pinchStartPixelDistance = Mathf.Max(1f, startPixelDistance);
+            pinchStartOrbitDistance = distance;
+        }
+
+        public void UpdatePinchZoom(float currentPixelDistance)
+        {
+            var scale = pinchStartPixelDistance / Mathf.Max(1f, currentPixelDistance);
+            distance = Mathf.Clamp(pinchStartOrbitDistance * scale, minDistance, maxDistance);
+        }
+
         private void Update()
         {
-            var mouse = Mouse.current;
             var keyboard = Keyboard.current;
-            if (mouse != null)
-            {
-                if (mouse.rightButton.isPressed)
-                {
-                    var delta = mouse.delta.ReadValue();
-                    yaw += delta.x * 0.18f;
-                    pitch = Mathf.Clamp(pitch - delta.y * 0.14f, 8f, 78f);
-                }
-                var scroll = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(scroll) > 0.01f)
-                    distance = Mathf.Clamp(distance * Mathf.Exp(-scroll * 0.0014f), minDistance, maxDistance);
-            }
-            if (keyboard != null)
-            {
-                if (keyboard.vKey.wasPressedThisFrame) ToggleSelectedFocus();
-                if (keyboard.xKey.wasPressedThisFrame) ResetToPlayer();
-            }
+            if (keyboard == null) return;
+            if (keyboard.vKey.wasPressedThisFrame) ToggleSelectedFocus();
+            if (keyboard.xKey.wasPressedThisFrame) ResetToPlayer();
         }
 
         private void LateUpdate()
