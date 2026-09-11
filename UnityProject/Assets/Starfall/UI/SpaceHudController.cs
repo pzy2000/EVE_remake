@@ -388,7 +388,20 @@ namespace Starfall.UI
                           distance <= JumpInteractionDistance &&
                           (actions & OverviewActionFlags.Jump) != 0;
             dockButton.SetEnabled(canDock || canJump);
-            dockButton.text = Tr("DOCK/JUMP [D]");
+            dockButton.text = HudLabel("DOCK/JUMP [D]");
+        }
+
+        // Touch devices have no keyboard: strip the "[D]"-style hints from
+        // control labels instead of teaching players about keys they lack.
+        private static readonly System.Text.RegularExpressions.Regex KeyboardHintSuffix =
+            new(@"\s*\[[A-Z0-9]{1,3}\]$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        protected static string HudLabel(string english)
+        {
+            var translated = Tr(english);
+            return UnityEngine.Application.isMobilePlatform
+                ? KeyboardHintSuffix.Replace(translated, string.Empty)
+                : translated;
         }
 
         private void ReplaceVisibleOverview()

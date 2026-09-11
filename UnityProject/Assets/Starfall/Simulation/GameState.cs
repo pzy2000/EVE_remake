@@ -149,6 +149,8 @@ namespace Starfall.Simulation
         public string DestinationSystemId = string.Empty;
         /// <summary>Last simulation time the player fired a weapon; gates docking for a while.</summary>
         public double LastWeaponFireAt = -999d;
+        /// <summary>How many times systems have been populated; seeds per-visit variation.</summary>
+        public int VisitCounter;
         public Dictionary<string, SystemVisitState> SystemVisits = new Dictionary<string, SystemVisitState>(StringComparer.Ordinal);
         public PlayerStatsState Stats = new PlayerStatsState();
 
@@ -249,7 +251,6 @@ namespace Starfall.Simulation
         public string SelectedId { get; internal set; } = string.Empty;
         public bool Docked => !string.IsNullOrEmpty(Player.DockedAtStationId);
         public bool PlayerDead { get; internal set; }
-        public int VisitCounter { get; internal set; }
         public IReadOnlyList<EntityState> Entities => entities;
         public IReadOnlyList<AsteroidState> Asteroids => asteroids;
 

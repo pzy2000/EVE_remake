@@ -52,6 +52,7 @@ namespace Starfall.Domain
             ("Fitted {0}.", "已装配{0}。"),
             ("Unfitted {0}.", "已卸下{0}。"),
             ("Active ship: {0}.", "当前舰船：{0}。"),
+            ("The new ship cannot hold the current cargo.", "新舰船的货舱装不下当前货物。"),
             ("{0} fully repaired.", "{0}已完成维修。"),
             ("Insufficient loyalty points. The module cache requires 100 LP.", "忠诚点不足。模块库需要 100 LP。"),
             ("Exchanged 100 LP for {0}.", "已用 100 LP 兑换{0}。"),
@@ -90,7 +91,9 @@ namespace Starfall.Domain
             // --- AppRoot: welcome, help, save/load, import ---
             ("Welcome to the stars, {0}.", "欢迎来到群星之间，{0}。"),
             ("Talk to an agent, undock, then use click, W/L/D and modules 1–9.", "先与代理人交谈，离站后使用点击、W/L/D 键与 1–9 号模块。"),
+            ("Talk to an agent, undock, then tap targets and use the command buttons and modules 1–9.", "先与代理人交谈，离站后轻点目标，使用指令按钮与 1–9 号模块。"),
             ("Help: click to select · double-click approach · W warp · L lock · D dock/jump · V/X focus · 1–9 modules.", "帮助：单击选择 · 双击接近 · W 跃迁 · L 锁定 · D 停靠/跳跃 · V/X 聚焦 · 1–9 模块。"),
+            ("Help: tap to select · double-tap approach · long-press menu · buttons for warp, lock and docking.", "帮助：轻点选择 · 双击接近 · 长按呼出菜单 · 使用按钮进行跃迁、锁定与停靠。"),
             ("Context: Approach · Orbit · Warp · Lock · Dock/Jump.", "情境菜单：接近 · 环绕 · 跃迁 · 锁定 · 停靠/跳跃。"),
             ("No valid save slot was found.", "未找到有效的存档位。"),
             ("Place a legacy JSON save in Downloads or as persistentDataPath/legacy-v1.json, then try again.", "请将旧版 JSON 存档放入“下载”目录，或保存为 persistentDataPath/legacy-v1.json 后重试。"),

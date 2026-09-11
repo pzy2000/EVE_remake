@@ -92,11 +92,14 @@ namespace Starfall.Simulation
                 Z = station.Position.Z,
             };
             player.Standings[empireId] = 1d;
+            // A spare mining laser rides in the hangar (station lists expose
+            // it for fit/sell), while a second one comes pre-fitted so a fresh
+            // pilot can mine without swapping hardware first.
             player.Hangar[ModuleIds.MiningLaser] = 1;
             var starter = CreateShipInstance(EmpireStarterShips[empireId], "ship_start");
             var weapon = FactionWeapons[empireId];
             starter.Fitting.High[0] = weapon;
-            if (starter.Fitting.High.Count > 1) starter.Fitting.High[1] = weapon;
+            if (starter.Fitting.High.Count > 1) starter.Fitting.High[1] = ModuleIds.MiningLaser;
             if (starter.Fitting.Mid.Count > 0) starter.Fitting.Mid[0] = ModuleIds.ShieldBooster;
             player.Ships.Add(starter);
             player.ActiveShipInstanceId = starter.InstanceId;
@@ -148,9 +151,11 @@ namespace Starfall.Simulation
         public SimulationEventBatch AdvanceFrame(double unscaledDeltaSeconds)
         {
             frameEvents.Clear();
-            if (double.IsNaN(unscaledDeltaSeconds) || double.IsInfinity(unscaledDeltaSeconds) || unscaledDeltaSeconds < 0d)
+            if (double.IsNaN(unscaledDeltaSeconds) || double.IsInfinity(unscaledDeltaSeconds))
                 throw new ArgumentOutOfRangeException(nameof(unscaledDeltaSeconds));
-            accumulator += Math.Min(unscaledDeltaSeconds, 0.25d);
+            // A glitchy negative frame delta used to throw and kill Update; the
+            // safe answer is to treat it as no time at all.
+            accumulator += Math.Min(Math.Max(unscaledDeltaSeconds, 0d), 0.25d);
             while (accumulator + 1e-12d >= FixedStepSeconds)
             {
                 Step(FixedStepSeconds);
@@ -674,7 +679,8 @@ namespace Starfall.Simulation
                 if (npc.AiBehavior == "pirate" && npc.Hull < npc.MaxHull * 0.3d && string.IsNullOrEmpty(npc.MissionId))
                 {
                     npc.Movement = MovementMode.Flee;
-                    npc.AiTime += dt;
+                    // npc.AiTime already ticks once per AI pass; the extra tick
+                    // here made pirates warp off after ~2s instead of 4s.
                     if (npc.AiTime > 4d)
                     {
                         npc.Dead = true;
@@ -697,7 +703,7 @@ namespace Starfall.Simulation
             RestoreAsteroids();
             var system = CurrentSystem();
             var visit = GetVisit(system.Id);
-            var populationRandom = new Mulberry32(Fnv1a.HashString(system.Id + ":" + State.VisitCounter++));
+            var populationRandom = new Mulberry32(Fnv1a.HashString(system.Id + ":" + State.Player.VisitCounter++));
             if (State.SimulationTime >= visit.NpcRespawnReadyAt)
             {
                 // Traffic only repopulates after a cooldown, so undock/dock
@@ -951,7 +957,8 @@ namespace Starfall.Simulation
                 entity.MaxArmor += module.ArmorBonus;
                 if (module.DamageMultiplier > 0d) entity.DamageMultiplier *= module.DamageMultiplier;
             }
-            if (entity.AfterburnerOn) entity.MaxSpeed *= catalog.Modules[ModuleIds.Afterburner].SpeedMultiplier;
+            if (entity.AfterburnerOn && HasModuleFitted(entity, ModuleIds.Afterburner))
+                entity.MaxSpeed *= catalog.Modules[ModuleIds.Afterburner].SpeedMultiplier;
             entity.Shield = Math.Min(entity.Shield, entity.MaxShield);
             entity.Armor = Math.Min(entity.Armor, entity.MaxArmor);
             entity.Hull = Math.Min(entity.Hull, entity.MaxHull);
@@ -1053,6 +1060,14 @@ namespace Starfall.Simulation
             if (!State.Docked) return;
             var ship = State.Player.Ships.Find(value => value.InstanceId == instanceId);
             if (ship == null) return;
+            // Cargo lives on the pilot, not the hull; switching to a smaller
+            // ship used to strand an overflowing hold that could never mine
+            // or accept cargo again.
+            if (CargoUsed() > CargoCapacity(ship) + 1e-9d)
+            {
+                Log(Tr("The new ship cannot hold the current cargo."));
+                return;
+            }
             State.Player.ActiveShipInstanceId = ship.InstanceId;
             Emit(SimulationEventType.Inventory, message: Tr("Active ship: {0}.", Tr(ship.Name)), detail: ship.ShipId);
         }
@@ -1434,14 +1449,21 @@ namespace Starfall.Simulation
             return used;
         }
 
-        private double CargoCapacity()
+        private double CargoCapacity(ShipInstanceState target = null)
         {
-            var ship = State.Player.ActiveShip();
+            var ship = target ?? State.Player.ActiveShip();
             if (ship == null) return 0d;
             var capacity = catalog.Ships[ship.ShipId].CargoCapacity;
             for (var i = 0; i < ship.Fitting.Low.Count; i++)
                 if (ship.Fitting.Low[i] == ModuleIds.CargoExpander) capacity += catalog.Modules[ModuleIds.CargoExpander].CargoBonus;
             return capacity;
+        }
+
+        private static bool HasModuleFitted(EntityState entity, string moduleId)
+        {
+            for (var i = 0; i < entity.Modules.Count; i++)
+                if (string.Equals(entity.Modules[i].ModuleId, moduleId, StringComparison.Ordinal)) return true;
+            return false;
         }
 
         private bool AddCargo(string itemId, double quantity)

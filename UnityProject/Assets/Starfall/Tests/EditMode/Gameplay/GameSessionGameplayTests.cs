@@ -40,7 +40,8 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(ship, Is.Not.Null);
             Assert.That(ship.ShipId, Is.EqualTo(expectedShipId));
             Assert.That(ship.Fitting.High[0], Is.EqualTo(expectedWeaponId));
-            Assert.That(player.Hangar[ModuleIds.MiningLaser], Is.EqualTo(1));
+            Assert.That(ship.Fitting.High[1], Is.EqualTo(ModuleIds.MiningLaser),
+                "The mining laser must be fitted at creation, not parked in the hangar.");
             Assert.That(session.State.Entities, Is.Empty);
         }
 

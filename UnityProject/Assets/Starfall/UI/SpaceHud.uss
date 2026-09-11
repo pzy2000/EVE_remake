@@ -70,11 +70,11 @@
     background-color: rgba(20, 73, 99, 0.72);
     color: rgb(210, 244, 255);
 }
-.overview-column-state { width: 48px; -unity-text-align: middle-center; }
-.overview-column-distance { width: 72px; -unity-text-align: middle-right; }
+.overview-column-state { width: 44px; -unity-text-align: middle-center; }
+.overview-column-distance { width: 84px; -unity-text-align: middle-right; }
 .overview-column-name { flex-grow: 1; min-width: 92px; }
-.overview-column-type { width: 105px; }
-.overview-column-velocity { width: 68px; -unity-text-align: middle-right; }
+.overview-column-type { width: 96px; }
+.overview-column-velocity { width: 84px; -unity-text-align: middle-right; }
 .overview-list {
     flex-grow: 1;
     margin-top: 1px;
@@ -127,10 +127,10 @@
 .overview-state-cell { width: 48px; flex-direction: row; align-items: center; padding-left: 3px; padding-right: 1px; }
 .overview-object-icon { width: 22px; height: 22px; flex-shrink: 0; }
 .overview-badges { flex-grow: 1; color: rgb(255, 205, 92); font-size: 11px; -unity-text-align: middle-center; }
-.overview-distance { width: 72px; color: rgb(178, 211, 226); -unity-text-align: middle-right; }
+.overview-distance { width: 84px; color: rgb(178, 211, 226); -unity-text-align: middle-right; }
 .overview-name { flex-grow: 1; min-width: 92px; color: rgb(220, 238, 246); }
-.overview-type { width: 105px; color: rgb(125, 170, 191); }
-.overview-velocity { width: 68px; color: rgb(150, 190, 207); -unity-text-align: middle-right; }
+.overview-type { width: 96px; color: rgb(125, 170, 191); }
+.overview-velocity { width: 84px; color: rgb(150, 190, 207); -unity-text-align: middle-right; }
 .overview-empty {
     display: none;
     position: absolute;
@@ -207,19 +207,19 @@
 .hud-compact .overview-tabs Button { min-height: 40px; height: 40px; font-size: 11px; margin-right: 2px; }
 .hud-compact .overview-columns { height: 38px; }
 .hud-compact .overview-column { min-height: 36px; height: 36px; font-size: 11px; }
-.hud-compact .overview-column-state { width: 30px; }
-.hud-compact .overview-column-distance { width: 52px; }
+.hud-compact .overview-column-state { width: 28px; }
+.hud-compact .overview-column-distance { width: 66px; }
 .hud-compact .overview-column-name { min-width: 60px; }
-.hud-compact .overview-column-type { width: 72px; }
-.hud-compact .overview-column-velocity { width: 46px; }
+.hud-compact .overview-column-type { width: 64px; }
+.hud-compact .overview-column-velocity { width: 70px; }
 .hud-compact .overview-row { height: 34px; }
 .hud-compact .overview-cell { height: 34px; font-size: 13px; }
 .hud-compact .overview-state-cell { width: 30px; }
 .hud-compact .overview-object-icon { width: 16px; height: 16px; }
 .hud-compact .overview-badges { font-size: 10px; }
-.hud-compact .overview-distance { width: 52px; }
-.hud-compact .overview-type { width: 72px; }
-.hud-compact .overview-velocity { width: 46px; }
+.hud-compact .overview-distance { width: 66px; }
+.hud-compact .overview-type { width: 64px; }
+.hud-compact .overview-velocity { width: 70px; }
 .hud-compact .overview-empty { top: 102px; font-size: 12px; }
 .hud-compact .target { right: 10px; top: 58px; width: 238px; padding: 8px; }
 .hud-compact .target-name { font-size: 17px; margin-top: 3px; }

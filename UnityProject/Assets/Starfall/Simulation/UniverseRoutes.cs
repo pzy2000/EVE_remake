@@ -38,5 +38,31 @@ namespace Starfall.Simulation
             }
             return null;
         }
+        /// <summary>
+        /// Single breadth-first pass answering "how many jumps to every
+        /// system" — the starmap used to run one graph search per row.
+        /// Unreachable systems are simply absent from the result.
+        /// </summary>
+        public static IReadOnlyDictionary<string, int> CountHopsFrom(GeneratedUniverse universe, string fromSystemId)
+        {
+            if (universe == null) throw new ArgumentNullException(nameof(universe));
+            if (!universe.Systems.ContainsKey(fromSystemId)) return new Dictionary<string, int>(StringComparer.Ordinal);
+
+            var depth = new Dictionary<string, int>(StringComparer.Ordinal) { { fromSystemId, 0 } };
+            var queue = new Queue<string>();
+            queue.Enqueue(fromSystemId);
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                var nextDepth = depth[current] + 1;
+                foreach (var neighbor in universe.Adjacency[current])
+                {
+                    if (depth.ContainsKey(neighbor)) continue;
+                    depth.Add(neighbor, nextDepth);
+                    queue.Enqueue(neighbor);
+                }
+            }
+            return depth;
+        }
     }
 }

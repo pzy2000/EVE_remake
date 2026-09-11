@@ -246,7 +246,9 @@ namespace Starfall.App
             session = new GameSession(generator.Generate(DefaultSeed), catalog, pilotName, empireId);
             log.Clear();
             AddLog(Tr("Welcome to the stars, {0}.", session.State.Player.Name));
-            AddLog(Tr("Talk to an agent, undock, then use click, W/L/D and modules 1–9."));
+            AddLog(Application.isMobilePlatform
+                ? Tr("Talk to an agent, undock, then tap targets and use the command buttons and modules 1–9.")
+                : Tr("Talk to an agent, undock, then use click, W/L/D and modules 1–9."));
             Save(SaveSlot.Auto);
             MarkAllDirty();
             RefreshUiSnapshot(true);
@@ -324,11 +326,6 @@ namespace Starfall.App
 
         public void Execute(string command, string argument = null)
         {
-            if (command == "settings")
-            {
-                CycleQuality();
-                return;
-            }
             if (session == null) return;
             switch (command)
             {
@@ -462,7 +459,10 @@ namespace Starfall.App
             if (keyboard.mKey.wasPressedThisFrame) Execute("map");
             if (keyboard.jKey.wasPressedThisFrame) Execute("journal");
             if (keyboard.cKey.wasPressedThisFrame) Execute("pilot");
-            if (keyboard.hKey.wasPressedThisFrame) AddLog(Tr("Help: click to select · double-click approach · W warp · L lock · D dock/jump · V/X focus · 1–9 modules."));
+            if (keyboard.hKey.wasPressedThisFrame)
+                AddLog(Application.isMobilePlatform
+                    ? Tr("Help: tap to select · double-tap approach · long-press menu · buttons for warp, lock and docking.")
+                    : Tr("Help: click to select · double-click approach · W warp · L lock · D dock/jump · V/X focus · 1–9 modules."));
             // Android's back gesture arrives as Escape: close the topmost HUD
             // overlay instead of letting the system back the app out.
             if (keyboard.escapeKey.wasPressedThisFrame)
@@ -513,7 +513,9 @@ namespace Starfall.App
                     evt.Type == SimulationEventType.Inventory || evt.Type == SimulationEventType.Dock || evt.Type == SimulationEventType.Jump))
                     AddLog(evt.Message);
                 if (evt.Type == SimulationEventType.SaveRequested)
-                    Save(evt.Detail == "auto" ? SaveSlot.Auto : SaveSlot.Slot1);
+                    // Auto saves stay quiet: a dock/jump log line on every
+                    // transition just buried the useful combat log.
+                    Save(evt.Detail == "auto" ? SaveSlot.Auto : SaveSlot.Slot1, announce: evt.Detail != "auto");
                 if (evt.Type == SimulationEventType.Inventory) stationVisualDirty = true;
                 if (sfx && evt.Type == SimulationEventType.Weapon)
                     sfx.PlayMining();
@@ -912,10 +914,13 @@ namespace Starfall.App
             OverviewContactBuilder.Rebuild(snapshot.Overview, session, catalog);
 
             snapshot.Starmap.Clear();
+            // One BFS from the current system answers every starmap row;
+            // per-system FindRoute calls made rebuilds O(systems × graph).
+            var hops = UniverseRoutes.CountHopsFrom(state.Universe, player.CurrentSystemId);
             foreach (var mapSystem in state.Universe.OrderedSystems)
             {
-                var route = UniverseRoutes.FindRoute(state.Universe, player.CurrentSystemId, mapSystem.Id);
-                var jumps = route == null ? Tr("NO ROUTE") : Tr("{0} jumps", route.Count - 1);
+                var jumpCount = hops.TryGetValue(mapSystem.Id, out var value) ? value : -1;
+                var jumps = jumpCount < 0 ? Tr("NO ROUTE") : Tr("{0} jumps", jumpCount);
                 var destination = player.DestinationSystemId == mapSystem.Id ? Tr(" · DESTINATION") : string.Empty;
                 snapshot.Starmap.Add(Item(mapSystem.Id,
                     TrName(mapSystem.Name) + Tr(" · SEC {0}", mapSystem.Security.ToString("0.0", Inv)) + destination,

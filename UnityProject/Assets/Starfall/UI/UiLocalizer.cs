@@ -70,7 +70,7 @@ namespace Starfall.UI
                 // our own previous output; anything else was refreshed by a controller.
                 if (!string.Equals(current, english, StringComparison.Ordinal) &&
                     !string.Equals(current, lastWritten, StringComparison.Ordinal)) return;
-                var translated = L10n.Tr(english);
+                var translated = NormalizeForDevice(L10n.Tr(english));
                 if (!string.Equals(translated, current, StringComparison.Ordinal))
                 {
                     setText(translated);
@@ -79,9 +79,17 @@ namespace Starfall.UI
             }
             else if (lastWritten != null && string.Equals(current, lastWritten, StringComparison.Ordinal))
             {
-                setText(english);
+                setText(NormalizeForDevice(english));
                 setWritten(state, null);
             }
+        }
+
+        // Touch devices have no keyboard, so "[M]"-style hints are noise.
+        private static string NormalizeForDevice(string value)
+        {
+            if (string.IsNullOrEmpty(value) || !UnityEngine.Application.isMobilePlatform) return value;
+            return System.Text.RegularExpressions.Regex.Replace(
+                value, @"\s*\[[A-Z0-9]{1,3}\]$", string.Empty);
         }
 
         private static L10nState State(VisualElement element)
