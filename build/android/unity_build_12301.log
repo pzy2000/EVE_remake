@@ -1,0 +1,58 @@
+Unity Editor version:    6000.1.10f1 (3c681a6c22ff)
+Branch:                  6000.1/staging
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 26.5.1 (Build 25F80)
+Darwin version:          25.5.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        49152 MB
+Date:                    2026-09-11T07:45:33Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-pzy" at "2026-09-11T07:45:33.516107Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 45634, path: "/Applications/Unity/Hub/Editor/6000.1.10f1/Unity.app/Contents/Frameworks/UnityLicensingClient.app/Contents/MacOS/Unity.Licensing.Client")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.16.2+bdef8f5
+  Session Id:              fa1509457cf346a7b0f7431b58dc95b4
+  Correlation Id:          bc2bab35a8e8b9aa9c2c068b0b13db49
+  External correlation Id: 5267787412565209791
+  Machine Id:              05D7C1w34nZRRNYKFBpTwUJHUYs=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-pzy" (connect: 0.00s, validation: 0.01s, handshake: 0.16s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-pzy-notifications" at "2026-09-11T07:45:33.683697Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "F4-93N4-DW26-NJNZ-AD7M-XXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.79
+[Licensing::Client] Successfully resolved entitlement details
+Pro License: NO
+Launching external process: /Applications/Unity/Hub/Editor/6000.1.10f1/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.1.10f1/Unity.app/Contents/MacOS/Unity
+-batchmode
+-quit
+-nographics
+-projectPath
+/Users/pzy/Desktop/EVE_remake/UnityProject
+-executeMethod
+AndroidBuild.Build
+-apkPath
+/Users/pzy/Desktop/EVE_remake/build/android/app.apk
+-buildTarget
+Android
+-logFile
+/Users/pzy/Desktop/EVE_remake/build/android/unity_build_12301.log
+Successfully changed project path to: /Users/pzy/Desktop/EVE_remake/UnityProject
+/Users/pzy/Desktop/EVE_remake/UnityProject
+It looks like another Unity instance is running with this project open.
+
+Multiple Unity instances cannot open the same project.
+
+Project: /Users/pzy/Desktop/EVE_remake/UnityProject
+Fatal Error! It looks like another Unity instance is running with this project open.
+
+Multiple Unity instances cannot open the same project.
+
+Project: /Users/pzy/Desktop/EVE_remake/UnityProject
+[Package Manager] Server process was shutdown

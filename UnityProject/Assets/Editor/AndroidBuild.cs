@@ -12,9 +12,19 @@ using UnityEngine;
 //     -executeMethod AndroidBuild.Build -apkPath <out.apk> -logFile <log>
 public static class AndroidBuild
 {
+    // Interactive fallback so menu builds land in the same place as the
+    // headless pipeline; batchmode passes -apkPath which takes precedence.
+    const string DefaultApkPath = "/Users/pzy/Desktop/EVE_remake/build/android/app.apk";
+
+    [MenuItem("Tools/Build Android APK")]
+    public static void BuildFromMenu()
+    {
+        Build();
+    }
+
     public static void Build()
     {
-        string apkPath = GetArg("-apkPath") ?? Path.Combine("build", "android", "app.apk");
+        string apkPath = GetArg("-apkPath") ?? DefaultApkPath;
         apkPath = Path.GetFullPath(apkPath);
         Directory.CreateDirectory(Path.GetDirectoryName(apkPath));
 
@@ -44,7 +54,7 @@ public static class AndroidBuild
         else
         {
             Debug.LogError($"UNITY_BUILD_FAILED result={report.summary.result} errors={report.summary.totalErrors}");
-            EditorApplication.Exit(1);
+            if (Application.isBatchMode) EditorApplication.Exit(1);
         }
     }
 
@@ -53,9 +63,17 @@ public static class AndroidBuild
     // Preferences > External Tools checkboxes; see build_android.sh for paths).
     static void ConfigureExternalTools()
     {
-        string sdk = GetArg("-sdkRoot") ?? Environment.GetEnvironmentVariable("ANDROID_HOME");
-        string ndk = GetArg("-ndkRoot") ?? Environment.GetEnvironmentVariable("ANDROID_NDK_HOME");
-        string jdk = GetArg("-jdkRoot") ?? Environment.GetEnvironmentVariable("JAVA_HOME");
+        // GUI-launched editors don't inherit the shell's env vars; fall back to
+        // this machine's standalone toolchain (mirrors build_android.sh).
+        string sdk = GetArg("-sdkRoot")
+            ?? Environment.GetEnvironmentVariable("ANDROID_HOME")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library/Android/sdk");
+        string ndk = GetArg("-ndkRoot")
+            ?? Environment.GetEnvironmentVariable("ANDROID_NDK_HOME")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library/Android/ndk/android-ndk-r27c");
+        string jdk = GetArg("-jdkRoot")
+            ?? Environment.GetEnvironmentVariable("JAVA_HOME")
+            ?? "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home";
 
         if (!string.IsNullOrEmpty(sdk) && Directory.Exists(sdk))
         {

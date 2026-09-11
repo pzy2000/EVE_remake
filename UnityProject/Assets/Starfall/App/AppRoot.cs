@@ -29,6 +29,7 @@ namespace Starfall.App
         private const string UnfitActionPrefix = "unfit|";
         private const string LanguagePreferenceKey = "starfall.language";
         private const string UiScalePreferenceKey = "starfall.uiscale";
+        private const string QualityPreferenceKey = "starfall.quality";
         private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
         private static AppRoot instance;
         private readonly UiSnapshot snapshot = new UiSnapshot();
@@ -105,6 +106,7 @@ namespace Starfall.App
             ApplyLocalizedSnapshotDefaults();
             uiScale = Mathf.Clamp(PlayerPrefs.GetFloat(UiScalePreferenceKey, 1f), StarfallResponsiveUi.MinUiScale, StarfallResponsiveUi.MaxUiScale);
             ApplyUiScale();
+            ApplySavedQuality();
             catalog = GameContentCatalog.Default;
             generator = new UniverseGenerator();
             saves = new FileSaveService();
@@ -345,10 +347,25 @@ namespace Starfall.App
         {
             var next = NextQualityLevel();
             QualitySettings.SetQualityLevel(next, true);
-            PlayerPrefs.SetInt("starfall.quality", next);
+            PlayerPrefs.SetString(QualityPreferenceKey, QualityPreset);
             PlayerPrefs.Save();
             AddLog(Tr("Quality preset: {0}.", Tr(QualityPreset)));
             SettingsChanged?.Invoke();
+        }
+
+        // Restores the quality level by name. Legacy installs stored a numeric
+        // index picked when mobile only exposed the Mobile tier; those values do
+        // not resolve to a tier name, so they fall back to the PC tier.
+        private void ApplySavedQuality()
+        {
+            var names = QualitySettings.names;
+            if (names.Length == 0) return;
+            var saved = PlayerPrefs.GetString(QualityPreferenceKey, string.Empty);
+            var index = Array.FindIndex(names, name => string.Equals(name, saved, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+                index = Array.FindIndex(names, name => string.Equals(name, "PC", StringComparison.OrdinalIgnoreCase));
+            if (index < 0) index = names.Length - 1;
+            if (index != QualitySettings.GetQualityLevel()) QualitySettings.SetQualityLevel(index, true);
         }
 
         private void OnMusicSettingsChanged()
