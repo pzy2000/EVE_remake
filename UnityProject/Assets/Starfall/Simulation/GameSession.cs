@@ -212,6 +212,7 @@ namespace Starfall.Simulation
                 case GameCommandType.Fit: Fit(command.Argument); break;
                 case GameCommandType.Unfit: Unfit(command.Argument); break;
                 case GameCommandType.SwitchShip: SwitchShip(command.Argument); break;
+                case GameCommandType.SellShip: SellShip(command.Argument); break;
                 case GameCommandType.TalkToAgent: TalkToAgent(command.Argument); break;
                 case GameCommandType.AcceptMission: AcceptMission(command.Argument); break;
                 case GameCommandType.CompleteMission: CompleteMission(command.Argument); break;
@@ -1024,6 +1025,31 @@ namespace Starfall.Simulation
             marketPressure[key] = Clamp(current + delta, -MaxMarketPressure, MaxMarketPressure);
         }
 
+        // Ships were sink-only for the whole prototype: hangars filled with
+        // rookie frigates nobody could ever sell.
+        private void SellShip(string instanceId)
+        {
+            if (!State.Docked || string.IsNullOrEmpty(instanceId)) return;
+            var ship = State.Player.Ships.Find(value => value.InstanceId == instanceId);
+            if (ship == null) return;
+            if (string.Equals(ship.InstanceId, State.Player.ActiveShipInstanceId, StringComparison.Ordinal))
+            {
+                Log(Tr("Switch to another ship before selling this one."));
+                return;
+            }
+            if (State.Player.Ships.Count <= 1)
+            {
+                Log(Tr("You cannot sell your only ship."));
+                return;
+            }
+            var price = Math.Max(1L, (long)JsMath.Round(StationPrice(ship.ShipId) * 0.62d));
+            State.Player.Ships.Remove(ship);
+            State.Player.Credits += price;
+            Emit(SimulationEventType.Inventory,
+                message: Tr("Sold {0} for {1} ISK.", Tr(ship.Name), price.ToString("N0", Inv)),
+                detail: ship.ShipId);
+        }
+
         private void Fit(string argument)
         {
             if (!State.Docked || string.IsNullOrEmpty(argument)) return;
@@ -1076,9 +1102,23 @@ namespace Starfall.Simulation
         {
             if (!State.Docked) return;
             AgentDefinition agent = null;
+            string agentFactionId = null;
             for (var i = 0; i < CurrentSystem().Stations.Count && agent == null; i++)
-                agent = CurrentSystem().Stations[i].Agents.Find(value => value.Id == agentId);
+            {
+                var stationAgents = CurrentSystem().Stations[i].Agents;
+                var found = stationAgents.Find(value => value.Id == agentId);
+                if (found == null) continue;
+                agent = found;
+                agentFactionId = CurrentSystem().Stations[i].FactionId;
+            }
             if (agent == null) return;
+            // Pilots a faction has written off get no missions from it.
+            State.Player.Standings.TryGetValue(agentFactionId, out var standing);
+            if (standing < -5d)
+            {
+                Log(Tr("{0} refuses to work with you.", Tr(catalog.Factions[agentFactionId].Name)));
+                return;
+            }
             var existing = State.Player.Missions.Find(value => value.AgentId == agent.Id && value.Status != MissionStatus.Done);
             if (existing != null)
             {
@@ -1169,6 +1209,15 @@ namespace Starfall.Simulation
         {
             var mission = State.Player.Missions.Find(value => value.Id == missionId);
             if (mission == null || mission.Status != MissionStatus.ObjectivesMet) return;
+            // Kill missions must be turned in where they were issued; storylines
+            // (no station) stay completable from anywhere.
+            var killMission = mission.Type == MissionType.Security || mission.Type == MissionType.StorylineKill;
+            if (killMission && !string.IsNullOrEmpty(mission.StationId) &&
+                (!State.Docked || !string.Equals(State.Player.DockedAtStationId, mission.StationId, StringComparison.Ordinal)))
+            {
+                Log(Tr("Return to the issuing station to collect the reward."));
+                return;
+            }
             mission.Status = MissionStatus.Done;
             State.Player.Credits += mission.RewardCredits;
             AddQuantity(State.Player.LoyaltyPoints, mission.FactionId, mission.RewardLoyaltyPoints);

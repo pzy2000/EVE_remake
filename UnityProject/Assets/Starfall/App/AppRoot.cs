@@ -26,6 +26,7 @@ namespace Starfall.App
         private const float AutosaveIntervalSeconds = 60f;
         private const string SellItemActionPrefix = "sell-item|";
         private const string SellModuleActionPrefix = "sell-module|";
+        private const string SellShipActionPrefix = "sell-ship|";
         private const string FitModuleActionPrefix = "fit-module|";
         private const string UnfitActionPrefix = "unfit|";
         private const string LanguagePreferenceKey = "starfall.language";
@@ -952,6 +953,16 @@ namespace Starfall.App
 
             snapshot.Ships.Clear();
             foreach (var owned in player.Ships) snapshot.Ships.Add(Item(owned.InstanceId, owned.InstanceId == player.ActiveShipInstanceId ? Tr("ACTIVE · {0}", Tr(owned.Name)) : Tr(owned.Name), Tr(catalog.Ships[owned.ShipId].Description)));
+            // Reserve hangar: every inactive ship is exposed as an explicit
+            // sell action; the active ship keeps its switch row.
+            foreach (var owned in player.Ships)
+            {
+                if (owned.InstanceId == player.ActiveShipInstanceId) continue;
+                if (player.Ships.Count <= 1) continue;
+                snapshot.Ships.Add(Item(SellShipActionPrefix + owned.InstanceId,
+                    Tr("SELL SHIP · {0}", Tr(owned.Name)),
+                    Tr("Sell the ship · {0}", PriceText(owned.ShipId))));
+            }
 
             snapshot.Inventory.Clear();
             var activeShip = player.ActiveShip();
@@ -994,6 +1005,11 @@ namespace Starfall.App
             if (TryActionPayload(actionId, SellModuleActionPrefix, out var moduleId))
             {
                 if (catalog.Modules.ContainsKey(moduleId)) Queue(GameCommandType.Sell, moduleId);
+                return;
+            }
+            if (TryActionPayload(actionId, SellShipActionPrefix, out var shipInstanceId))
+            {
+                Queue(GameCommandType.SellShip, shipInstanceId);
                 return;
             }
             if (catalog.Modules.ContainsKey(actionId) ||

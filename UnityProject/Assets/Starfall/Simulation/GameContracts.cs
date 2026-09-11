@@ -20,6 +20,7 @@ namespace Starfall.Simulation
         Fit,
         Unfit,
         SwitchShip,
+        SellShip,
         TalkToAgent,
         AcceptMission,
         CompleteMission,

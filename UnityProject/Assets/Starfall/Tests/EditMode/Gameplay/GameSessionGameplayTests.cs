@@ -420,6 +420,75 @@ namespace Starfall.Tests.EditMode.Gameplay
             StringAssert.DoesNotContain("Guid.NewGuid", source);
         }
 
+        [Test]
+        public void SellShip_SellsInactiveShips_ButNeverTheActiveOrLastOne()
+        {
+            var session = CreateSession();
+            var player = session.State.Player;
+            player.Ships.Add(new ShipInstanceState
+            {
+                InstanceId = "ship_surplus",
+                ShipId = ShipIds.Acolyte,
+                Name = "Surplus",
+                Fitting = new FittingState(),
+                Shield = catalog.Ships[ShipIds.Acolyte].HitPoints.Shield,
+                Armor = catalog.Ships[ShipIds.Acolyte].HitPoints.Armor,
+                Hull = catalog.Ships[ShipIds.Acolyte].HitPoints.Hull,
+            });
+            var creditsBefore = player.Credits;
+
+            Execute(session, new GameCommand(GameCommandType.SellShip, "ship_surplus"));
+            Assert.That(player.Ships, Has.Count.EqualTo(1), "The inactive ship must be sold.");
+            Assert.That(player.Credits, Is.GreaterThan(creditsBefore));
+
+            Execute(session, new GameCommand(GameCommandType.SellShip, player.ActiveShipInstanceId));
+            Assert.That(player.Ships, Has.Count.EqualTo(1), "The active (and only) ship must be unsellable.");
+        }
+
+        [Test]
+        public void Agents_RefusePilotsTheirFactionHasWrittenOff()
+        {
+            var session = CreateSession();
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            var agent = new AgentDefinition("agent_hostile", "Hostile Agent", "security", 1, station.Id);
+            station.Agents.Add(agent);
+            session.State.Player.Standings[station.FactionId] = -6d;
+
+            Execute(session, new GameCommand(GameCommandType.TalkToAgent, agent.Id));
+
+            Assert.That(session.State.Player.Missions, Is.Empty,
+                "A faction at hostile standing must not offer missions.");
+        }
+
+        [Test]
+        public void SecurityMissions_RequireReturningToTheIssuingStation()
+        {
+            var session = CreateSession();
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            var mission = new MissionState
+            {
+                Id = "mis_return",
+                Type = MissionType.Security,
+                Status = MissionStatus.ObjectivesMet,
+                Title = "Security: done in the field",
+                FactionId = FactionIds.Aurelian,
+                StationId = station.Id,
+            };
+            session.State.Player.Missions.Add(mission);
+
+            Undock(session);
+            Execute(session, new GameCommand(GameCommandType.CompleteMission, mission.Id));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.ObjectivesMet),
+                "Kill missions must not complete from the field.");
+
+            var playerEntity = session.State.PlayerEntity();
+            playerEntity.Position = station.Position + new SimVec2(10d, 0d);
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Execute(session, new GameCommand(GameCommandType.CompleteMission, mission.Id));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Done),
+                "Turning the mission in at the issuing station must complete it.");
+        }
+
         private GameSession CreateSession(string empireId = FactionIds.Aurelian)
         {
             return new GameSession(universe, catalog, "  Test Pilot  ", empireId);
