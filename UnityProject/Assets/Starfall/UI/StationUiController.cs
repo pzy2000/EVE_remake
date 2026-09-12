@@ -14,6 +14,7 @@ namespace Starfall.UI
         private VisualElement root;
         private IStarfallUiHost host;
         private StarfallSettingsPanel settingsPanel;
+        private StationBackdropInput stationBackdropInput;
         private IDisposable responsiveUi;
         private readonly string[] tabs = { "agents", "market", "fitting", "ships", "skills", "lp" };
         private ulong listsFingerprint = ulong.MaxValue;
@@ -24,7 +25,15 @@ namespace Starfall.UI
         {
             document = GetComponent<UIDocument>();
             root = document.rootVisualElement;
-            root.Q<VisualElement>(className: "station-ui").pickingMode = PickingMode.Ignore;
+            // The station root doubles as the hangar-gesture backdrop: it must
+            // stay pickable so drags in the empty areas orbit the displayed
+            // ship, while the panels above keep consuming their own events.
+            if (root.Q<VisualElement>(className: "station-ui") is { } stationUi)
+            {
+                stationUi.pickingMode = PickingMode.Position;
+                stationBackdropInput?.Dispose();
+                stationBackdropInput = new StationBackdropInput(stationUi);
+            }
             foreach (var tab in tabs)
             {
                 var captured = tab;
@@ -49,6 +58,8 @@ namespace Starfall.UI
             L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null) host.SnapshotChanged -= Refresh;
+            stationBackdropInput?.Dispose();
+            stationBackdropInput = null;
             settingsPanel?.Dispose();
             settingsPanel = null;
             responsiveUi?.Dispose();

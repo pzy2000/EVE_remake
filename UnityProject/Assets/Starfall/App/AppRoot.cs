@@ -710,7 +710,11 @@ namespace Starfall.App
 
         private WorldObjectViewData NextSpaceObject()
         {
-            if (spaceObjectCount < spaceObjectPool.Count) return spaceObjectPool[spaceObjectCount];
+            // The pool index MUST advance on reuse as well: without the ++
+            // every slot in a rebuilt snapshot aliases the same pooled object,
+            // the presenter then sees one id for all 77 objects and destroys
+            // every other view (player ship included) on the second frame.
+            if (spaceObjectCount < spaceObjectPool.Count) return spaceObjectPool[spaceObjectCount++];
             var created = new WorldObjectViewData();
             spaceObjectPool.Add(created);
             spaceObjectCount++;

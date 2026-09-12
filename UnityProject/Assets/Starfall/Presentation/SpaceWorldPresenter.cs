@@ -6,7 +6,10 @@ using UnityEngine.Rendering.Universal;
 
 namespace Starfall.Presentation
 {
+    // Late-update order 10 keeps the sky-dome correction below the camera's own
+    // LateUpdate, so the dome never inherits even one frame of camera rotation.
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(10)]
     public sealed class SpaceWorldPresenter : MonoBehaviour
     {
         private readonly Dictionary<string, GameObject> views = new();
@@ -23,6 +26,7 @@ namespace Starfall.Presentation
         private Transform vfxRoot;
         private EveCameraController cameraController;
         private GameObject skyDome;
+        private Quaternion skyDomeRotation = Quaternion.identity;
         private Light keyLight;
         private VolumeProfile postProfile;
         private string presentedSkySystemId = string.Empty;
@@ -64,6 +68,15 @@ namespace Starfall.Presentation
         {
             AnimateWorld();
             RecycleVfx();
+        }
+
+        private void LateUpdate()
+        {
+            // Runs after EveCameraController.LateUpdate (DefaultExecutionOrder):
+            // undo the camera rotation the dome inherited this frame so the
+            // starfield stays fixed relative to the universe while the camera
+            // keeps following its position.
+            if (skyDome) skyDome.transform.rotation = skyDomeRotation;
         }
 
         private void OnDestroy()
@@ -260,6 +273,12 @@ namespace Starfall.Presentation
             var style = ProceduralSpaceMaterials.GetSystemSkyStyle(
                 next.SystemId, next.FactionId, next.FactionColor, next.Security);
             skyDome = ProceduralSpaceMaterials.CreateSystemSkyDome(cameraController.transform, style);
+            // The dome is parented to the camera so it can never fall behind, but
+            // a child inherits the camera's rotation — orbiting would drag the
+            // whole starfield along and make camera gestures look dead. Pin the
+            // dome to a fixed world heading; LateUpdate re-asserts it every frame.
+            skyDomeRotation = Quaternion.Euler(0f, style.RotationDegrees, 0f);
+            skyDome.transform.rotation = skyDomeRotation;
             presentedSkySystemId = next.SystemId;
 
             RenderSettings.ambientSkyColor = style.AmbientSky;
