@@ -60,13 +60,24 @@ Button {
     border-top-color: rgba(84, 214, 255, 0.55);
     border-bottom-color: rgba(84, 214, 255, 0.55);
     color: var(--text);
-    min-height: 30px;
+    min-height: 44px;
     transition-duration: 0.12s;
 }
 
 Button:hover, Button.active, Button.chosen {
     background-color: rgba(26, 116, 151, 0.9);
     color: white;
+}
+
+/* Disabled controls must read as unavailable without relying on colour alone. */
+Button:disabled, Button.disabled {
+    opacity: 0.38;
+    border-color: rgba(120, 130, 140, 0.4);
+    color: var(--muted);
+}
+
+Label:disabled, Label.disabled {
+    opacity: 0.45;
 }
 
 .muted { color: var(--muted); }
@@ -92,13 +103,13 @@ Button:hover, Button.active, Button.chosen {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    min-height: 42px;
+    min-height: 48px;
     border-bottom-width: 1px;
     border-bottom-color: rgba(72, 156, 190, 0.23);
 }
 
 .service-row Label { flex-grow: 1; }
-.service-row Button { width: 92px; }
+.service-row Button { width: 120px; }
 
 .settings-overlay {
     display: none;
@@ -128,6 +139,7 @@ Button:hover, Button.active, Button.chosen {
 }
 
 #settings-display-heading,
+#settings-language-heading,
 #settings-audio-heading {
     color: var(--cyan);
     letter-spacing: 2px;
@@ -162,3 +174,34 @@ Button:hover, Button.active, Button.chosen {
     margin-top: 8px;
     font-size: 13px;
 }
+
+/* Chinese locale: Orbitron/Rajdhani carry no CJK glyphs, so swap the whole
+   document to Noto Sans SC. Placed last and with specificity that beats both
+   the global "*" rule and ".title" so every element flips together with the
+   "lang-zh" class toggled by UiLocalizer.Apply. */
+.lang-zh * {
+    -unity-font-definition: url("/Assets/Starfall/Fonts/NotoSansSC/NotoSansSC-Regular.ttf");
+}
+
+.lang-zh .title,
+.lang-zh #settings-title {
+    -unity-font-definition: url("/Assets/Starfall/Fonts/NotoSansSC/NotoSansSC-Bold.ttf");
+    letter-spacing: 2px;
+}
+
+.lang-zh .eyebrow {
+    letter-spacing: 1px;
+}
+
+.lang-zh Button {
+    font-size: 15px;
+}
+
+/* ---- compact visual tuning (foldable / small screens; class toggled by StarfallResponsiveUi) ----
+   Lighter panel fill + fainter borders so HUD panels read as translucent overlays
+   over the star field, in the spirit of EVE Echoes. */
+.hud-compact {
+    --panel: rgba(6, 14, 30, 0.78);
+    --line: rgba(67, 190, 235, 0.30);
+}
+.hud-compact .service-row { min-height: 48px; }

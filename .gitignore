@@ -3,6 +3,8 @@ UnityProject/[Ll]ibrary/
 UnityProject/[Tt]emp/
 UnityProject/[Oo]bj/
 UnityProject/[Ll]ogs/
+# Unity 6 build pipeline cache (never meant for version control)
+UnityProject/.utmp/
 UnityProject/[Uu]ser[Ss]ettings/
 UnityProject/[Mm]emoryCaptures/
 UnityProject/[Rr]ecordings/

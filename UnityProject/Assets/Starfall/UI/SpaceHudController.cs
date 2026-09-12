@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.UI
 {
     [RequireComponent(typeof(UIDocument))]
     public sealed class SpaceHudController : MonoBehaviour
     {
-        private const float OverviewRowHeight = 30f;
+        private const float OverviewRowHeight = 40f;
         private const double DockInteractionDistance = 40d;
         private const double JumpInteractionDistance = 35d;
         private const string OverviewPreferencePrefix = "starfall.overview.v1";
@@ -40,6 +42,10 @@ namespace Starfall.UI
         private Button lockButton;
         private Button dockButton;
         private StarfallSettingsPanel settingsPanel;
+        private WorldBackdropInput worldBackdropInput;
+        private VisualElement hudElement;
+        private Vector4 appliedSafeArea = new Vector4(-1f, -1f, -1f, -1f);
+        private IDisposable responsiveUi;
         private OverviewPresetId activePreset;
         private string selectedContactId = string.Empty;
         private bool controlsBound;
@@ -69,7 +75,16 @@ namespace Starfall.UI
             journalList = root.Q<ScrollView>("journal-list");
             ResetAuxiliaryListCaches();
 
-            if (root.Q<VisualElement>(className: "hud") is { } hud) hud.pickingMode = PickingMode.Ignore;
+            // The HUD root doubles as the world-gesture backdrop: it must stay
+            // pickable so taps in empty space reach WorldBackdropInput, while the
+            // panels above it keep consuming their own events.
+            if (root.Q<VisualElement>(className: "hud") is { } hud)
+            {
+                hud.pickingMode = PickingMode.Position;
+                hudElement = hud;
+                hud.RegisterCallback<GeometryChangedEvent>(OnHudGeometryChanged);
+                worldBackdropInput = new WorldBackdropInput(hud);
+            }
             if (root.Q<VisualElement>("map-overlay") is { } mapOverlay) mapOverlay.pickingMode = PickingMode.Position;
             if (root.Q<VisualElement>("journal-overlay") is { } journalOverlay) journalOverlay.pickingMode = PickingMode.Position;
             if (root.Q<VisualElement>("death-overlay") is { } deathOverlay) deathOverlay.pickingMode = PickingMode.Position;
@@ -84,11 +99,17 @@ namespace Starfall.UI
             StarfallUiBridge.HostChanged += BindHost;
             BindHost();
             settingsPanel = new StarfallSettingsPanel(root);
+            responsiveUi?.Dispose();
+            responsiveUi = StarfallResponsiveUi.Attach(document, overviewList);
+            L10n.LanguageChanged += OnLanguageChanged;
+            UiLocalizer.Apply(root);
         }
 
         private void OnDisable()
         {
+            L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
+            if (hudElement != null) hudElement.UnregisterCallback<GeometryChangedEvent>(OnHudGeometryChanged);
             if (host != null)
             {
                 host.SnapshotChanged -= Refresh;
@@ -96,7 +117,29 @@ namespace Starfall.UI
             }
             settingsPanel?.Dispose();
             settingsPanel = null;
+            responsiveUi?.Dispose();
+            responsiveUi = null;
             PlayerPrefs.Save();
+        }
+
+        // Keep the HUD out of camera cutouts and status bars. Re-evaluated on
+        // every layout pass; margins are idempotent so this converges.
+        private void OnHudGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (hudElement == null || hudElement.panel == null) return;
+            var area = Screen.safeArea;
+            var pixelsPerPoint = hudElement.panel.scaledPixelsPerPoint;
+            if (pixelsPerPoint <= 0f) pixelsPerPoint = 1f;
+            var left = area.x / pixelsPerPoint;
+            var top = area.y / pixelsPerPoint;
+            var right = (Screen.width - area.xMax) / pixelsPerPoint;
+            var bottom = (Screen.height - area.yMax) / pixelsPerPoint;
+            if (appliedSafeArea == new Vector4(left, top, right, bottom)) return;
+            appliedSafeArea = new Vector4(left, top, right, bottom);
+            hudElement.style.marginLeft = left;
+            hudElement.style.marginTop = top;
+            hudElement.style.marginRight = right;
+            hudElement.style.marginBottom = bottom;
         }
 
         private void BindHost()
@@ -112,6 +155,14 @@ namespace Starfall.UI
                 host.SnapshotChanged += Refresh;
                 host.TelemetryChanged += RefreshTelemetry;
             }
+            Refresh();
+        }
+
+        private void OnLanguageChanged()
+        {
+            UiLocalizer.Apply(root);
+            ResetAuxiliaryListCaches();
+            UpdateSortButtons();
             Refresh();
         }
 
@@ -159,7 +210,7 @@ namespace Starfall.UI
             overviewList.reorderable = false;
             overviewList.horizontalScrollingEnabled = false;
             overviewList.itemsSource = visibleOverview;
-            overviewList.makeItem = () => new OverviewRow(SelectOverviewContact);
+            overviewList.makeItem = () => new OverviewRow(SelectOverviewContact, ShowContactDetail);
             overviewList.bindItem = BindOverviewItem;
             overviewList.unbindItem = UnbindOverviewItem;
 
@@ -218,11 +269,11 @@ namespace Starfall.UI
             if (root == null || host?.Snapshot == null) return;
             var snapshot = host.Snapshot;
             SetText("system-name", snapshot.SystemName);
-            SetText("security", $"SEC {snapshot.Security:0.0}");
+            SetText("security", Tr("SEC {0}", snapshot.Security.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("pilot-name", snapshot.PilotName);
-            SetText("credits", $"{snapshot.Credits:N0} ISK");
+            SetText("credits", Tr("{0} ISK", snapshot.Credits.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("ship-name", $"{snapshot.ShipName} · {snapshot.ShipClass}");
-            SetText("speed", $"{snapshot.Speed:0} m/s");
+            SetText("speed", Tr("{0} m/s", snapshot.Speed.ToString("0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("target-name", snapshot.SelectedName);
             SetText("target-detail", snapshot.SelectedDetail);
             SetText("mission", snapshot.MissionSummary);
@@ -269,7 +320,7 @@ namespace Starfall.UI
         {
             if (root == null || host?.Snapshot == null) return;
             var snapshot = host.Snapshot;
-            SetText("speed", $"{snapshot.Speed:0} m/s");
+            SetText("speed", Tr("{0} m/s", snapshot.Speed.ToString("0", System.Globalization.CultureInfo.InvariantCulture)));
             SetText("target-name", snapshot.SelectedName);
             SetText("target-detail", snapshot.SelectedDetail);
             SetBar("shield", snapshot.Shield01);
@@ -299,8 +350,8 @@ namespace Starfall.UI
 
             if (overviewCount != null)
                 overviewCount.text = filteredOverview.Count == 1
-                    ? "1 CONTACT"
-                    : $"{filteredOverview.Count} CONTACTS";
+                    ? Tr("1 CONTACT")
+                    : Tr("{0} CONTACTS", filteredOverview.Count);
             if (overviewEmpty != null)
                 overviewEmpty.style.display = visibleOverview.Count == 0
                     ? DisplayStyle.Flex
@@ -337,7 +388,20 @@ namespace Starfall.UI
                           distance <= JumpInteractionDistance &&
                           (actions & OverviewActionFlags.Jump) != 0;
             dockButton.SetEnabled(canDock || canJump);
-            dockButton.text = "DOCK/JUMP [D]";
+            dockButton.text = HudLabel("DOCK/JUMP [D]");
+        }
+
+        // Touch devices have no keyboard: strip the "[D]"-style hints from
+        // control labels instead of teaching players about keys they lack.
+        private static readonly System.Text.RegularExpressions.Regex KeyboardHintSuffix =
+            new(@"\s*\[[A-Z0-9]{1,3}\]$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        protected static string HudLabel(string english)
+        {
+            var translated = Tr(english);
+            return UnityEngine.Application.isMobilePlatform
+                ? KeyboardHintSuffix.Replace(translated, string.Empty)
+                : translated;
         }
 
         private void ReplaceVisibleOverview()
@@ -417,6 +481,13 @@ namespace Starfall.UI
         private void SelectOverviewContact(string id)
         {
             if (!string.IsNullOrEmpty(id)) host?.Execute("select", id);
+        }
+
+        // Long-press surfaces the row detail that desktop players get via hover
+        // tooltips; on touch there is no other way to read it.
+        private void ShowContactDetail(string detail)
+        {
+            if (!string.IsNullOrEmpty(detail)) host?.Execute("detail", detail);
         }
 
         private void SetActivePreset(OverviewPresetId preset)
@@ -519,13 +590,13 @@ namespace Starfall.UI
                 case OverviewSortColumn.Threat:
                     return "!";
                 case OverviewSortColumn.Distance:
-                    return "DIST";
+                    return Tr("DIST");
                 case OverviewSortColumn.Name:
-                    return "NAME";
+                    return Tr("NAME");
                 case OverviewSortColumn.Type:
-                    return "TYPE";
+                    return Tr("TYPE");
                 case OverviewSortColumn.Velocity:
-                    return "SPEED";
+                    return Tr("SPEED");
                 default:
                     return string.Empty;
             }
@@ -644,6 +715,7 @@ namespace Starfall.UI
         private sealed class OverviewRow : VisualElement
         {
             private readonly Action<string> selectRequested;
+            private readonly Action<string> detailRequested;
             private readonly OverviewIconElement icon;
             private readonly Label badges;
             private readonly Label distance;
@@ -653,9 +725,10 @@ namespace Starfall.UI
             private UiOverviewContact contact;
             private bool stale;
 
-            public OverviewRow(Action<string> selectRequested)
+            public OverviewRow(Action<string> selectRequested, Action<string> detailRequested)
             {
                 this.selectRequested = selectRequested;
+                this.detailRequested = detailRequested;
                 AddToClassList("overview-row");
                 pickingMode = PickingMode.Position;
 
@@ -678,6 +751,66 @@ namespace Starfall.UI
                 Add(velocity);
 
                 RegisterCallback<PointerDownEvent>(OnPointerDown);
+                RegisterCallback<PointerMoveEvent>(OnPointerMove);
+                RegisterCallback<PointerUpEvent>(OnPointerUp);
+                RegisterCallback<PointerLeaveEvent>(CancelLongPress);
+            }
+
+            // Rows select on pointer-up after a slop check: selecting on
+            // pointer-down turned every scroll swipe into an accidental target
+            // lock, which is punishing with a touch screen.
+            private static readonly Vector2 TapSlop = new Vector2(18f, 18f);
+            private static readonly long LongPressMilliseconds = 550;
+            private Vector3 pointerDownPosition;
+            private bool pointerPressValid;
+            private bool longPressFired;
+            private IVisualElementScheduledItem longPressTask;
+
+            private void OnPointerDown(PointerDownEvent evt)
+            {
+                pointerPressValid = evt.button == 0 && contact != null && !stale;
+                pointerDownPosition = evt.position;
+                CancelLongPress(null);
+                if (!pointerPressValid) return;
+                longPressFired = false;
+                longPressTask = schedule.Execute(FireLongPress).StartingIn(LongPressMilliseconds);
+            }
+
+            private void FireLongPress()
+            {
+                if (!pointerPressValid || longPressFired || contact == null || stale) return;
+                longPressFired = true;
+                detailRequested?.Invoke(tooltip);
+            }
+
+            // A touch pointer stays captured by the row while the list scrolls,
+            // so PointerLeave never fires mid-drag — moving past the slop has to
+            // cancel the pending long press or every slow swipe past 550 ms
+            // dumps a detail line into the log.
+            private void OnPointerMove(PointerMoveEvent evt)
+            {
+                if (!pointerPressValid) return;
+                var delta = evt.position - pointerDownPosition;
+                if (Mathf.Abs(delta.x) > TapSlop.x || Mathf.Abs(delta.y) > TapSlop.y)
+                    CancelLongPress(null);
+            }
+
+            private void CancelLongPress(PointerLeaveEvent evt)
+            {
+                longPressTask?.Pause();
+                longPressTask = null;
+            }
+
+            private void OnPointerUp(PointerUpEvent evt)
+            {
+                var wasLongPress = longPressFired;
+                CancelLongPress(null);
+                if (!pointerPressValid || evt.button != 0 || contact == null || stale) return;
+                pointerPressValid = false;
+                if (wasLongPress) return;
+                var delta = evt.position - pointerDownPosition;
+                if (Mathf.Abs(delta.x) > TapSlop.x || Mathf.Abs(delta.y) > TapSlop.y) return;
+                selectRequested?.Invoke(contact.Id);
             }
 
             public void Bind(UiOverviewContact value, bool selected, bool stale)
@@ -735,11 +868,6 @@ namespace Starfall.UI
                 EnableInClassList("stale", false);
             }
 
-            private void OnPointerDown(PointerDownEvent evt)
-            {
-                if (evt.button == 0 && contact != null && !stale) selectRequested?.Invoke(contact.Id);
-            }
-
             private static Label CreateLabel(string className)
             {
                 var label = new Label { pickingMode = PickingMode.Ignore };
@@ -759,15 +887,15 @@ namespace Starfall.UI
                 switch (key)
                 {
                     case 1: return "!";
-                    case 2: return "M";
-                    case 3: return "!M";
-                    case 4: return "L";
-                    case 5: return "!L";
-                    case 6: return "ML";
-                    case 7: return "!ML";
+                    case 2: return Tr("M");
+                    case 3: return Tr("!M");
+                    case 4: return Tr("L");
+                    case 5: return Tr("!L");
+                    case 6: return Tr("ML");
+                    case 7: return Tr("!ML");
                     default:
-                        if (lawEnforcement) return "P";
-                        return elite ? "E" : string.Empty;
+                        if (lawEnforcement) return Tr("P");
+                        return elite ? Tr("E") : string.Empty;
                 }
             }
 
@@ -775,11 +903,11 @@ namespace Starfall.UI
             {
                 if (double.IsNaN(meters) || double.IsInfinity(meters) || meters < 0d) return "—";
                 const double astronomicalUnit = 149_597_870_700d;
-                if (meters >= astronomicalUnit * 0.1d) return $"{meters / astronomicalUnit:0.0} AU";
-                if (meters >= 10_000_000d) return $"{meters / 1000d:N0} km";
-                if (meters >= 10_000d) return $"{meters / 1000d:0} km";
-                if (meters >= 1000d) return $"{meters / 1000d:0.0} km";
-                return $"{meters:0} m";
+                if (meters >= astronomicalUnit * 0.1d) return Tr("{0} AU", (meters / astronomicalUnit).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                if (meters >= 10_000_000d) return Tr("{0} km", (meters / 1000d).ToString("N0", System.Globalization.CultureInfo.InvariantCulture));
+                if (meters >= 10_000d) return Tr("{0} km", (meters / 1000d).ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+                if (meters >= 1000d) return Tr("{0} km", (meters / 1000d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                return Tr("{0} m", meters.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
             }
 
             private static string FormatVelocity(double metersPerSecond)
@@ -787,8 +915,8 @@ namespace Starfall.UI
                 if (double.IsNaN(metersPerSecond) || double.IsInfinity(metersPerSecond) ||
                     metersPerSecond < 0d)
                     return "—";
-                if (metersPerSecond >= 1000d) return $"{metersPerSecond / 1000d:0.0}k";
-                return $"{metersPerSecond:0} m/s";
+                if (metersPerSecond >= 1000d) return (metersPerSecond / 1000d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "k";
+                return Tr("{0} m/s", metersPerSecond.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
             }
         }
     }

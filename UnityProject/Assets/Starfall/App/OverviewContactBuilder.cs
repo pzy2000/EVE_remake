@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Starfall.Domain;
 using Starfall.Simulation;
 using Starfall.UI;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.App
 {
@@ -29,8 +30,8 @@ namespace Starfall.App
             for (var i = 0; i < system.Stations.Count; i++)
             {
                 var station = system.Stations[i];
-                contacts.Add(Create(station.Id, OverviewKind.Station, station.Name, "Station",
-                    "Dock within 40 m", FactionAccent(catalog, station.FactionId),
+                contacts.Add(Create(station.Id, OverviewKind.Station, TrName(station.Name), Tr("Station"),
+                    Tr("Dock within 40 m"), FactionAccent(catalog, station.FactionId),
                     OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Warp |
                     OverviewActionFlags.Dock));
             }
@@ -41,8 +42,8 @@ namespace Starfall.App
                 var destinationName = state.Universe.Systems.TryGetValue(gate.DestinationSystemId, out var destination)
                     ? destination.Name
                     : gate.DestinationSystemId;
-                contacts.Add(Create(gate.Id, OverviewKind.Stargate, gate.Name, "Stargate",
-                    "Jump to " + destinationName, FactionAccent(catalog, system.FactionId),
+                contacts.Add(Create(gate.Id, OverviewKind.Stargate, TrName(gate.Name), Tr("Stargate"),
+                    Tr("Jump to {0}", TrName(destinationName)), FactionAccent(catalog, system.FactionId),
                     OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Warp |
                     OverviewActionFlags.Jump));
             }
@@ -51,8 +52,8 @@ namespace Starfall.App
             {
                 var belt = system.Belts[i];
                 var oreName = catalog.Items.TryGetValue(belt.OreId, out var ore) ? ore.Name : belt.OreId;
-                contacts.Add(Create(belt.Id, OverviewKind.AsteroidBelt, belt.Name, "Asteroid Belt",
-                    oreName, ResourceAccent,
+                contacts.Add(Create(belt.Id, OverviewKind.AsteroidBelt, TrName(belt.Name), Tr("Asteroid Belt"),
+                    Tr(oreName), ResourceAccent,
                     OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Warp));
             }
 
@@ -61,14 +62,14 @@ namespace Starfall.App
                 var entity = state.Entities[i];
                 if (entity.Kind != EntityKind.Npc || entity.Dead) continue;
                 catalog.Ships.TryGetValue(entity.ShipId, out var ship);
-                var type = ship != null ? ship.Name : entity.ShipId;
+                var type = ship != null ? Tr(ship.Name) : entity.ShipId;
                 var factionName = catalog.Factions.TryGetValue(entity.FactionId, out var faction)
-                    ? faction.Name
+                    ? Tr(faction.Name)
                     : entity.FactionId;
                 var detail = ship != null
-                    ? ship.Class + " · " + factionName
+                    ? Tr(ship.Class.ToString()) + " · " + factionName
                     : factionName;
-                contacts.Add(Create(entity.Id, OverviewKind.Ship, entity.Name, type, detail,
+                contacts.Add(Create(entity.Id, OverviewKind.Ship, TrName(entity.Name), type, detail,
                     FactionAccent(catalog, entity.FactionId),
                     OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Orbit |
                     OverviewActionFlags.Warp | OverviewActionFlags.Lock));
@@ -79,18 +80,18 @@ namespace Starfall.App
                 var asteroid = state.Asteroids[i];
                 if (asteroid.Amount <= 0d) continue;
                 var oreName = catalog.Items.TryGetValue(asteroid.OreId, out var ore)
-                    ? ore.Name
+                    ? Tr(ore.Name)
                     : asteroid.OreId;
                 var contact = Create(asteroid.Id, OverviewKind.Asteroid, oreName, oreName,
-                    asteroid.Amount.ToString("0") + " units remaining", ResourceAccent,
+                    Tr("{0} units remaining", asteroid.Amount.ToString("0")), ResourceAccent,
                     OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Orbit |
                     OverviewActionFlags.Warp | OverviewActionFlags.Mine);
                 contact.SizeMeters = (float)(asteroid.Radius * 2d);
                 contacts.Add(contact);
             }
 
-            var star = Create(system.Id + "_star", OverviewKind.Star, system.Name + " Star",
-                system.Star.SpectralType + "-class Star", "System primary", system.Star.Color,
+            var star = Create(system.Id + "_star", OverviewKind.Star, TrName(system.Name + " Star"),
+                Tr("{0}-class Star", system.Star.SpectralType), Tr("System primary"), system.Star.Color,
                 OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Warp);
             star.SizeMeters = (float)(system.Star.Radius * 2d);
             contacts.Add(star);
@@ -98,8 +99,8 @@ namespace Starfall.App
             for (var i = 0; i < system.Planets.Count; i++)
             {
                 var planet = system.Planets[i];
-                var planetContact = Create(planet.Id, OverviewKind.Planet, planet.Name,
-                    TitleCase(planet.PlanetType), "Planet", planet.Color,
+                var planetContact = Create(planet.Id, OverviewKind.Planet, TrName(planet.Name),
+                    Tr(TitleCase(planet.PlanetType)), Tr("Planet"), planet.Color,
                     OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Warp);
                 planetContact.SizeMeters = (float)(planet.Radius * 2d);
                 contacts.Add(planetContact);
@@ -107,8 +108,8 @@ namespace Starfall.App
                 for (var moonIndex = 0; moonIndex < planet.Moons.Count; moonIndex++)
                 {
                     var moon = planet.Moons[moonIndex];
-                    var moonContact = Create(moon.Id, OverviewKind.Moon, moon.Name, "Moon",
-                        "Natural satellite", MoonAccent,
+                    var moonContact = Create(moon.Id, OverviewKind.Moon, TrName(moon.Name), Tr("Moon"),
+                        Tr("Natural satellite"), MoonAccent,
                         OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Warp);
                     moonContact.SizeMeters = (float)(moon.Radius * 2d);
                     contacts.Add(moonContact);

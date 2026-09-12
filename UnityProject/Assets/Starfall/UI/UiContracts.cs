@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Starfall.Domain;
 
 namespace Starfall.UI
 {
@@ -36,6 +37,7 @@ namespace Starfall.UI
         public string SelectedName = "No target";
         public string SelectedDetail = "Select an object in space";
         public string MissionSummary = "No active mission";
+        public string FittingSummary = string.Empty;
         public long Credits = 50000;
         public int LoyaltyPoints;
         public float Shield01 = 1f;
@@ -52,6 +54,8 @@ namespace Starfall.UI
         public readonly List<UiListItem> Market = new();
         public readonly List<UiListItem> Ships = new();
         public readonly List<UiListItem> Missions = new();
+        public readonly List<UiListItem> Skills = new();
+        public readonly List<UiListItem> LpStore = new();
         public readonly List<UiListItem> Inventory = new();
         public readonly List<UiModuleState> Modules = new();
         public readonly List<string> Log = new();
@@ -61,8 +65,10 @@ namespace Starfall.UI
     {
         UiSnapshot Snapshot { get; }
         float MusicVolume { get; }
+        float SfxVolume { get; }
         bool MusicMuted { get; }
         string QualityPreset { get; }
+        float UiScale { get; }
         event Action SnapshotChanged;
         event Action TelemetryChanged;
         event Action SettingsChanged;
@@ -71,7 +77,10 @@ namespace Starfall.UI
         void ImportLegacy();
         void Execute(string command, string argument = null);
         void SetMusicVolume(float value);
+        void SetSfxVolume(float value);
         void SetMusicMuted(bool value);
+        void SetLanguage(L10nLanguage language);
+        void SetUiScale(float value);
         void CycleQuality();
     }
 

@@ -89,16 +89,40 @@ namespace Starfall.Simulation
             {
                 case MissionType.Security:
                 case MissionType.StorylineKill:
-                    return $"Hostiles destroyed: {Kills}/{KillsRequired}";
+                    return L10n.Tr("Hostiles destroyed: {0}/{1}", Kills, KillsRequired);
                 case MissionType.Distribution:
                 case MissionType.StorylineHaul:
-                    return "Deliver the sealed cargo to the destination station";
+                    return L10n.Tr("Deliver the sealed cargo to the destination station");
                 case MissionType.Mining:
-                    return $"Deliver {Quantity:0} units of ore to the agent";
+                    return L10n.Tr("Deliver {0} units of ore to the agent", Quantity.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
                 default:
                     return string.Empty;
             }
         }
+    }
+
+    [Serializable]
+    public sealed class AsteroidVisitState
+    {
+        public string Id = string.Empty;
+        public string OreId = string.Empty;
+        public double X;
+        public double Z;
+        public double Radius;
+        public double Amount;
+    }
+
+    /// <summary>
+    /// Per-system world state that must survive docking, jumping and reloading.
+    /// Without it every undock reset the belt to full ore and respawned all
+    /// NPCs, which made mining and bounty farming infinitely AFK-able.
+    /// </summary>
+    [Serializable]
+    public sealed class SystemVisitState
+    {
+        /// <summary>Simulation time before which NPC traffic will not repopulate.</summary>
+        public double NpcRespawnReadyAt;
+        public List<AsteroidVisitState> Asteroids;
     }
 
     [Serializable]
@@ -123,7 +147,18 @@ namespace Starfall.Simulation
         public double Z;
         public double CriminalTimer;
         public string DestinationSystemId = string.Empty;
+        /// <summary>Last simulation time the player fired a weapon; gates docking for a while.</summary>
+        public double LastWeaponFireAt = -999d;
+        /// <summary>How many times systems have been populated; seeds per-visit variation.</summary>
+        public int VisitCounter;
+        public Dictionary<string, SystemVisitState> SystemVisits = new Dictionary<string, SystemVisitState>(StringComparer.Ordinal);
         public PlayerStatsState Stats = new PlayerStatsState();
+        /// <summary>Trained level per skill id (0 = untrained).</summary>
+        public Dictionary<string, int> SkillLevels = new Dictionary<string, int>(StringComparer.Ordinal);
+        /// <summary>Partial skill points toward the next level per skill id.</summary>
+        public Dictionary<string, double> SkillPoints = new Dictionary<string, double>(StringComparer.Ordinal);
+        /// <summary>Ordered training queue; index 0 is the skill currently training.</summary>
+        public List<string> SkillQueue = new List<string>();
 
         public ShipInstanceState ActiveShip()
         {
@@ -222,7 +257,6 @@ namespace Starfall.Simulation
         public string SelectedId { get; internal set; } = string.Empty;
         public bool Docked => !string.IsNullOrEmpty(Player.DockedAtStationId);
         public bool PlayerDead { get; internal set; }
-        public int VisitCounter { get; internal set; }
         public IReadOnlyList<EntityState> Entities => entities;
         public IReadOnlyList<AsteroidState> Asteroids => asteroids;
 

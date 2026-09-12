@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "changes": [],
+      "review_fingerprint": "sha256:af98a3e30327ae4f0273689dc10316a7933d3b35a60eb39a7adbad3778972f7e",
+      "revision": 955505,
+      "status": "ready",
+      "version_id": "955505",
+      "warnings": []
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.42",
+      "digest": "sha256:fdaac84af61bdac3a99c29021283faded459c78bfbd2ab625017bb611ac8bde9",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "skills": {
+      "command": "taptap-cli update",
+      "current": "",
+      "message": "taptap-cli skills have never been synced for binary 2026.8.28, run: taptap-cli update",
+      "target": "2026.8.28"
+    }
+  }
+}

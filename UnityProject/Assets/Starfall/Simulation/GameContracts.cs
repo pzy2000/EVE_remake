@@ -20,6 +20,7 @@ namespace Starfall.Simulation
         Fit,
         Unfit,
         SwitchShip,
+        SellShip,
         TalkToAgent,
         AcceptMission,
         CompleteMission,
@@ -28,6 +29,7 @@ namespace Starfall.Simulation
         Respawn,
         Repair,
         ExchangeLoyalty,
+        TrainSkill,
         Save,
     }
 
@@ -61,6 +63,7 @@ namespace Starfall.Simulation
         Death,
         Selection,
         SystemPopulated,
+        SkillTrained,
         SaveRequested,
         Log,
     }

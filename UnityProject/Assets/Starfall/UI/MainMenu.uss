@@ -23,6 +23,7 @@
 
 .menu-card {
     width: 720px;
+    max-width: 92%;
     padding: 28px;
     background-color: rgba(3, 12, 29, 0.91);
     border-top-width: 1px;

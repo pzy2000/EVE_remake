@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!-- Privacy consent gate: must run before Unity engine init so the
+             consent popup precedes any SDK data access (sensor list query). -->
+        <activity android:name="com.pzy.starfallodyssey.ConsentActivity"
+                  android:label="STARFALL ODYSSEY"
+                  android:theme="@android:style/Theme.Material.NoActionBar"
+                  android:exported="true"
+                  android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!--Used when Application Entry is set to GameActivity; the LAUNCHER
+            intent-filter is intentionally omitted (ConsentActivity launches it).-->
+        <activity android:name="com.unity3d.player.UnityPlayerGameActivity"
+                  android:theme="@style/BaseUnityGameActivityTheme"
+                  android:screenOrientation="fullSensor"
+                  android:exported="false">
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+            <meta-data android:name="android.app.lib_name" android:value="game" />
+        </activity>
+    </application>
+</manifest>

@@ -124,6 +124,18 @@ namespace Starfall.Presentation
             if (span > 0.001f) target.localScale *= targetSpan / span;
         }
 
+        private static readonly System.Collections.Generic.List<VolumeProfile> createdProfiles =
+            new System.Collections.Generic.List<VolumeProfile>();
+
+        private void OnDestroy()
+        {
+            // Runtime profiles survive scene unloads; the menu is the only
+            // creator here, so it owns disposing every profile it made.
+            for (var i = 0; i < createdProfiles.Count; i++)
+                if (createdProfiles[i]) Destroy(createdProfiles[i]);
+            createdProfiles.Clear();
+        }
+
         private static void CreatePostProcessing(Transform parent)
         {
             var volumeObject = new GameObject("Main Menu Volume");
@@ -131,6 +143,7 @@ namespace Starfall.Presentation
             var volume = volumeObject.AddComponent<Volume>();
             volume.isGlobal = true;
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            createdProfiles.Add(profile);
             var bloom = profile.Add<Bloom>();
             bloom.active = true;
             bloom.intensity.Override(0.42f);

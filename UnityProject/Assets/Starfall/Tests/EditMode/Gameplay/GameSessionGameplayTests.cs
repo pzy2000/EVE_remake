@@ -40,7 +40,8 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(ship, Is.Not.Null);
             Assert.That(ship.ShipId, Is.EqualTo(expectedShipId));
             Assert.That(ship.Fitting.High[0], Is.EqualTo(expectedWeaponId));
-            Assert.That(player.Hangar[ModuleIds.MiningLaser], Is.EqualTo(1));
+            Assert.That(ship.Fitting.High[1], Is.EqualTo(ModuleIds.MiningLaser),
+                "The mining laser must be fitted at creation, not parked in the hangar.");
             Assert.That(session.State.Entities, Is.Empty);
         }
 
@@ -310,9 +311,13 @@ namespace Starfall.Tests.EditMode.Gameplay
             Assert.That(mission.Id, Is.EqualTo("mis_1"));
             Assert.That(mission.AgentId, Is.EqualTo(agent.Id));
             Assert.That(mission.Type, Is.EqualTo(expectedType));
-            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Active));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Offered),
+                "Talking to the agent only extends an offer; accepting is a deliberate separate step.");
             Assert.That(mission.RewardCredits, Is.GreaterThan(0));
-            Assert.That(batch.Count(value => value.Type == SimulationEventType.Mission), Is.EqualTo(2));
+            Assert.That(batch.Count(value => value.Type == SimulationEventType.Mission), Is.EqualTo(1));
+
+            Execute(session, new GameCommand(GameCommandType.AcceptMission, mission.Id));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Active));
             if (expectedType == MissionType.Distribution)
                 Assert.That(session.State.Player.Cargo[ItemIds.SealedCargo], Is.EqualTo(mission.Quantity));
         }
@@ -353,7 +358,8 @@ namespace Starfall.Tests.EditMode.Gameplay
             Undock(session);
             var player = session.State.PlayerEntity();
             var attacker = session.State.Entities.First(value => value.Kind == EntityKind.Npc);
-            attacker.AiBehavior = "police";
+            attacker.FactionId = FactionIds.BloodReavers;
+            attacker.AiBehavior = "pirate";
             attacker.AggroRange = 99999d;
             attacker.LockedTargetId = player.Id;
             attacker.Position = player.Position;
@@ -393,7 +399,7 @@ namespace Starfall.Tests.EditMode.Gameplay
                 second.State.Asteroids.Select(value => value.Id + "|" + value.OreId).ToArray());
             Assert.That(first.State.NextEntityId, Is.EqualTo(second.State.NextEntityId));
             Assert.That(first.State.RngState, Is.EqualTo(second.State.RngState));
-            Assert.That(ShipIds.All.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(18));
+            Assert.That(ShipIds.All.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(22));
             Assert.That(FactionIds.All.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(10));
         }
 
@@ -414,9 +420,288 @@ namespace Starfall.Tests.EditMode.Gameplay
             StringAssert.DoesNotContain("Guid.NewGuid", source);
         }
 
+        [Test]
+        public void SellShip_SellsInactiveShips_ButNeverTheActiveOrLastOne()
+        {
+            var session = CreateSession();
+            var player = session.State.Player;
+            player.Ships.Add(new ShipInstanceState
+            {
+                InstanceId = "ship_surplus",
+                ShipId = ShipIds.Acolyte,
+                Name = "Surplus",
+                Fitting = new FittingState(),
+                Shield = catalog.Ships[ShipIds.Acolyte].HitPoints.Shield,
+                Armor = catalog.Ships[ShipIds.Acolyte].HitPoints.Armor,
+                Hull = catalog.Ships[ShipIds.Acolyte].HitPoints.Hull,
+            });
+            var creditsBefore = player.Credits;
+
+            Execute(session, new GameCommand(GameCommandType.SellShip, "ship_surplus"));
+            Assert.That(player.Ships, Has.Count.EqualTo(1), "The inactive ship must be sold.");
+            Assert.That(player.Credits, Is.GreaterThan(creditsBefore));
+
+            Execute(session, new GameCommand(GameCommandType.SellShip, player.ActiveShipInstanceId));
+            Assert.That(player.Ships, Has.Count.EqualTo(1), "The active (and only) ship must be unsellable.");
+        }
+
+        [Test]
+        public void Agents_RefusePilotsTheirFactionHasWrittenOff()
+        {
+            var session = CreateSession();
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            var agent = new AgentDefinition("agent_hostile", "Hostile Agent", "security", 1, station.Id);
+            station.Agents.Add(agent);
+            session.State.Player.Standings[station.FactionId] = -6d;
+
+            Execute(session, new GameCommand(GameCommandType.TalkToAgent, agent.Id));
+
+            Assert.That(session.State.Player.Missions, Is.Empty,
+                "A faction at hostile standing must not offer missions.");
+        }
+
+        [Test]
+        public void SecurityMissions_RequireReturningToTheIssuingStation()
+        {
+            var session = CreateSession();
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            var mission = new MissionState
+            {
+                Id = "mis_return",
+                Type = MissionType.Security,
+                Status = MissionStatus.ObjectivesMet,
+                Title = "Security: done in the field",
+                FactionId = FactionIds.Aurelian,
+                StationId = station.Id,
+            };
+            session.State.Player.Missions.Add(mission);
+
+            Undock(session);
+            Execute(session, new GameCommand(GameCommandType.CompleteMission, mission.Id));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.ObjectivesMet),
+                "Kill missions must not complete from the field.");
+
+            var playerEntity = session.State.PlayerEntity();
+            playerEntity.Position = station.Position + new SimVec2(10d, 0d);
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Execute(session, new GameCommand(GameCommandType.CompleteMission, mission.Id));
+            Assert.That(mission.Status, Is.EqualTo(MissionStatus.Done),
+                "Turning the mission in at the issuing station must complete it.");
+        }
+
         private GameSession CreateSession(string empireId = FactionIds.Aurelian)
         {
             return new GameSession(universe, catalog, "  Test Pilot  ", empireId);
+        }
+
+        [Test]
+        public void Undock_AfterDocking_RestoresDepletedAsteroidsInsteadOfRegenerating()
+        {
+            var session = CreateSession();
+            Undock(session);
+            var asteroid = session.State.Asteroids.First();
+            asteroid.Amount = 5d;
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            session.State.PlayerEntity().Position = station.Position + new SimVec2(10d, 0d);
+
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Assert.That(session.State.Docked, Is.True);
+            Undock(session);
+
+            var restored = session.State.Asteroids.FirstOrDefault(value => value.Id == asteroid.Id);
+            Assert.That(restored, Is.Not.Null, "A partially mined asteroid must survive dock/undock.");
+            Assert.That(restored.Amount, Is.EqualTo(5d).Within(1e-9d),
+                "Undocking must not refill the asteroid.");
+        }
+
+        [Test]
+        public void Undock_DoesNotRespawnTrafficBeforeCooldownExpires()
+        {
+            var session = CreateSession();
+            Undock(session);
+            Assert.That(session.State.Entities.Any(value => value.Kind == EntityKind.Npc), Is.True,
+                "The first visit populates traffic.");
+
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            var playerEntity = session.State.PlayerEntity();
+            playerEntity.Position = station.Position + new SimVec2(10d, 0d);
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Undock(session);
+            Assert.That(session.State.Entities.Where(value => value.Kind == EntityKind.Npc), Is.Empty,
+                "Traffic must stay despawned while the respawn cooldown runs.");
+
+            for (var i = 0; i < 2500; i++) session.AdvanceFrame(0.25d);
+            playerEntity = session.State.PlayerEntity();
+            playerEntity.Position = station.Position + new SimVec2(10d, 0d);
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Undock(session);
+            Assert.That(session.State.Entities.Where(value => value.Kind == EntityKind.Npc), Is.Not.Empty,
+                "Traffic repopulates once the cooldown has elapsed.");
+        }
+
+        [Test]
+        public void Sell_RejectsSealedMissionCargo()
+        {
+            var session = CreateSession();
+            const double quantity = 12d;
+            session.State.Player.Cargo[ItemIds.SealedCargo] = quantity;
+            var creditsBefore = session.State.Player.Credits;
+
+            var batch = Execute(session, new GameCommand(GameCommandType.Sell, ItemIds.SealedCargo));
+
+            Assert.That(session.State.Player.Cargo[ItemIds.SealedCargo], Is.EqualTo(quantity));
+            Assert.That(session.State.Player.Credits, Is.EqualTo(creditsBefore));
+            Assert.That(batch.Any(value => value.Type == SimulationEventType.Log &&
+                value.Message.Contains("no market")), Is.True);
+        }
+
+        [TestCase("security", MissionType.Security)]
+        [TestCase("distribution", MissionType.Distribution)]
+        public void MissionDestinations_NeverTargetTheAgentSystem(string division, MissionType missionType)
+        {
+            var session = CreateSession();
+            var system = universe.Systems[session.State.Player.CurrentSystemId];
+            var station = system.Stations[0];
+            var agent = new AgentDefinition("agent_dest_" + division, "Test Agent", division, 2, station.Id);
+            station.Agents.Add(agent);
+
+            Execute(session, new GameCommand(GameCommandType.TalkToAgent, agent.Id));
+            Execute(session, new GameCommand(GameCommandType.AcceptMission, session.State.Player.Missions.Single().Id));
+            var mission = session.State.Player.Missions.Single();
+
+            Assert.That(mission.Type, Is.EqualTo(missionType));
+            var targetSystem = missionType == MissionType.Distribution ? mission.DestinationSystemId : mission.TargetSystemId;
+            Assert.That(targetSystem, Is.Not.EqualTo(system.Id),
+                "Missions must never be completable without leaving the agent's system.");
+        }
+
+        [Test]
+        public void Repair_RestoresArmorAndHullAtACreditCost()
+        {
+            var session = CreateSession();
+            var ship = session.State.Player.ActiveShip();
+            var definition = catalog.Ships[ship.ShipId];
+            ship.Armor = 0d;
+            ship.Hull = definition.HitPoints.Hull * 0.5d;
+            var expectedArmorCost = (long)System.Math.Round(definition.Price * 0.04d);
+            var expectedHullCost = (long)System.Math.Round(definition.Price * 0.08d);
+
+            Execute(session, new GameCommand(GameCommandType.Repair));
+
+            Assert.That(ship.Armor, Is.EqualTo(definition.HitPoints.Armor).Within(1e-9d));
+            Assert.That(ship.Hull, Is.EqualTo(definition.HitPoints.Hull).Within(1e-9d));
+            Assert.That(session.State.Player.Credits, Is.EqualTo(50000 - expectedArmorCost - expectedHullCost));
+        }
+
+        [Test]
+        public void Repair_WithoutCredits_DoesNotRestoreAnything()
+        {
+            var session = CreateSession();
+            var ship = session.State.Player.ActiveShip();
+            var definition = catalog.Ships[ship.ShipId];
+            ship.Armor = 0d;
+            session.State.Player.Credits = 0;
+
+            Execute(session, new GameCommand(GameCommandType.Repair));
+
+            Assert.That(ship.Armor, Is.EqualTo(0d).Within(1e-9d), "Unaffordable repairs must not restore the ship.");
+            Assert.That(session.State.Player.Credits, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Docking_IsLockedForSixtySecondsAfterFiringWeapons()
+        {
+            var session = CreateSession();
+            Undock(session);
+            var station = universe.Systems[session.State.Player.CurrentSystemId].Stations[0];
+            var player = session.State.PlayerEntity();
+            player.Position = station.Position + new SimVec2(10d, 0d);
+
+            session.State.Player.LastWeaponFireAt = session.State.SimulationTime;
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Assert.That(session.State.Docked, Is.False, "Docking must stay locked right after firing.");
+
+            for (var i = 0; i < 250; i++) session.AdvanceFrame(0.25d);
+            Execute(session, new GameCommand(GameCommandType.DockOrJump, station.Id));
+            Assert.That(session.State.Docked, Is.True, "The dock lockout must expire.");
+        }
+
+        [Test]
+        public void Police_StandDownOnceTheCriminalTimerExpires()
+        {
+            var session = CreateSession();
+            Undock(session);
+            var player = session.State.PlayerEntity();
+            var lawfulTarget = session.State.Entities.First(value => value.Kind == EntityKind.Npc &&
+                catalog.Factions[value.FactionId].Kind == FactionKind.Empire);
+            player.LockedTargetId = lawfulTarget.Id;
+            lawfulTarget.Position = player.Position;
+            lawfulTarget.Shield = 0d;
+            lawfulTarget.Armor = 0d;
+            lawfulTarget.Hull = 1d;
+
+            session.State.Player.CriminalTimer = 0.4d;
+            for (var i = 0; i < 40; i++) session.AdvanceFrame(0.05d);
+            Assert.That(session.State.Player.CriminalTimer, Is.EqualTo(0d).Within(1e-9d));
+
+            for (var i = 0; i < 100; i++) session.AdvanceFrame(0.05d);
+            Assert.That(session.State.Entities.Where(value => value.AiBehavior == "police"),
+                Has.All.Matches<EntityState>(value => string.IsNullOrEmpty(value.LockedTargetId)),
+                "Enforcers must drop the lock once the criminal timer expires.");
+        }
+
+        [Test]
+        public void PlayerDeath_LosesCargoFailsCourierAndRequestsSave()
+        {
+            var session = CreateSession();
+            Undock(session);
+            var player = session.State.PlayerEntity();
+            session.State.Player.Cargo[ItemIds.SealedCargo] = 12d;
+            var courier = new MissionState
+            {
+                Id = "mis_death", Type = MissionType.Distribution, Status = MissionStatus.Active,
+                Title = "Courier: doomed", FactionId = FactionIds.Aurelian, Quantity = 12d,
+            };
+            session.State.Player.Missions.Add(courier);
+
+            var attacker = session.State.Entities.First(value => value.Kind == EntityKind.Npc);
+            // A pirate stays hostile regardless of the criminal timer, so the
+            // kill is unaffected by the police stand-down rule.
+            attacker.FactionId = FactionIds.BloodReavers;
+            attacker.AiBehavior = "pirate";
+            attacker.AggroRange = 99999d;
+            attacker.LockedTargetId = player.Id;
+            attacker.Position = player.Position;
+            player.Shield = 0d;
+            player.Armor = 0d;
+            player.Hull = 1d;
+            player.LastDamageAt = session.State.SimulationTime;
+
+            var deathBatch = session.AdvanceFrame(GameSession.FixedStepSeconds);
+            Assert.That(session.State.PlayerDead, Is.True);
+            Assert.That(session.State.Player.Cargo.ContainsKey(ItemIds.SealedCargo), Is.False,
+                "Cargo must be lost with the ship.");
+            Assert.That(courier.Status, Is.EqualTo(MissionStatus.Done), "Haul missions fail when the cargo is destroyed.");
+            Assert.That(deathBatch.Any(value => value.Type == SimulationEventType.SaveRequested && value.Detail == "auto"), Is.True,
+                "The death itself must be persisted.");
+        }
+
+        [Test]
+        public void LoadCtor_WithPlayerDeadFlag_RestoresDeadStateAndRespawns()
+        {
+            var session = CreateSession();
+            Undock(session);
+            var player = session.State.Player;
+            player.DockedAtStationId = string.Empty;
+            var deadSession = new GameSession(universe, catalog, player, 10d, 424242u, 7u, playerDead: true);
+
+            Assert.That(deadSession.State.PlayerDead, Is.True);
+            Assert.That(deadSession.State.PlayerEntity(), Is.Null, "A dead pilot has no live entity.");
+
+            Execute(deadSession, new GameCommand(GameCommandType.Respawn));
+            Assert.That(deadSession.State.PlayerDead, Is.False);
+            Assert.That(deadSession.State.Docked, Is.True);
+            Assert.That(deadSession.State.Player.CurrentSystemId, Is.EqualTo(deadSession.State.Player.HomeSystemId));
         }
 
         private static SimulationEventBatch Execute(GameSession session, GameCommand command)

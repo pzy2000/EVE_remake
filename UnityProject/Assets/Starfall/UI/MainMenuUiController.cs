@@ -1,5 +1,8 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.UI
 {
@@ -10,6 +13,7 @@ namespace Starfall.UI
         private TextField pilotName;
         private Label empireDescription;
         private StarfallSettingsPanel settingsPanel;
+        private IDisposable responsiveUi;
         private string empireId = "aurelian";
 
         private void OnEnable()
@@ -23,16 +27,28 @@ namespace Starfall.UI
             BindEmpire(root, "empire-meridian", "meridian", "Fast close-range blaster ships built for decisive brawls.");
             BindEmpire(root, "empire-varkhald", "varkhald", "Rugged projectile vessels with unmatched sublight speed.");
             root.Q<Button>("launch")?.RegisterCallback<ClickEvent>(_ =>
-                StarfallUiBridge.Host?.StartNewGame(string.IsNullOrWhiteSpace(pilotName?.value) ? "Pilot" : pilotName.value.Trim(), empireId));
+                StarfallUiBridge.Host?.StartNewGame(string.IsNullOrWhiteSpace(pilotName?.value) ? Tr("Pilot") : pilotName.value.Trim(), empireId));
             root.Q<Button>("continue")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.ContinueGame());
             root.Q<Button>("import")?.RegisterCallback<ClickEvent>(_ => StarfallUiBridge.Host?.ImportLegacy());
             settingsPanel = new StarfallSettingsPanel(root);
+            responsiveUi?.Dispose();
+            responsiveUi = StarfallResponsiveUi.Attach(document);
+            L10n.LanguageChanged += OnLanguageChanged;
+            UiLocalizer.Apply(root);
         }
 
         private void OnDisable()
         {
+            L10n.LanguageChanged -= OnLanguageChanged;
             settingsPanel?.Dispose();
             settingsPanel = null;
+            responsiveUi?.Dispose();
+            responsiveUi = null;
+        }
+
+        private void OnLanguageChanged()
+        {
+            UiLocalizer.Apply(document?.rootVisualElement);
         }
 
         private void BindEmpire(VisualElement root, string elementName, string id, string description)
@@ -44,7 +60,7 @@ namespace Starfall.UI
                 empireId = id;
                 root.Query<Button>(className: "empire-card").ForEach(card => card.RemoveFromClassList("chosen"));
                 button.AddToClassList("chosen");
-                if (empireDescription != null) empireDescription.text = description;
+                if (empireDescription != null) empireDescription.text = Tr(description);
             };
         }
     }

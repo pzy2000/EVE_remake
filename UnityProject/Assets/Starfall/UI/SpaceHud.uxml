@@ -10,7 +10,7 @@
             <ui:Button name="journal" text="JOURNAL [J]" />
             <ui:Button name="pilot" text="PILOT [C]" />
             <ui:Button name="save" text="SAVE" />
-            <ui:Button name="settings" text="⚙" />
+            <ui:Button name="settings" text="SETTINGS" />
         </ui:VisualElement>
         <ui:VisualElement class="overview panel">
             <ui:VisualElement class="overview-heading">

@@ -289,9 +289,12 @@ namespace Starfall.Simulation
                         new SimVec2(Math.Cos(angle) * radius, Math.Sin(angle) * radius));
                     var shuffledDivisions = rng.Shuffle(AgentDivisions);
                     var divisionCount = rng.RangeInclusive(1, 3);
+                    // The rolls must stay identical to legacy saves (the RNG stream
+                    // shapes gates too), so deeper space simply remaps the results:
+                    // empire 1-2, low security 3-4, null security 4.
                     var level = system.Security >= 0.5
                         ? rng.RangeInclusive(1, 2)
-                        : system.Security > 0 ? rng.RangeInclusive(2, 3) : 3;
+                        : system.Security > 0 ? rng.RangeInclusive(2, 3) + 1 : 4;
                     for (var i = 0; i < divisionCount; i++)
                     {
                         var division = shuffledDivisions[i];

@@ -9,18 +9,85 @@ namespace Starfall.Presentation
         private static readonly Vector3 PadCenter = new(-2.2f, 0f, 2.2f);
         private static readonly Vector3 ShipDisplayCenter = new(-2.2f, 2.35f, 2.2f);
 
+        // Orbit rig around the displayed ship. Yaw/pitch/distance are clamped to
+        // keep the camera inside the hangar mouth — the interior is a small box
+        // and an unrestricted orbit swings the camera through walls and roof.
+        private const float MaxOrbitYawSwing = 45f;
+        private const float MinOrbitPitch = 3f;
+        private const float MaxOrbitPitch = 20f;
+        private const float MinDistance = 11f;
+        private const float MaxDistance = 28f;
+
         [SerializeField] private string shipId = "acolyte";
         [SerializeField] private string shipClass = "frigate";
         [SerializeField] private Color factionColor = new(1f, 0.66f, 0.2f);
 
         private Transform ship;
+        private Camera hangarCamera;
+        private float orbitYaw;
+        private float orbitYawBase;
+        private float orbitPitch = 12f;
+        private float orbitDistance = 20f;
+        private float pinchStartPixelDistance = 1f;
+        private float pinchStartDistance;
         private Material accentMaterial;
         private Light rimLight;
         private Light fillLight;
 
+        /// <summary>Scene-scoped handle so the station UI can find this rig without wiring.</summary>
+        public static StationHangarPresenter Current { get; private set; }
+
         private void Awake()
         {
             BuildHangar();
+        }
+
+        private void OnEnable()
+        {
+            Current = this;
+        }
+
+        private void OnDisable()
+        {
+            if (Current == this) Current = null;
+        }
+
+        /// <summary>Screen-pixel drag orbit; fed by StationBackdropInput.</summary>
+        public void Orbit(float deltaX, float deltaY)
+        {
+            orbitYaw = Mathf.Clamp(orbitYaw + deltaX * 0.18f,
+                orbitYawBase - MaxOrbitYawSwing, orbitYawBase + MaxOrbitYawSwing);
+            orbitPitch = Mathf.Clamp(orbitPitch - deltaY * 0.14f, MinOrbitPitch, MaxOrbitPitch);
+        }
+
+        public void Zoom(float wheelDelta)
+        {
+            if (Mathf.Abs(wheelDelta) < 0.01f) return;
+            orbitDistance = Mathf.Clamp(orbitDistance * Mathf.Exp(-wheelDelta * 0.008f), MinDistance, MaxDistance);
+        }
+
+        public void BeginPinchZoom(float startPixelDistance)
+        {
+            pinchStartPixelDistance = Mathf.Max(1f, startPixelDistance);
+            pinchStartDistance = orbitDistance;
+        }
+
+        public void UpdatePinchZoom(float currentPixelDistance)
+        {
+            var scale = pinchStartPixelDistance / Mathf.Max(1f, currentPixelDistance);
+            orbitDistance = Mathf.Clamp(pinchStartDistance * scale, MinDistance, MaxDistance);
+        }
+
+        private void LateUpdate()
+        {
+            if (!hangarCamera) return;
+            // Same orbit math as the space camera: position on a sphere around
+            // the display center, always looking at it.
+            var rotation = Quaternion.Euler(orbitPitch, orbitYaw, 0f);
+            var desired = transform.TransformPoint(ShipDisplayCenter) + rotation * new Vector3(0f, 0f, -orbitDistance);
+            hangarCamera.transform.position = desired;
+            hangarCamera.transform.rotation = Quaternion.LookRotation(
+                transform.TransformPoint(ShipDisplayCenter) - desired, Vector3.up);
         }
 
         public void SetShip(string id, string cls, Color color)
@@ -74,6 +141,15 @@ namespace Starfall.Presentation
             cameraObject.transform.localPosition = new Vector3(1.2f, 6.35f, -17.2f);
             cameraObject.transform.LookAt(transform.TransformPoint(ShipDisplayCenter));
             var camera = cameraObject.AddComponent<Camera>();
+            hangarCamera = camera;
+            // Seed the orbit rig from the authored framing so the first frame
+            // matches the old fixed camera exactly.
+            var toCenter = transform.TransformPoint(ShipDisplayCenter) - cameraObject.transform.position;
+            orbitDistance = toCenter.magnitude;
+            orbitPitch = Mathf.Asin(-toCenter.y / Mathf.Max(0.01f, orbitDistance)) * Mathf.Rad2Deg;
+            orbitYaw = Mathf.Atan2(toCenter.x, toCenter.z) * Mathf.Rad2Deg;
+            orbitYawBase = orbitYaw;
+            orbitPitch = Mathf.Clamp(orbitPitch, MinOrbitPitch, MaxOrbitPitch);
             camera.tag = "MainCamera";
             camera.fieldOfView = 49f;
             camera.nearClipPlane = 0.15f;
@@ -260,13 +336,22 @@ namespace Starfall.Presentation
             return light;
         }
 
+        private VolumeProfile hangarProfile;
+
+        private void OnDestroy()
+        {
+            if (hangarProfile) Destroy(hangarProfile);
+        }
+
         private void CreatePostProcessing()
         {
             var volumeObject = new GameObject("Hangar Volume");
             volumeObject.transform.SetParent(transform, false);
             var volume = volumeObject.AddComponent<Volume>();
             volume.isGlobal = true;
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            // Tracked so OnDestroy can destroy it: runtime profiles survive
+            // scene unloads and would otherwise leak on every dock.
+            var profile = hangarProfile = ScriptableObject.CreateInstance<VolumeProfile>();
             var bloom = profile.Add<Bloom>();
             bloom.active = true;
             bloom.intensity.Override(0.32f);

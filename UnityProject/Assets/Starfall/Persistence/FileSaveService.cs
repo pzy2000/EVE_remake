@@ -15,7 +15,7 @@ namespace Starfall.Persistence
 
         private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
-            Formatting = Formatting.Indented,
+            Formatting = Formatting.None,
             Culture = CultureInfo.InvariantCulture,
             DateParseHandling = DateParseHandling.None,
             FloatParseHandling = FloatParseHandling.Double,

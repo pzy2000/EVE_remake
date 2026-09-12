@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Starfall.Domain;
+using static Starfall.Domain.L10n;
 
 namespace Starfall.UI
 {
@@ -12,13 +14,26 @@ namespace Starfall.UI
         private VisualElement root;
         private IStarfallUiHost host;
         private StarfallSettingsPanel settingsPanel;
-        private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
+        private StationBackdropInput stationBackdropInput;
+        private IDisposable responsiveUi;
+        private readonly string[] tabs = { "agents", "market", "fitting", "ships", "skills", "lp" };
+        private ulong listsFingerprint = ulong.MaxValue;
+        private static readonly ulong FingerprintOffset = 14695981039346656037UL;
+        private static readonly ulong FingerprintPrime = 1099511628211UL;
 
         private void OnEnable()
         {
             document = GetComponent<UIDocument>();
             root = document.rootVisualElement;
-            root.Q<VisualElement>(className: "station-ui").pickingMode = PickingMode.Ignore;
+            // The station root doubles as the hangar-gesture backdrop: it must
+            // stay pickable so drags in the empty areas orbit the displayed
+            // ship, while the panels above keep consuming their own events.
+            if (root.Q<VisualElement>(className: "station-ui") is { } stationUi)
+            {
+                stationUi.pickingMode = PickingMode.Position;
+                stationBackdropInput?.Dispose();
+                stationBackdropInput = new StationBackdropInput(stationUi);
+            }
             foreach (var tab in tabs)
             {
                 var captured = tab;
@@ -32,14 +47,23 @@ namespace Starfall.UI
             BindHost();
             ShowTab("agents");
             settingsPanel = new StarfallSettingsPanel(root);
+            responsiveUi?.Dispose();
+            responsiveUi = StarfallResponsiveUi.Attach(document);
+            L10n.LanguageChanged += OnLanguageChanged;
+            UiLocalizer.Apply(root);
         }
 
         private void OnDisable()
         {
+            L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
             if (host != null) host.SnapshotChanged -= Refresh;
+            stationBackdropInput?.Dispose();
+            stationBackdropInput = null;
             settingsPanel?.Dispose();
             settingsPanel = null;
+            responsiveUi?.Dispose();
+            responsiveUi = null;
         }
 
         private void BindHost()
@@ -47,6 +71,12 @@ namespace Starfall.UI
             if (host != null) host.SnapshotChanged -= Refresh;
             host = StarfallUiBridge.Host;
             if (host != null) host.SnapshotChanged += Refresh;
+            Refresh();
+        }
+
+        private void OnLanguageChanged()
+        {
+            UiLocalizer.Apply(root);
             Refresh();
         }
 
@@ -64,13 +94,46 @@ namespace Starfall.UI
         {
             if (root == null || host?.Snapshot == null) return;
             var s = host.Snapshot;
-            root.Q<Label>("station-title").text = $"{s.SystemName} ORBITAL";
+            root.Q<Label>("station-title").text = Tr("{0} ORBITAL", s.SystemName);
             root.Q<Label>("pilot-summary").text = $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP";
-            Fill("agents-list", s.Agents, "agent");
-            Fill("market-list", s.Market, "market");
-            Fill("ships-list", s.Ships, "ship");
-            Fill("fitting-list", s.Inventory, "fit");
-            root.Q<Label>("lp-summary").text = $"Available loyalty points: {s.LoyaltyPoints:N0}";
+            // SnapshotChanged fires on every damage/log event; the four lists
+            // only change when their contents actually differ, so guard the
+            // rebuild behind a fingerprint like the HUD lists do.
+            var fingerprint = Fingerprint(s);
+            if (fingerprint != listsFingerprint)
+            {
+                listsFingerprint = fingerprint;
+                Fill("agents-list", s.Agents, "agent");
+                Fill("market-list", s.Market, "market");
+                Fill("ships-list", s.Ships, "ship");
+                Fill("fitting-list", s.Inventory, "fit");
+                Fill("skills-list", s.Skills, "train");
+                Fill("lp-list", s.LpStore, "lp-exchange");
+            }
+            root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
+            root.Q<Label>("fitting-summary").text = s.FittingSummary;
+        }
+
+        private static ulong Fingerprint(UiSnapshot s)
+        {
+            var hash = FingerprintOffset;
+            void Mix(IReadOnlyList<UiListItem> list)
+            {
+                hash = (hash ^ (ulong)list.Count) * FingerprintPrime;
+                for (var i = 0; i < list.Count; i++)
+                {
+                    hash = (hash ^ (ulong)System.StringComparer.Ordinal.GetHashCode(list[i].Id)) * FingerprintPrime;
+                    hash = (hash ^ (ulong)System.StringComparer.Ordinal.GetHashCode(list[i].Title)) * FingerprintPrime;
+                    hash = (hash ^ (ulong)System.StringComparer.Ordinal.GetHashCode(list[i].Detail)) * FingerprintPrime;
+                }
+            }
+            Mix(s.Agents);
+            Mix(s.Market);
+            Mix(s.Ships);
+            Mix(s.Inventory);
+            Mix(s.Skills);
+            Mix(s.LpStore);
+            return hash;
         }
 
         private void Fill(string elementName, IReadOnlyList<UiListItem> items, string command)
@@ -91,13 +154,15 @@ namespace Starfall.UI
 
         private static string ActionLabel(string command, string actionId)
         {
-            if (command == "agent") return "TALK";
+            if (command == "agent") return Tr("TALK");
             if (command == "market")
-                return actionId != null && actionId.StartsWith("sell-", StringComparison.Ordinal) ? "SELL" : "BUY";
+                return actionId != null && actionId.StartsWith("sell-", StringComparison.Ordinal) ? Tr("SELL") : Tr("BUY");
             if (command == "fit")
-                return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? "UNFIT" : "FIT";
-            if (command == "ship") return "ACTIVATE";
-            return "SELECT";
+                return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? Tr("UNFIT") : Tr("FIT");
+            if (command == "ship") return Tr("ACTIVATE");
+            if (command == "train") return Tr("TRAIN");
+            if (command == "lp-exchange") return Tr("EXCHANGE");
+            return Tr("SELECT");
         }
     }
 }

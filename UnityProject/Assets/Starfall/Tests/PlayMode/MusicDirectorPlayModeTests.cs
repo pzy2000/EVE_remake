@@ -18,6 +18,7 @@ namespace Starfall.Tests.PlayMode
         private const float SceneTimeoutSeconds = 15f;
         private readonly Dictionary<string, float> floatPreferences = new();
         private readonly Dictionary<string, int> intPreferences = new();
+        private readonly Dictionary<string, string> stringPreferences = new();
         private readonly HashSet<string> missingPreferences = new();
         private int originalQualityLevel;
         private AppRoot app;
@@ -28,7 +29,7 @@ namespace Starfall.Tests.PlayMode
         {
             CapturePreference(MusicDirector.VolumePreferenceKey, true);
             CapturePreference(MusicDirector.MutedPreferenceKey, false);
-            CapturePreference("starfall.quality", false);
+            CaptureStringPreference("starfall.quality");
             originalQualityLevel = QualitySettings.GetQualityLevel();
             PlayerPrefs.SetFloat(MusicDirector.VolumePreferenceKey, 0f);
             PlayerPrefs.SetInt(MusicDirector.MutedPreferenceKey, 1);
@@ -137,7 +138,7 @@ namespace Starfall.Tests.PlayMode
             yield return AssertSettingsPanel("Space");
 
             app.CycleQuality();
-            Assert.That(PlayerPrefs.GetInt("starfall.quality"), Is.EqualTo(QualitySettings.GetQualityLevel()));
+            Assert.That(PlayerPrefs.GetString("starfall.quality"), Is.EqualTo(app.QualityPreset));
             Assert.That(app.QualityPreset, Is.EqualTo(QualitySettings.names[QualitySettings.GetQualityLevel()]));
         }
 
@@ -172,15 +173,27 @@ namespace Starfall.Tests.PlayMode
             else intPreferences[key] = PlayerPrefs.GetInt(key);
         }
 
+        private void CaptureStringPreference(string key)
+        {
+            if (!PlayerPrefs.HasKey(key))
+            {
+                missingPreferences.Add(key);
+                return;
+            }
+            stringPreferences[key] = PlayerPrefs.GetString(key);
+        }
+
         private void RestorePreferences()
         {
             foreach (var key in missingPreferences) PlayerPrefs.DeleteKey(key);
             foreach (var pair in floatPreferences) PlayerPrefs.SetFloat(pair.Key, pair.Value);
             foreach (var pair in intPreferences) PlayerPrefs.SetInt(pair.Key, pair.Value);
+            foreach (var pair in stringPreferences) PlayerPrefs.SetString(pair.Key, pair.Value);
             PlayerPrefs.Save();
             missingPreferences.Clear();
             floatPreferences.Clear();
             intPreferences.Clear();
+            stringPreferences.Clear();
         }
 
         private static IEnumerator DestroyExistingAppRoots()

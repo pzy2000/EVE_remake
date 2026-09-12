@@ -1,0 +1,524 @@
+{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "write",
+      "scopes": []
+    },
+    "description": "将 listPackages 返回的可绑定候选包体绑定到指定槽位（main / windows / apk_mini_game_play），作为当前草稿的包体。调用前必须从 listPackages.package_slots 对应槽位原样回填 expected；服务端会在写入前重新校验候选、槽位可用性和 expected CAS。成功响应已完成草稿读回；若结果未知或读回未收敛，先重新调用 listPackages 核对槽位，再决定是否复用同一 Idempotency-Key。",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "App 全局稳定 ID。",
+          "maxLength": 16,
+          "minLength": 1,
+          "pattern": "^[1-9]\\d*$",
+          "type": "string"
+        },
+        "body": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "expected": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "none",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "apk_id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "apk",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "apk_id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "mini_app",
+                          "type": "string"
+                        },
+                        "mini_app_package_id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "mini_app_package_id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "spark",
+                          "type": "string"
+                        },
+                        "spark_version_code": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "spark_version_code"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "h5_version_id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "h5",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "h5_version_id"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "force": {
+                  "type": "boolean"
+                },
+                "package": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "apk",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "anyOf": [
+                            {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            {
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991,
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "type": {
+                          "const": "spark",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "h5",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "mini_app",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "slot": {
+                  "const": "main",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slot",
+                "package",
+                "expected"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "expected": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "none",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "branch": {
+                          "maxLength": 16,
+                          "pattern": "^\\d+$",
+                          "type": "string"
+                        },
+                        "branches": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "branch": {
+                                "maxLength": 16,
+                                "pattern": "^\\d+$",
+                                "type": "string"
+                              },
+                              "package_id": {
+                                "maxLength": 16,
+                                "minLength": 1,
+                                "pattern": "^[1-9]\\d*$",
+                                "type": "string"
+                              },
+                              "whatsnew": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "branch"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "kind": {
+                          "const": "windows",
+                          "type": "string"
+                        },
+                        "package_id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "source": {
+                          "enum": [
+                            "legacy",
+                            "branch"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "package_id",
+                        "source"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "force": {
+                  "type": "boolean"
+                },
+                "package": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "branch": {
+                          "anyOf": [
+                            {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            {
+                              "pattern": "^\\d+$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "windows",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "slot": {
+                  "const": "windows",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slot",
+                "package",
+                "expected"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "expected": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "none",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "tap_mini_app_play",
+                          "type": "string"
+                        },
+                        "mini_app_package_id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "mini_app_package_id"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "force": {
+                  "type": "boolean"
+                },
+                "package": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 16,
+                          "minLength": 1,
+                          "pattern": "^[1-9]\\d*$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "mini_app",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "slot": {
+                  "const": "apk_mini_game_play",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slot",
+                "package",
+                "expected"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "developer_id": {
+          "description": "Developer 全局稳定 ID。",
+          "maxLength": 16,
+          "minLength": 1,
+          "pattern": "^[1-9]\\d*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "app_id",
+        "body",
+        "developer_id"
+      ],
+      "type": "object"
+    },
+    "name": "app select-package",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "additionalProperties": false,
+          "example": {
+            "package_id": "example",
+            "revision": 1,
+            "status": "example",
+            "version_id": "example"
+          },
+          "properties": {
+            "package_id": {
+              "description": "已绑定到目标槽位的包体 ID。",
+              "minLength": 1,
+              "type": "string"
+            },
+            "revision": {
+              "description": "保存后的草稿版本 ID 数字形式。",
+              "type": "integer"
+            },
+            "status": {
+              "description": "绑定结果。updated=已更新槽位绑定。",
+              "type": "string"
+            },
+            "version_id": {
+              "description": "当前草稿的版本 ID。",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "version_id",
+            "package_id",
+            "revision",
+            "status"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "const": "completed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.42",
+      "digest": "sha256:fdaac84af61bdac3a99c29021283faded459c78bfbd2ab625017bb611ac8bde9",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "skills": {
+      "command": "taptap-cli update",
+      "current": "",
+      "message": "taptap-cli skills have never been synced for binary 2026.8.28, run: taptap-cli update",
+      "target": "2026.8.28"
+    }
+  }
+}

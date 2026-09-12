@@ -49,7 +49,9 @@ namespace Starfall.UI
             switch (kind)
             {
                 case OverviewKind.Ship:
-                    DrawShip(painter, center, radius);
+                    // Ship silhouettes vary by disposition, not just colour, so
+                    // red-green colour blind pilots can still triage the column.
+                    DrawShip(painter, center, radius, disposition);
                     break;
                 case OverviewKind.Station:
                     DrawStation(painter, center, radius);
@@ -97,16 +99,44 @@ namespace Starfall.UI
             }
         }
 
-        private static void DrawShip(Painter2D painter, Vector2 center, float radius)
+        private static void DrawShip(Painter2D painter, Vector2 center, float radius, OverviewDisposition disposition)
         {
-            painter.BeginPath();
-            painter.MoveTo(new Vector2(center.x, center.y - radius));
-            painter.LineTo(new Vector2(center.x + radius * 0.78f, center.y + radius));
-            painter.LineTo(new Vector2(center.x, center.y + radius * 0.55f));
-            painter.LineTo(new Vector2(center.x - radius * 0.78f, center.y + radius));
-            painter.ClosePath();
-            painter.Fill();
-            painter.Stroke();
+            switch (disposition)
+            {
+                case OverviewDisposition.Friendly:
+                    // Broad kite: a stable wingman shape.
+                    painter.BeginPath();
+                    painter.MoveTo(new Vector2(center.x, center.y - radius));
+                    painter.LineTo(new Vector2(center.x + radius * 0.9f, center.y + radius * 0.4f));
+                    painter.LineTo(new Vector2(center.x, center.y + radius));
+                    painter.LineTo(new Vector2(center.x - radius * 0.9f, center.y + radius * 0.4f));
+                    painter.ClosePath();
+                    painter.Fill();
+                    painter.Stroke();
+                    break;
+                case OverviewDisposition.Hostile:
+                    // Narrow blade: the sharpest, most aggressive silhouette.
+                    painter.BeginPath();
+                    painter.MoveTo(new Vector2(center.x, center.y - radius));
+                    painter.LineTo(new Vector2(center.x + radius * 0.5f, center.y + radius));
+                    painter.LineTo(new Vector2(center.x, center.y + radius * 0.5f));
+                    painter.LineTo(new Vector2(center.x - radius * 0.5f, center.y + radius));
+                    painter.ClosePath();
+                    painter.Fill();
+                    painter.Stroke();
+                    break;
+                default:
+                    // Neutral diamond: clearly distinct from both blades and kites.
+                    painter.BeginPath();
+                    painter.MoveTo(new Vector2(center.x, center.y - radius));
+                    painter.LineTo(new Vector2(center.x + radius * 0.72f, center.y));
+                    painter.LineTo(new Vector2(center.x, center.y + radius));
+                    painter.LineTo(new Vector2(center.x - radius * 0.72f, center.y));
+                    painter.ClosePath();
+                    painter.Fill();
+                    painter.Stroke();
+                    break;
+            }
         }
 
         private static void DrawStation(Painter2D painter, Vector2 center, float radius)
