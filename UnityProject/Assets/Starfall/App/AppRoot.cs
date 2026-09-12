@@ -887,6 +887,7 @@ namespace Starfall.App
             snapshot.Armor01 = entity != null ? (float)(entity.Armor / Math.Max(1d, entity.MaxArmor)) : shipDefinition != null ? (float)(ship.Armor / shipDefinition.HitPoints.Armor) : 0f;
             snapshot.Hull01 = entity != null ? (float)(entity.Hull / Math.Max(1d, entity.MaxHull)) : shipDefinition != null ? (float)(ship.Hull / shipDefinition.HitPoints.Hull) : 0f;
             snapshot.MissionSummary = ActiveMissionSummary();
+            snapshot.FittingSummary = FittingSummary();
             if (rebuildLists) RebuildLists();
             else OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
             snapshot.Log.Clear();
@@ -1076,9 +1077,20 @@ namespace Starfall.App
             if (ship == null) return;
             var slotName = module.Slot.ToString().ToLowerInvariant();
             var slots = module.Slot == SlotType.High ? ship.Fitting.High : module.Slot == SlotType.Mid ? ship.Fitting.Mid : ship.Fitting.Low;
-            var index = slots.FindIndex(string.IsNullOrEmpty);
-            if (index >= 0) Queue(GameCommandType.Fit, ship.InstanceId + "|" + slotName + "|" + index + "|" + moduleId);
-            else AddLog(Tr("No compatible free slot."));
+            var skillLevel = new Func<string, int>(skillId =>
+                session.State.Player.SkillLevels.TryGetValue(skillId, out var level) ? level : 0);
+            for (var index = 0; index < slots.Count; index++)
+            {
+                if (!string.IsNullOrEmpty(slots[index])) continue;
+                if (FittingRules.CanFitModule(catalog, ship, slotName, index, moduleId, skillLevel, out var reason, out var reasonArgs))
+                {
+                    Queue(GameCommandType.Fit, ship.InstanceId + "|" + slotName + "|" + index + "|" + moduleId);
+                    return;
+                }
+                AddLog(reasonArgs == null ? Tr(reason) : Tr(reason, reasonArgs));
+                return;
+            }
+            AddLog(Tr("No compatible free slot."));
         }
 
         private void AddFittedModules(ShipInstanceState ship, IReadOnlyList<string> slots, string slotName)
@@ -1295,6 +1307,18 @@ namespace Starfall.App
         {
             var mission = session.State.Player.Missions.Find(value => value.Status == MissionStatus.Active || value.Status == MissionStatus.ObjectivesMet);
             return mission == null ? Tr("No active mission") : Tr(mission.Title) + " · " + mission.ProgressText();
+        }
+
+        /// <summary>Power grid / CPU readout for the fitting panel header.</summary>
+        private string FittingSummary()
+        {
+            var ship = session.State.Player.ActiveShip();
+            if (ship == null) return string.Empty;
+            var hull = catalog.Ships[ship.ShipId];
+            FittingRules.FittingUsage(catalog, ship, out var grid, out var cpu);
+            return Tr("PG {0}/{1} · CPU {2}/{3}",
+                grid.ToString("0", Inv), hull.PowerGrid.ToString("0", Inv),
+                cpu.ToString("0", Inv), hull.Cpu.ToString("0", Inv));
         }
 
         private string SelectedName(string id)

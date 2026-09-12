@@ -150,6 +150,10 @@ namespace Starfall.Domain
             ("FITTED · {0} {1} · {2}", "已装配 · {0} {1} · {2}"),
             ("Click to unfit this module to the hangar", "点击将此模块卸回机库"),
             ("No compatible free slot.", "没有兼容的空槽位。"),
+            ("Not enough power grid.", "能量栅格不足。"),
+            ("Not enough CPU.", "CPU 资源不足。"),
+            ("{0} modules do not fit a {1} hull.", "{0}型模块无法装上{1}级船体。"),
+            ("PG {0}/{1} · CPU {2}/{3}", "能量栅格 {0}/{1} · CPU {2}/{3}"),
 
             // --- OverviewContactBuilder ---
             ("Station", "空间站"),

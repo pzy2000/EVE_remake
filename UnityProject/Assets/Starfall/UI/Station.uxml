@@ -24,7 +24,7 @@
             </ui:VisualElement>
             <ui:VisualElement name="panel-agents" class="service-panel"><ui:Label text="AVAILABLE AGENTS" class="eyebrow" /><ui:ScrollView name="agents-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-market" class="service-panel"><ui:Label text="REGIONAL MARKET" class="eyebrow" /><ui:ScrollView name="market-list" /></ui:VisualElement>
-            <ui:VisualElement name="panel-fitting" class="service-panel"><ui:Label text="FITTING &amp; HANGAR INVENTORY" class="eyebrow" /><ui:ScrollView name="fitting-list" /></ui:VisualElement>
+            <ui:VisualElement name="panel-fitting" class="service-panel"><ui:Label text="FITTING &amp; HANGAR INVENTORY" class="eyebrow" /><ui:Label name="fitting-summary" text="PG 0/0 · CPU 0/0" class="muted" /><ui:ScrollView name="fitting-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-ships" class="service-panel"><ui:Label text="ACTIVE SHIPS" class="eyebrow" /><ui:ScrollView name="ships-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-skills" class="service-panel"><ui:Label text="SKILL TRAINING" class="eyebrow" /><ui:ScrollView name="skills-list" /></ui:VisualElement>
             <ui:VisualElement name="panel-lp" class="service-panel"><ui:Label text="LOYALTY STORE" class="eyebrow" /><ui:Label name="lp-summary" text="Available loyalty points: 0" /><ui:Button name="lp-exchange" text="EXCHANGE 100 LP FOR DAMAGE AMP" /></ui:VisualElement>

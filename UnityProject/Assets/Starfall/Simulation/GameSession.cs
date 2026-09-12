@@ -1117,15 +1117,26 @@ namespace Starfall.Simulation
             entity.WarpSpeed = definition.WarpSpeed;
             entity.LockRange = definition.LockRange;
             entity.DamageMultiplier = 1d;
+            // Duplicate passive modules stack with diminishing returns (EVE-style
+            // penalty curve); six damage amps used to multiply to 2.70x damage.
+            var damageAmps = 0;
+            var shieldExtenders = 0;
+            var armorPlates = 0;
+            var afterburners = 0;
             for (var i = 0; i < entity.Modules.Count; i++)
             {
                 var module = catalog.Modules[entity.Modules[i].ModuleId];
-                entity.MaxShield += module.ShieldBonus;
-                entity.MaxArmor += module.ArmorBonus;
-                if (module.DamageMultiplier > 0d) entity.DamageMultiplier *= module.DamageMultiplier;
+                if (module.DamageMultiplier > 1d) damageAmps++;
+                else if (module.ShieldBonus > 0d) shieldExtenders++;
+                else if (module.ArmorBonus > 0d) armorPlates++;
+                else if (module.Kind == ModuleKind.Propulsion) afterburners++;
             }
-            if (entity.AfterburnerOn && HasModuleFitted(entity, ModuleIds.Afterburner))
-                entity.MaxSpeed *= catalog.Modules[ModuleIds.Afterburner].SpeedMultiplier;
+            entity.MaxShield += FittingRules.StackedAdditive(shieldExtenders, catalog.Modules[ModuleIds.ShieldExtender].ShieldBonus);
+            entity.MaxArmor += FittingRules.StackedAdditive(armorPlates, catalog.Modules[ModuleIds.ArmorPlate].ArmorBonus);
+            entity.DamageMultiplier = FittingRules.StackedMultiplicative(damageAmps, catalog.Modules[ModuleIds.DamageAmp].DamageMultiplier);
+            if (entity.AfterburnerOn && afterburners > 0)
+                // Propulsion also stacks penalized; a single afterburner is a clean 1.8x.
+                entity.MaxSpeed *= FittingRules.StackedMultiplicative(afterburners, catalog.Modules[ModuleIds.Afterburner].SpeedMultiplier);
             if (entity.Kind == EntityKind.Player)
                 entity.MaxSpeed *= PlayerSkillMultiplier(SkillIds.Navigation);
             entity.Shield = Math.Min(entity.Shield, entity.MaxShield);
@@ -1233,15 +1244,16 @@ namespace Starfall.Simulation
             var ship = State.Player.Ships.Find(value => value.InstanceId == parts[0]);
             var moduleId = parts[3];
             if (ship == null || !catalog.Modules.TryGetValue(moduleId, out var module) || !State.Player.Hangar.TryGetValue(moduleId, out var count) || count <= 0) return;
-            var slots = SlotList(ship.Fitting, parts[1]);
-            if (slots == null || index < 0 || index >= slots.Count || !string.IsNullOrEmpty(slots[index])) return;
-            if (!SlotMatches(module.Slot, parts[1])) return;
-            if (SkillRules.ModuleRequirement(moduleId, out var skillId, out var requiredLevel) &&
-                SkillLevel(skillId) < requiredLevel)
+            // All fitting constraints (slot, size, skill, power grid, CPU) live in
+            // one shared rule set so UI previews and the sim cannot drift apart.
+            if (!FittingRules.CanFitModule(catalog, ship, parts[1], index, moduleId,
+                    skillId => SkillLevel(skillId), out var reason, out var reasonArgs))
             {
-                Log(Tr("{0} requires {1} {2}.", Tr(module.Name), Tr(catalog.Skills[skillId].Name), requiredLevel.ToString("0", Inv)));
+                Log(reasonArgs == null ? Tr(reason) : Tr(reason, reasonArgs));
                 return;
             }
+            var slots = SlotList(ship.Fitting, parts[1]);
+            if (slots == null) return;
             slots[index] = moduleId;
             State.Player.Hangar[moduleId] = count - 1;
             if (count == 1) State.Player.Hangar.Remove(moduleId);
@@ -1684,16 +1696,10 @@ namespace Starfall.Simulation
             var ship = target ?? State.Player.ActiveShip();
             if (ship == null) return 0d;
             var capacity = catalog.Ships[ship.ShipId].CargoCapacity;
+            var expanders = 0;
             for (var i = 0; i < ship.Fitting.Low.Count; i++)
-                if (ship.Fitting.Low[i] == ModuleIds.CargoExpander) capacity += catalog.Modules[ModuleIds.CargoExpander].CargoBonus;
-            return capacity;
-        }
-
-        private static bool HasModuleFitted(EntityState entity, string moduleId)
-        {
-            for (var i = 0; i < entity.Modules.Count; i++)
-                if (string.Equals(entity.Modules[i].ModuleId, moduleId, StringComparison.Ordinal)) return true;
-            return false;
+                if (ship.Fitting.Low[i] == ModuleIds.CargoExpander) expanders++;
+            return capacity + FittingRules.StackedAdditive(expanders, catalog.Modules[ModuleIds.CargoExpander].CargoBonus);
         }
 
         private bool AddCargo(string itemId, double quantity)

@@ -37,6 +37,7 @@ namespace Starfall.UI
         public string SelectedName = "No target";
         public string SelectedDetail = "Select an object in space";
         public string MissionSummary = "No active mission";
+        public string FittingSummary = string.Empty;
         public long Credits = 50000;
         public int LoyaltyPoints;
         public float Shield01 = 1f;

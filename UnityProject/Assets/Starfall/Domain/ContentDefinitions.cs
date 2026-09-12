@@ -6,6 +6,8 @@ namespace Starfall.Domain
     public enum ShipClass { Frigate, Destroyer, Cruiser, Battleship }
     public enum SlotType { High, Mid, Low }
     public enum ModuleKind { Weapon, Mining, ShieldBoost, ArmorRepair, Propulsion, Passive }
+    /// <summary>Weapon/module tier: small hulls cannot mount heavier hardware.</summary>
+    public enum ModuleSize { Small, Medium, Large }
 
     public sealed class FactionDefinition
     {
@@ -62,7 +64,7 @@ namespace Starfall.Domain
     {
         public ShipDefinition(string id, string name, string factionId, ShipClass shipClass, double speed,
             double warpSpeed, HitPoints hitPoints, SlotLayout slots, double cargoCapacity, double lockRange,
-            long price, string description, bool npcOnly = false)
+            long price, string description, bool npcOnly = false, double powerGrid = 0d, double cpu = 0d)
         {
             Id = id;
             Name = name;
@@ -77,6 +79,8 @@ namespace Starfall.Domain
             Price = price;
             Description = description;
             NpcOnly = npcOnly;
+            PowerGrid = powerGrid;
+            Cpu = cpu;
         }
 
         public string Id { get; }
@@ -92,6 +96,10 @@ namespace Starfall.Domain
         public long Price { get; }
         public string Description { get; }
         public bool NpcOnly { get; }
+        /// <summary>Total power grid available for fitted modules.</summary>
+        public double PowerGrid { get; }
+        /// <summary>Total CPU available for fitted modules.</summary>
+        public double Cpu { get; }
     }
 
     public sealed class ModuleDefinition
@@ -100,7 +108,8 @@ namespace Starfall.Domain
             double damage = 0d, double cycleTime = 0d, double range = 0d, string beamColor = null,
             bool projectile = false, double miningYield = 0d, double repairAmount = 0d,
             double speedMultiplier = 0d, double shieldBonus = 0d, double armorBonus = 0d,
-            double damageMultiplier = 0d, double cargoBonus = 0d)
+            double damageMultiplier = 0d, double cargoBonus = 0d,
+            ModuleSize size = ModuleSize.Small, double powerGrid = 0d, double cpu = 0d)
         {
             Id = id;
             Name = name;
@@ -120,6 +129,9 @@ namespace Starfall.Domain
             ArmorBonus = armorBonus;
             DamageMultiplier = damageMultiplier;
             CargoBonus = cargoBonus;
+            Size = size;
+            PowerGrid = powerGrid;
+            Cpu = cpu;
         }
 
         public string Id { get; }
@@ -140,6 +152,9 @@ namespace Starfall.Domain
         public double ArmorBonus { get; }
         public double DamageMultiplier { get; }
         public double CargoBonus { get; }
+        public ModuleSize Size { get; }
+        public double PowerGrid { get; }
+        public double Cpu { get; }
     }
 
     public sealed class ItemDefinition

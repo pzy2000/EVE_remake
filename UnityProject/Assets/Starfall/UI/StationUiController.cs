@@ -99,6 +99,7 @@ namespace Starfall.UI
                 Fill("skills-list", s.Skills, "train");
             }
             root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
+            root.Q<Label>("fitting-summary").text = s.FittingSummary;
         }
 
         private static ulong Fingerprint(UiSnapshot s)
