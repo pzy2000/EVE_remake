@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Starfall.Domain
 {
     public enum FactionKind { Empire, Pirate, Sisters, Police }
-    public enum ShipClass { Frigate, Destroyer, Cruiser, Battleship }
+    public enum ShipClass { Frigate, Destroyer, Cruiser, Battlecruiser, Battleship }
     public enum SlotType { High, Mid, Low }
     public enum ModuleKind { Weapon, Mining, ShieldBoost, ArmorRepair, Propulsion, Passive }
     /// <summary>Weapon/module tier: small hulls cannot mount heavier hardware.</summary>

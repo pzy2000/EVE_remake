@@ -54,20 +54,33 @@ namespace Starfall.Simulation
 
         private static readonly Dictionary<string, string[]> PirateHulls = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            { FactionIds.BloodReavers, new[] { ShipIds.Acolyte, ShipIds.Templar, ShipIds.Dawnbringer } },
-            { FactionIds.Nathari, new[] { ShipIds.Shrike, ShipIds.Heron, ShipIds.Rook } },
-            { FactionIds.CrimsonHand, new[] { ShipIds.Wasp, ShipIds.Anvil, ShipIds.Mantis } },
-            { FactionIds.Ashfang, new[] { ShipIds.Fang, ShipIds.Maul, ShipIds.Broadsword } },
+            { FactionIds.BloodReavers, new[] { ShipIds.Acolyte, ShipIds.Templar, ShipIds.Dawnbringer, ShipIds.Justicar, ShipIds.Seraph } },
+            { FactionIds.Nathari, new[] { ShipIds.Shrike, ShipIds.Heron, ShipIds.Rook, ShipIds.Warden, ShipIds.Onyx } },
+            { FactionIds.CrimsonHand, new[] { ShipIds.Wasp, ShipIds.Anvil, ShipIds.Mantis, ShipIds.Bulwark, ShipIds.Colossus } },
+            { FactionIds.Ashfang, new[] { ShipIds.Fang, ShipIds.Maul, ShipIds.Broadsword, ShipIds.Warhound, ShipIds.Stormcaller } },
         };
 
         private static readonly Dictionary<string, string[]> NavyHulls = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            { FactionIds.Aurelian, new[] { ShipIds.Acolyte, ShipIds.Templar, ShipIds.Dawnbringer } },
-            { FactionIds.Kaldari, new[] { ShipIds.Shrike, ShipIds.Heron, ShipIds.Rook } },
-            { FactionIds.Meridian, new[] { ShipIds.Wasp, ShipIds.Anvil, ShipIds.Mantis } },
-            { FactionIds.Varkhald, new[] { ShipIds.Fang, ShipIds.Maul, ShipIds.Broadsword } },
+            { FactionIds.Aurelian, new[] { ShipIds.Acolyte, ShipIds.Templar, ShipIds.Dawnbringer, ShipIds.Justicar, ShipIds.Seraph } },
+            { FactionIds.Kaldari, new[] { ShipIds.Shrike, ShipIds.Heron, ShipIds.Rook, ShipIds.Warden, ShipIds.Onyx } },
+            { FactionIds.Meridian, new[] { ShipIds.Wasp, ShipIds.Anvil, ShipIds.Mantis, ShipIds.Bulwark, ShipIds.Colossus } },
+            { FactionIds.Varkhald, new[] { ShipIds.Fang, ShipIds.Maul, ShipIds.Broadsword, ShipIds.Warhound, ShipIds.Stormcaller } },
             { FactionIds.Sisters, new[] { ShipIds.Pilgrim, ShipIds.Pilgrim, ShipIds.Pilgrim } },
         };
+
+        /// <summary>Loyalty store stock: module id and its LP price. The first entry is the default exchange.</summary>
+        private static readonly (string moduleId, int cost)[] LpOffers =
+        {
+            (ModuleIds.DamageAmp, 100),
+            (ModuleIds.ShieldExtender, 120),
+            (ModuleIds.ArmorPlate, 120),
+            (ModuleIds.Afterburner, 150),
+            (ModuleIds.ArmorRepairer, 160),
+            (ModuleIds.HeavyLaser, 250),
+        };
+
+        public static IReadOnlyList<(string ModuleId, int Cost)> LoyaltyOffers => LpOffers;
 
         public GameSession(GeneratedUniverse universe, IContentCatalog content, string pilotName, string empireId)
         {
@@ -380,7 +393,7 @@ namespace Starfall.Simulation
                 case GameCommandType.SetDestination: SetDestination(command.Argument); break;
                 case GameCommandType.Respawn: Respawn(); break;
                 case GameCommandType.Repair: Repair(); break;
-                case GameCommandType.ExchangeLoyalty: ExchangeLoyalty(); break;
+                case GameCommandType.ExchangeLoyalty: ExchangeLoyalty(command.Argument); break;
                 case GameCommandType.TrainSkill: TrainSkill(command.Argument); break;
                 case GameCommandType.Save:
                     SyncPlayerShip();
@@ -1559,9 +1572,11 @@ namespace Starfall.Simulation
                 FactionId = factionId,
                 AgentName = catalog.Factions[factionId].Name + " Command",
                 Level = 3,
-                RewardCredits = kill ? 1500000L : 1200000L,
-                RewardLoyaltyPoints = kill ? 2500 : 2000,
-                RewardStanding = 1.5d,
+                // Storylines pay a premium over regular missions, but the old
+                // 1.2-1.5M rewards were a 13-16x cliff over L2-3 agents.
+                RewardCredits = kill ? 600000L : 500000L,
+                RewardLoyaltyPoints = kill ? 1000 : 800,
+                RewardStanding = 1.0d,
             };
             if (kill)
             {
@@ -1637,23 +1652,29 @@ namespace Starfall.Simulation
             Emit(SimulationEventType.Inventory, message: Tr("{0} repaired.", Tr(ship.Name)), detail: "repair");
         }
 
-        private void ExchangeLoyalty()
+        private void ExchangeLoyalty(string requestedModuleId)
         {
-            const int cost = 100;
             if (!State.Docked) return;
+            // The classic button exchanges the default offer; the LP store list
+            // passes an explicit module id.
+            var offer = LpOffers[0];
+            for (var i = 0; i < LpOffers.Length; i++)
+                if (string.Equals(LpOffers[i].moduleId, requestedModuleId, StringComparison.Ordinal))
+                    offer = LpOffers[i];
             var factionId = State.Player.EmpireId;
             State.Player.LoyaltyPoints.TryGetValue(factionId, out var available);
-            if (available < cost)
+            if (available < offer.cost)
             {
-                Log(Tr("Insufficient loyalty points. The module cache requires 100 LP."));
+                Log(Tr("Insufficient loyalty points. {0} requires {1} LP.",
+                    Tr(catalog.Modules[offer.moduleId].Name), offer.cost.ToString("N0", Inv)));
                 return;
             }
 
-            State.Player.LoyaltyPoints[factionId] = available - cost;
-            AddQuantity(State.Player.Hangar, ModuleIds.DamageAmp, 1);
+            State.Player.LoyaltyPoints[factionId] = available - offer.cost;
+            AddQuantity(State.Player.Hangar, offer.moduleId, 1);
             Emit(SimulationEventType.Inventory,
-                message: Tr("Exchanged 100 LP for {0}.", Tr(catalog.Modules[ModuleIds.DamageAmp].Name)),
-                detail: ModuleIds.DamageAmp);
+                message: Tr("Exchanged {0} LP for {1}.", offer.cost.ToString("N0", Inv), Tr(catalog.Modules[offer.moduleId].Name)),
+                detail: offer.moduleId);
         }
 
         private void FailHaulMissionsOnDeath()

@@ -97,6 +97,7 @@ namespace Starfall.UI
                 Fill("ships-list", s.Ships, "ship");
                 Fill("fitting-list", s.Inventory, "fit");
                 Fill("skills-list", s.Skills, "train");
+                Fill("lp-list", s.LpStore, "lp-exchange");
             }
             root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
             root.Q<Label>("fitting-summary").text = s.FittingSummary;
@@ -120,6 +121,7 @@ namespace Starfall.UI
             Mix(s.Ships);
             Mix(s.Inventory);
             Mix(s.Skills);
+            Mix(s.LpStore);
             return hash;
         }
 
@@ -148,6 +150,7 @@ namespace Starfall.UI
                 return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? Tr("UNFIT") : Tr("FIT");
             if (command == "ship") return Tr("ACTIVATE");
             if (command == "train") return Tr("TRAIN");
+            if (command == "lp-exchange") return Tr("EXCHANGE");
             return Tr("SELECT");
         }
     }

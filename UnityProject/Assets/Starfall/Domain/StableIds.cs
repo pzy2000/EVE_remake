@@ -28,28 +28,32 @@ namespace Starfall.Domain
         public const string Acolyte = "acolyte";
         public const string Templar = "templar";
         public const string Dawnbringer = "dawnbringer";
+        public const string Justicar = "justicar";
         public const string Seraph = "seraph";
         public const string Shrike = "shrike";
         public const string Heron = "heron";
         public const string Rook = "rook";
+        public const string Warden = "warden";
         public const string Onyx = "onyx";
         public const string Wasp = "wasp";
         public const string Anvil = "anvil";
         public const string Mantis = "mantis";
+        public const string Bulwark = "bulwark";
         public const string Colossus = "colossus";
         public const string Fang = "fang";
         public const string Maul = "maul";
         public const string Broadsword = "broadsword";
+        public const string Warhound = "warhound";
         public const string Stormcaller = "stormcaller";
         public const string Pilgrim = "pilgrim";
         public const string Enforcer = "enforcer";
 
         public static readonly string[] All =
         {
-            Acolyte, Templar, Dawnbringer, Seraph,
-            Shrike, Heron, Rook, Onyx,
-            Wasp, Anvil, Mantis, Colossus,
-            Fang, Maul, Broadsword, Stormcaller,
+            Acolyte, Templar, Dawnbringer, Justicar, Seraph,
+            Shrike, Heron, Rook, Warden, Onyx,
+            Wasp, Anvil, Mantis, Bulwark, Colossus,
+            Fang, Maul, Broadsword, Warhound, Stormcaller,
             Pilgrim, Enforcer,
         };
     }

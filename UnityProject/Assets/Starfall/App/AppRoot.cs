@@ -346,7 +346,11 @@ namespace Starfall.App
                 case "agent": Queue(GameCommandType.TalkToAgent, argument); break;
                 case "market": MarketAction(argument); break;
                 case "fit": FittingAction(argument); break;
-                case "lp-exchange": Queue(GameCommandType.ExchangeLoyalty); break;
+                case "lp-exchange":
+                    // LP rows arrive as "lp-item|<moduleId>"; the classic button sends no argument.
+                    Queue(GameCommandType.ExchangeLoyalty,
+                        TryActionPayload(argument, "lp-item|", out var lpModuleId) ? lpModuleId : argument);
+                    break;
                 case "train": Queue(GameCommandType.TrainSkill, argument); break;
                 case "ship": Queue(GameCommandType.SwitchShip, argument); break;
                 case "mission": MissionAction(argument); break;
@@ -731,7 +735,10 @@ namespace Starfall.App
                 ship.Name = entity.Name;
                 ship.Kind = WorldViewKind.Ship;
                 ship.Position = new Vector3((float)entity.Position.X, 0f, (float)entity.Position.Z);
-                ship.Radius = definition.Class == ShipClass.Battleship ? 10f : definition.Class == ShipClass.Cruiser ? 7f : definition.Class == ShipClass.Destroyer ? 5f : 3f;
+                ship.Radius = definition.Class == ShipClass.Battleship ? 10f
+                    : definition.Class == ShipClass.Battlecruiser ? 8.5f
+                    : definition.Class == ShipClass.Cruiser ? 7f
+                    : definition.Class == ShipClass.Destroyer ? 5f : 3f;
                 ship.Color = FactionColor(entity.FactionId);
                 ship.ShipId = entity.ShipId;
                 ship.ShipClass = definition.Class.ToString().ToLowerInvariant();
@@ -1008,6 +1015,15 @@ namespace Starfall.App
                 snapshot.Skills.Add(Item(skill.Id,
                     Tr(skill.Name) + " · L" + level.ToString("0", Inv) + "/" + SkillRules.MaxLevel.ToString("0", Inv) + progress + " · " + status,
                     Tr(skill.Description)));
+            }
+
+            snapshot.LpStore.Clear();
+            foreach (var offer in GameSession.LoyaltyOffers)
+            {
+                var module = catalog.Modules[offer.ModuleId];
+                snapshot.LpStore.Add(Item("lp-item|" + module.Id,
+                    Tr(module.Name) + " · " + offer.Cost.ToString("N0", Inv) + " LP",
+                    Tr(module.Description)));
             }
         }
 

@@ -49,7 +49,8 @@ namespace Starfall.Simulation
                 case ModuleSize.Small:
                     return true;
                 case ModuleSize.Medium:
-                    return shipClass == ShipClass.Cruiser || shipClass == ShipClass.Battleship;
+                    return shipClass == ShipClass.Cruiser || shipClass == ShipClass.Battlecruiser ||
+                           shipClass == ShipClass.Battleship;
                 case ModuleSize.Large:
                     return shipClass == ShipClass.Battleship;
                 default:

@@ -71,7 +71,9 @@ namespace Starfall.Domain
             ("The new ship cannot hold the current cargo.", "新舰船的货舱装不下当前货物。"),
             ("{0} fully repaired.", "{0}已完成维修。"),
             ("Insufficient loyalty points. The module cache requires 100 LP.", "忠诚点不足。模块库需要 100 LP。"),
+            ("Insufficient loyalty points. {0} requires {1} LP.", "忠诚点不足。{0}需要 {1} LP。"),
             ("Exchanged 100 LP for {0}.", "已用 100 LP 兑换{0}。"),
+            ("Exchanged {0} LP for {1}.", "已用 {0} LP 兑换{1}。"),
 
             // --- GameSession: missions ---
             ("{0} — {1}", "{0}——{1}"),

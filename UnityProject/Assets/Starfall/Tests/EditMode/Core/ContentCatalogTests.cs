@@ -16,7 +16,7 @@ namespace Starfall.Tests.EditMode.Core
         public void Catalog_HasEveryLegacyStableId()
         {
             Assert.That(_catalog.Factions.Count, Is.EqualTo(10));
-            Assert.That(_catalog.Ships.Count, Is.EqualTo(18));
+            Assert.That(_catalog.Ships.Count, Is.EqualTo(22));
             Assert.That(_catalog.Modules.Count, Is.EqualTo(14));
             Assert.That(_catalog.Items.Count, Is.EqualTo(4));
             CollectionAssert.AreEquivalent(FactionIds.All, _catalog.Factions.Keys);

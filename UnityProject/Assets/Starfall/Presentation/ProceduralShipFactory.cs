@@ -41,6 +41,7 @@ namespace Starfall.Presentation
             {
                 "destroyer" => 1.45f,
                 "cruiser" => 2.15f,
+                "battlecruiser" => 2.7f,
                 "battleship" => 3.25f,
                 _ => 1f
             };

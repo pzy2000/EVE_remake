@@ -67,7 +67,8 @@ namespace Starfall.Domain
                 case ShipClass.Frigate: return 1;
                 case ShipClass.Destroyer: return 2;
                 case ShipClass.Cruiser: return 3;
-                case ShipClass.Battleship: return 4;
+                case ShipClass.Battlecruiser: return 4;
+                case ShipClass.Battleship: return 5;
                 default: return 1;
             }
         }

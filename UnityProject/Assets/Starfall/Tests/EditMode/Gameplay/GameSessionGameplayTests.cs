@@ -399,7 +399,7 @@ namespace Starfall.Tests.EditMode.Gameplay
                 second.State.Asteroids.Select(value => value.Id + "|" + value.OreId).ToArray());
             Assert.That(first.State.NextEntityId, Is.EqualTo(second.State.NextEntityId));
             Assert.That(first.State.RngState, Is.EqualTo(second.State.RngState));
-            Assert.That(ShipIds.All.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(18));
+            Assert.That(ShipIds.All.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(22));
             Assert.That(FactionIds.All.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(10));
         }
 
