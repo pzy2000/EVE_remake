@@ -1128,7 +1128,7 @@ namespace Starfall.App
                     Queue(GameCommandType.Fit, ship.InstanceId + "|" + slotName + "|" + index + "|" + moduleId);
                     return;
                 }
-                AddLog(reasonArgs == null ? Tr(reason) : Tr(reason, reasonArgs));
+                AddLog(FittingRules.LocalizeReason(reason, reasonArgs));
                 return;
             }
             AddLog(Tr("No compatible free slot."));

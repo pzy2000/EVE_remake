@@ -751,6 +751,7 @@ namespace Starfall.UI
                 Add(velocity);
 
                 RegisterCallback<PointerDownEvent>(OnPointerDown);
+                RegisterCallback<PointerMoveEvent>(OnPointerMove);
                 RegisterCallback<PointerUpEvent>(OnPointerUp);
                 RegisterCallback<PointerLeaveEvent>(CancelLongPress);
             }
@@ -780,6 +781,18 @@ namespace Starfall.UI
                 if (!pointerPressValid || longPressFired || contact == null || stale) return;
                 longPressFired = true;
                 detailRequested?.Invoke(tooltip);
+            }
+
+            // A touch pointer stays captured by the row while the list scrolls,
+            // so PointerLeave never fires mid-drag — moving past the slop has to
+            // cancel the pending long press or every slow swipe past 550 ms
+            // dumps a detail line into the log.
+            private void OnPointerMove(PointerMoveEvent evt)
+            {
+                if (!pointerPressValid) return;
+                var delta = evt.position - pointerDownPosition;
+                if (Mathf.Abs(delta.x) > TapSlop.x || Mathf.Abs(delta.y) > TapSlop.y)
+                    CancelLongPress(null);
             }
 
             private void CancelLongPress(PointerLeaveEvent evt)

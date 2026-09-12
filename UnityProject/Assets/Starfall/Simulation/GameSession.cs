@@ -1336,7 +1336,7 @@ namespace Starfall.Simulation
             if (!FittingRules.CanFitModule(catalog, ship, parts[1], index, moduleId,
                     skillId => SkillLevel(skillId), out var reason, out var reasonArgs))
             {
-                Log(reasonArgs == null ? Tr(reason) : Tr(reason, reasonArgs));
+                Log(FittingRules.LocalizeReason(reason, reasonArgs));
                 return;
             }
             var slots = SlotList(ship.Fitting, parts[1]);

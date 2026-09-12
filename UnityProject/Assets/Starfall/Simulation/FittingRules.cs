@@ -126,6 +126,21 @@ namespace Starfall.Simulation
             return true;
         }
 
+        /// <summary>
+        /// Localizes a CanFitModule rejection for display. String args are content
+        /// names and enum words with their own table entries, so they must pass
+        /// through Tr as well — formatting the template alone would splice raw
+        /// English ("Medium型模块无法装上Cruiser级船体。") into localized text.
+        /// </summary>
+        public static string LocalizeReason(string reason, object[] reasonArgs)
+        {
+            if (reasonArgs == null || reasonArgs.Length == 0) return L10n.Tr(reason);
+            var args = new object[reasonArgs.Length];
+            for (var i = 0; i < reasonArgs.Length; i++)
+                args[i] = reasonArgs[i] is string text ? L10n.Tr(text) : reasonArgs[i];
+            return L10n.Tr(reason, args);
+        }
+
         private static List<string> SlotList(FittingState fitting, string slot)
         {
             if (slot == "high") return fitting.High;
