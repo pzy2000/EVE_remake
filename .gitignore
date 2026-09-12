@@ -20,4 +20,8 @@ UnityProject/*.userprefs
 .DS_Store
 .idea/
 .vscode/
+artifacts/
 
+scripts/__pycache__/
+
+starfall-upload.jks
