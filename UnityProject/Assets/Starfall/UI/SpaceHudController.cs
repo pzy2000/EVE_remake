@@ -210,7 +210,7 @@ namespace Starfall.UI
             overviewList.reorderable = false;
             overviewList.horizontalScrollingEnabled = false;
             overviewList.itemsSource = visibleOverview;
-            overviewList.makeItem = () => new OverviewRow(SelectOverviewContact);
+            overviewList.makeItem = () => new OverviewRow(SelectOverviewContact, ShowContactDetail);
             overviewList.bindItem = BindOverviewItem;
             overviewList.unbindItem = UnbindOverviewItem;
 
@@ -483,6 +483,13 @@ namespace Starfall.UI
             if (!string.IsNullOrEmpty(id)) host?.Execute("select", id);
         }
 
+        // Long-press surfaces the row detail that desktop players get via hover
+        // tooltips; on touch there is no other way to read it.
+        private void ShowContactDetail(string detail)
+        {
+            if (!string.IsNullOrEmpty(detail)) host?.Execute("detail", detail);
+        }
+
         private void SetActivePreset(OverviewPresetId preset)
         {
             if (!Enum.IsDefined(typeof(OverviewPresetId), preset)) return;
@@ -708,6 +715,7 @@ namespace Starfall.UI
         private sealed class OverviewRow : VisualElement
         {
             private readonly Action<string> selectRequested;
+            private readonly Action<string> detailRequested;
             private readonly OverviewIconElement icon;
             private readonly Label badges;
             private readonly Label distance;
@@ -717,9 +725,10 @@ namespace Starfall.UI
             private UiOverviewContact contact;
             private bool stale;
 
-            public OverviewRow(Action<string> selectRequested)
+            public OverviewRow(Action<string> selectRequested, Action<string> detailRequested)
             {
                 this.selectRequested = selectRequested;
+                this.detailRequested = detailRequested;
                 AddToClassList("overview-row");
                 pickingMode = PickingMode.Position;
 
@@ -743,25 +752,49 @@ namespace Starfall.UI
 
                 RegisterCallback<PointerDownEvent>(OnPointerDown);
                 RegisterCallback<PointerUpEvent>(OnPointerUp);
+                RegisterCallback<PointerLeaveEvent>(CancelLongPress);
             }
 
             // Rows select on pointer-up after a slop check: selecting on
             // pointer-down turned every scroll swipe into an accidental target
             // lock, which is punishing with a touch screen.
             private static readonly Vector2 TapSlop = new Vector2(18f, 18f);
+            private static readonly long LongPressMilliseconds = 550;
             private Vector3 pointerDownPosition;
             private bool pointerPressValid;
+            private bool longPressFired;
+            private IVisualElementScheduledItem longPressTask;
 
             private void OnPointerDown(PointerDownEvent evt)
             {
                 pointerPressValid = evt.button == 0 && contact != null && !stale;
                 pointerDownPosition = evt.position;
+                CancelLongPress(null);
+                if (!pointerPressValid) return;
+                longPressFired = false;
+                longPressTask = schedule.Execute(FireLongPress).StartingIn(LongPressMilliseconds);
+            }
+
+            private void FireLongPress()
+            {
+                if (!pointerPressValid || longPressFired || contact == null || stale) return;
+                longPressFired = true;
+                detailRequested?.Invoke(tooltip);
+            }
+
+            private void CancelLongPress(PointerLeaveEvent evt)
+            {
+                longPressTask?.Pause();
+                longPressTask = null;
             }
 
             private void OnPointerUp(PointerUpEvent evt)
             {
+                var wasLongPress = longPressFired;
+                CancelLongPress(null);
                 if (!pointerPressValid || evt.button != 0 || contact == null || stale) return;
                 pointerPressValid = false;
+                if (wasLongPress) return;
                 var delta = evt.position - pointerDownPosition;
                 if (Mathf.Abs(delta.x) > TapSlop.x || Mathf.Abs(delta.y) > TapSlop.y) return;
                 selectRequested?.Invoke(contact.Id);

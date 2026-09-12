@@ -69,6 +69,17 @@ Button:hover, Button.active, Button.chosen {
     color: white;
 }
 
+/* Disabled controls must read as unavailable without relying on colour alone. */
+Button:disabled, Button.disabled {
+    opacity: 0.38;
+    border-color: rgba(120, 130, 140, 0.4);
+    color: var(--muted);
+}
+
+Label:disabled, Label.disabled {
+    opacity: 0.45;
+}
+
 .muted { color: var(--muted); }
 .danger { color: var(--danger); }
 .hidden { display: none; }

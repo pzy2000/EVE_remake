@@ -180,6 +180,23 @@ namespace Starfall.Presentation
             activeVfx.Add(new TimedVfx { Root = burst.gameObject, ExpireAt = Time.unscaledTime + 1.5f, Burst = burst });
         }
 
+        /// <summary>Impact feedback on the player's hull: cold sparks while shields hold, hot when bleeding.</summary>
+        public void PlayerImpact(Vector3 position, bool shieldsHeld)
+        {
+            // Small and short; combat already fires beams, this is the "you are
+            // being shot" cue that used to be completely invisible.
+            Explosion(position, shieldsHeld
+                ? new Color(0.42f, 0.78f, 1f)
+                : new Color(1f, 0.45f, 0.12f), 1.7f);
+        }
+
+        /// <summary>Warp/jump acceleration feedback: FOV punch plus a drive flash at the ship.</summary>
+        public void WarpFlash(Vector3 position)
+        {
+            if (cameraController) cameraController.PunchFieldOfView(8f);
+            Explosion(position, new Color(0.45f, 0.85f, 1f), 3.2f);
+        }
+
         private ParticleSystem CreateExplosionSystem()
         {
             var root = new GameObject("ExplosionVFX");
@@ -284,6 +301,7 @@ namespace Starfall.Presentation
             {
                 case WorldViewKind.Ship:
                     view = ProceduralShipFactory.CreateShip(data.ShipId, data.ShipClass, data.Color, data.IsHostile);
+                    AttachEngineTrail(view, data);
                     break;
                 case WorldViewKind.Station:
                     view = ProceduralShipFactory.CreateStation(data.Color);
@@ -325,6 +343,26 @@ namespace Starfall.Presentation
             var selectable = view.AddComponent<SelectableView>();
             selectable.Configure(data);
             return view;
+        }
+
+        /// <summary>
+        /// Engine wake so moving ships read as powered vehicles instead of sliding
+        /// toys. The trail only emits when the transform actually moves, so idle
+        /// ships cost nothing.
+        /// </summary>
+        private static void AttachEngineTrail(GameObject shipView, WorldObjectViewData data)
+        {
+            if (data.IsPlayer == false && data.Radius < 5f) return; // small NPCs skip the cost
+            var trail = shipView.AddComponent<TrailRenderer>();
+            trail.time = 0.55f;
+            trail.startWidth = Mathf.Max(0.12f, data.Radius * 0.14f);
+            trail.endWidth = 0.015f;
+            trail.minVertexDistance = 0.6f;
+            trail.numCapVertices = 2;
+            trail.autodestruct = false;
+            trail.emitting = true;
+            trail.material = ProceduralShipFactory.GetMaterial(
+                $"trail-{ColorUtility.ToHtmlStringRGB(data.Color)}", data.Color * 1.5f, 0.1f, 0f, true);
         }
 
         #region World gestures (touch + mouse via WorldBackdropInput)

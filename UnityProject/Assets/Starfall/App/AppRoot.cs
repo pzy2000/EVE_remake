@@ -331,6 +331,11 @@ namespace Starfall.App
             switch (command)
             {
                 case "select": Queue(GameCommandType.Select, argument); break;
+                case "detail":
+                    // Long-press detail from overview rows: no toast system yet,
+                    // the combat log carries it.
+                    if (!string.IsNullOrEmpty(argument)) AddLog(argument);
+                    break;
                 case "approach": Queue(GameCommandType.Approach, argument); break;
                 case "orbit": Queue(GameCommandType.Orbit, argument); break;
                 case "warp": Queue(GameCommandType.Warp, argument); break;
@@ -549,6 +554,26 @@ namespace Starfall.App
                         spacePresenter.Explosion(new Vector3((float)position.X, 0f, (float)position.Z),
                             new Color(1f, 0.28f, 0.06f), 7f);
                 }
+                // Being shot used to be invisible on the model; spark bursts make
+                // incoming fire readable (cold while shields hold, hot when bleeding).
+                if (spacePresenter && evt.Type == SimulationEventType.Damage && evt.Value > 0d &&
+                    string.Equals(evt.TargetId, "player", StringComparison.Ordinal) &&
+                    TryWorldPosition("player", out var impactPosition))
+                {
+                    var shieldsHeld = true;
+                    if (!string.IsNullOrEmpty(evt.Detail))
+                    {
+                        var layers = evt.Detail.Split('|');
+                        if (layers.Length == 3 &&
+                            double.TryParse(layers[0], System.Globalization.NumberStyles.Float, Inv, out var shieldAfter))
+                            shieldsHeld = shieldAfter > 0d;
+                    }
+                    spacePresenter.PlayerImpact(new Vector3((float)impactPosition.X, 0f, (float)impactPosition.Z), shieldsHeld);
+                }
+                if (spacePresenter && evt.Type == SimulationEventType.Jump)
+                    spacePresenter.WarpFlash(PlayerWorldPosition());
+                else if (spacePresenter && evt.Type == SimulationEventType.Warp && evt.Detail == "start")
+                    spacePresenter.WarpFlash(PlayerWorldPosition());
             }
         }
 
@@ -1366,9 +1391,15 @@ namespace Starfall.App
             return player == null ? Tr("Docked") : Tr("{0} m", SimVec2.Distance(player.Position, target).ToString("0"));
         }
 
-        private bool TryWorldPosition(string id, out SimVec2 result)
+        private Vector3 PlayerWorldPosition()
         {
-            var entity = session.State.FindEntity(id); if (entity != null) { result = entity.Position; return true; }
+            var entity = session != null ? session.State.PlayerEntity() : null;
+            if (entity != null) return new Vector3((float)entity.Position.X, 0f, (float)entity.Position.Z);
+            return session != null ? new Vector3((float)session.State.Player.X, 0f, (float)session.State.Player.Z) : Vector3.zero;
+        }
+
+        private bool TryWorldPosition(string id, out SimVec2 result)
+        {            var entity = session.State.FindEntity(id); if (entity != null) { result = entity.Position; return true; }
             var asteroid = session.State.FindAsteroid(id); if (asteroid != null) { result = asteroid.Position; return true; }
             var system = session.State.Universe.Systems[session.State.Player.CurrentSystemId];
             var station = system.Stations.Find(value => value.Id == id); if (station != null) { result = station.Position; return true; }
