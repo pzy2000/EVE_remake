@@ -809,12 +809,31 @@ namespace Starfall.Simulation
                 // the preset lock plus the huge aggro range used to chase forever.
                 if (npc.AiBehavior == "police" && State.Player.CriminalTimer <= 0d)
                     npc.LockedTargetId = string.Empty;
+                // Haulers run from whoever is shooting them instead of fighting.
+                if (npc.AiBehavior == "trader" && State.SimulationTime - npc.LastDamageAt < 8d &&
+                    State.FindEntity(npc.LastAttackerId) is { } attacker)
+                {
+                    npc.Movement = MovementMode.Flee;
+                    npc.MoveTargetPosition = attacker.Position;
+                    continue;
+                }
                 EntityState target = State.FindEntity(npc.LockedTargetId);
                 if (target == null && ShouldAggro(npc, player))
                 {
                     target = player;
                     npc.LockedTargetId = player.Id;
                     Log(Tr("{0} has engaged you!", TrName(npc.Name)));
+                }
+                if (target == null)
+                {
+                    // The world keeps fighting itself when the player is not
+                    // involved: pirates raid lawful traffic, navies hunt pirates.
+                    var acquired = AcquireNpcTarget(npc);
+                    if (acquired != null)
+                    {
+                        target = acquired;
+                        npc.LockedTargetId = acquired.Id;
+                    }
                 }
                 if (target == null)
                 {
@@ -864,6 +883,40 @@ namespace Starfall.Simulation
                    EntityDisposition.Hostile;
         }
 
+        private EntityState AcquireNpcTarget(EntityState npc)
+        {
+            if (!CanFightNpcs(npc)) return null;
+            EntityState best = null;
+            var bestDistance = npc.AggroRange;
+            for (var i = 0; i < State.entities.Count; i++)
+            {
+                var other = State.entities[i];
+                if (other == npc || other.Dead) continue;
+                if (!IsNpcHostile(npc, other)) continue;
+                var distance = SimVec2.Distance(npc.Position, other.Position);
+                if (distance >= bestDistance) continue;
+                best = other;
+                bestDistance = distance;
+            }
+            return best;
+        }
+
+        private static bool CanFightNpcs(EntityState npc)
+        {
+            // Directorate response units police the player, and haulers never
+            // pick fights; everyone else engages their faction's enemies.
+            return npc.AiBehavior != "police" && npc.AiBehavior != "trader";
+        }
+
+        private bool IsNpcHostile(EntityState npc, EntityState other)
+        {
+            if (!CanFightNpcs(npc)) return false;
+            if (other.Kind == EntityKind.Player) return false;
+            // The standing matrix drives shoot-on-sight: relations at -5 or below
+            // (navies vs pirates, empires vs their rival's raiders) open fire.
+            return catalog.FactionRelation(npc.FactionId, other.FactionId) <= -5d;
+        }
+
         private void EnsureSystemWorld()
         {
             var player = State.PlayerEntity();
@@ -899,6 +952,7 @@ namespace Starfall.Simulation
                 // starter frigate must not meet a destroyer on a 30% belt roll.
                 if (system.Belts.Count > 0 && populationRandom.Chance(0.3d) && !string.IsNullOrEmpty(faction.HomePirateId))
                     SpawnPatrol(faction.HomePirateId, new[] { PirateHulls[faction.HomePirateId][0] }, 1, "pirate", points, populationRandom);
+                SpawnTraders(system.FactionId, NavyHulls[system.FactionId][0], populationRandom.RangeInclusive(1, 2), points, populationRandom);
             }
             else if (system.Region == SystemRegion.LowSecurity)
             {
@@ -907,6 +961,7 @@ namespace Starfall.Simulation
                 var pirate = catalog.Factions.ContainsKey(system.FactionId) ? catalog.Factions[system.FactionId].HomePirateId : null;
                 if (string.IsNullOrEmpty(pirate)) pirate = FactionIds.BloodReavers;
                 SpawnPatrol(pirate, PirateHulls[pirate], populationRandom.RangeInclusive(2, 4), "pirate", points, populationRandom);
+                SpawnTraders(owner, NavyHulls[owner][0], 1, points, populationRandom);
             }
             else if (system.Region == SystemRegion.NullSecurity)
             {
@@ -1013,6 +1068,21 @@ namespace Starfall.Simulation
             }
         }
 
+        /// <summary>Unarmed haulers hauling between stations and gates; pirates raid them.</summary>
+        private void SpawnTraders(string factionId, string hullId, int count,
+            IReadOnlyList<SimVec2> points, Mulberry32 source)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var anchor = points[source.RangeInclusive(0, points.Count - 1)];
+                var entity = CreateEntity(hullId, factionId, EntityKind.Npc,
+                    anchor + new SimVec2(source.Range(-80d, 80d), source.Range(-80d, 80d)), "trader", null, false);
+                for (var waypoint = 0; waypoint < points.Count; waypoint++)
+                    entity.Waypoints.Add(points[(waypoint + i) % points.Count]);
+                Emit(SimulationEventType.Spawn, entity.Id, message: entity.Name, detail: entity.ShipId);
+            }
+        }
+
         private void SpawnMissionTargets(Mulberry32 source)
         {
             for (var missionIndex = 0; missionIndex < State.Player.Missions.Count; missionIndex++)
@@ -1077,10 +1147,14 @@ namespace Starfall.Simulation
             else
             {
                 var fitting = CreateEmptyFitting(definition);
-                var weapon = FactionWeapons.ContainsKey(factionId) ? FactionWeapons[factionId] : ModuleIds.PulseLaser;
-                for (var i = 0; i < fitting.High.Count; i++) fitting.High[i] = weapon;
-                if (definition.Class != ShipClass.Frigate && fitting.Mid.Count > 0) fitting.Mid[0] = ModuleIds.ShieldBooster;
-                if (definition.Class != ShipClass.Frigate && fitting.Low.Count > 0) fitting.Low[0] = ModuleIds.DamageAmp;
+                // Traders fly unarmed; every other NPC patrol carries doctrine guns.
+                if (!string.Equals(behavior, "trader", StringComparison.Ordinal))
+                {
+                    var weapon = FactionWeapons.ContainsKey(factionId) ? FactionWeapons[factionId] : ModuleIds.PulseLaser;
+                    for (var i = 0; i < fitting.High.Count; i++) fitting.High[i] = weapon;
+                    if (definition.Class != ShipClass.Frigate && fitting.Mid.Count > 0) fitting.Mid[0] = ModuleIds.ShieldBooster;
+                    if (definition.Class != ShipClass.Frigate && fitting.Low.Count > 0) fitting.Low[0] = ModuleIds.DamageAmp;
+                }
                 AddModules(entity, fitting);
                 for (var i = 0; i < entity.Modules.Count; i++)
                     if (catalog.Modules[entity.Modules[i].ModuleId].Kind == ModuleKind.Weapon) entity.Modules[i].Active = true;
