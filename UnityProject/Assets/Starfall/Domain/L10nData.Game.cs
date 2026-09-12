@@ -43,6 +43,17 @@ namespace Starfall.Domain
             ("CRIMINAL ACT! The Directorate has been alerted.", "犯罪行为！理事会已被惊动。"),
             ("Directorate response units have warped in!", "理事会快速反应部队已跃迁抵达！"),
 
+            // --- GameSession: skills ---
+            ("Skill trained: {0} advanced to level {1}.", "技能训练完成：{0} 升至 {1} 级。"),
+            ("Training stopped: {0}.", "已停止训练：{0}。"),
+            ("Removed from training queue: {0}.", "已从训练队列移除：{0}。"),
+            ("{0} is already fully trained.", "{0}已训练至满级。"),
+            ("The training queue is full.", "训练队列已满。"),
+            ("Now training: {0}.", "正在训练：{0}。"),
+            ("Queued for training: {0}.", "已加入训练队列：{0}。"),
+            ("{0} requires {1} {2}.", "{0}需要{1} {2} 级。"),
+            ("Offline training applied: {0}.", "已补算离线训练：{0}。"),
+
             // --- GameSession: trade, fitting, repair, loyalty ---
             ("Insufficient credits or item unavailable.", "信用点不足或物品不可用。"),
             ("Purchased {0} for {1} ISK.", "已购买{0}，花费 {1} ISK。"),

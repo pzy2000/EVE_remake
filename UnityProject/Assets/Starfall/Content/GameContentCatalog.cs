@@ -18,6 +18,7 @@ namespace Starfall.Content
             Ships = ReadOnly(BuildShips());
             Modules = ReadOnly(BuildModules());
             Items = ReadOnly(BuildItems());
+            Skills = ReadOnly(BuildSkills());
             ClassMultipliers = new ReadOnlyDictionary<ShipClass, double>(new Dictionary<ShipClass, double>
             {
                 { ShipClass.Frigate, 1d },
@@ -34,6 +35,7 @@ namespace Starfall.Content
         public IReadOnlyDictionary<string, ShipDefinition> Ships { get; }
         public IReadOnlyDictionary<string, ModuleDefinition> Modules { get; }
         public IReadOnlyDictionary<string, ItemDefinition> Items { get; }
+        public IReadOnlyDictionary<string, SkillDefinition> Skills { get; }
         public IReadOnlyDictionary<ShipClass, double> ClassMultipliers { get; }
 
         public double FactionRelation(string firstFactionId, string secondFactionId)
@@ -120,6 +122,20 @@ namespace Starfall.Content
                 { ModuleIds.ArmorPlate, new ModuleDefinition(ModuleIds.ArmorPlate, "Armor Plate", SlotType.Low, ModuleKind.Passive, 22000, "Passive: +250 max armor.", armorBonus: 250) },
                 { ModuleIds.DamageAmp, new ModuleDefinition(ModuleIds.DamageAmp, "Weapon Amplifier", SlotType.Low, ModuleKind.Passive, 45000, "Passive: +18% weapon damage.", damageMultiplier: 1.18) },
                 { ModuleIds.CargoExpander, new ModuleDefinition(ModuleIds.CargoExpander, "Cargo Expander", SlotType.Low, ModuleKind.Passive, 15000, "Passive: +250 m3 cargo.", cargoBonus: 250) },
+            };
+        }
+
+        private static Dictionary<string, SkillDefinition> BuildSkills()
+        {
+            return new Dictionary<string, SkillDefinition>
+            {
+                { SkillIds.SpaceshipCommand, new SkillDefinition(SkillIds.SpaceshipCommand, "Spaceship Command", "Gates access to larger ship classes.", 1, 0d) },
+                { SkillIds.Gunnery, new SkillDefinition(SkillIds.Gunnery, "Gunnery", "+4% turret damage per level.", 1, 0.04d) },
+                { SkillIds.Missiles, new SkillDefinition(SkillIds.Missiles, "Missile Operation", "+4% missile damage per level.", 1, 0.04d) },
+                { SkillIds.Mining, new SkillDefinition(SkillIds.Mining, "Mining", "+5% mining yield per level.", 1, 0.05d) },
+                { SkillIds.ShieldOperation, new SkillDefinition(SkillIds.ShieldOperation, "Shield Operation", "+5% shield restoration per level.", 1, 0.05d) },
+                { SkillIds.Mechanics, new SkillDefinition(SkillIds.Mechanics, "Mechanics", "+5% armor repair amount per level.", 1, 0.05d) },
+                { SkillIds.Navigation, new SkillDefinition(SkillIds.Navigation, "Navigation", "+5% sublight speed per level.", 1, 0.05d) },
             };
         }
 

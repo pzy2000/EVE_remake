@@ -26,6 +26,15 @@ namespace Starfall.Domain
             ("Loading…", "加载中…"),
             ("SFX VOLUME", "音效音量"),
             ("UNITY 6 · 3D REMASTER · v1.0", "UNITY 6 · 3D 重制版 · v1.0"),
+            ("SKILLS", "技能"),
+            ("SKILL TRAINING", "技能训练"),
+            ("TRAIN", "训练"),
+            ("MAX", "满级"),
+            ("TRAINING", "训练中"),
+            ("QUEUED #{0}", "队列 #{0}"),
+            ("REQUIRED FOR: {0}", "解锁：{0}"),
+            ("various equipment", "多种装备"),
+            (", ", "、"),
 
             // --- SpaceHud.uxml ---
             ("No active mission", "暂无进行中的任务"),

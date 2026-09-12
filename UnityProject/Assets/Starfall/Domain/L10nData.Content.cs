@@ -105,6 +105,22 @@ namespace Starfall.Domain
             ("Rare null-security ore.", "零安区稀有矿石。"),
             ("Sealed Cargo", "密封货物"),
             ("Mission cargo. Handle with care.", "任务货物。请小心搬运。"),
+
+            // --- Skills ---
+            ("Spaceship Command", "舰船操控"),
+            ("Gates access to larger ship classes.", "解锁更大舰船等级的驾驶资格。"),
+            ("Gunnery", "炮术"),
+            ("+4% turret damage per level.", "每级 +4% 炮台伤害。"),
+            ("Missile Operation", "导弹操控"),
+            ("+4% missile damage per level.", "每级 +4% 导弹伤害。"),
+            ("Mining", "采矿"),
+            ("+5% mining yield per level.", "每级 +5% 采矿产出。"),
+            ("Shield Operation", "护盾操作"),
+            ("+5% shield restoration per level.", "每级 +5% 护盾修复量。"),
+            ("Mechanics", "机械学"),
+            ("+5% armor repair amount per level.", "每级 +5% 装甲维修量。"),
+            ("Navigation", "导航学"),
+            ("+5% sublight speed per level.", "每级 +5% 亚光速速度。"),
         };
 
         // Fixed labels that must win over token-by-token transliteration.

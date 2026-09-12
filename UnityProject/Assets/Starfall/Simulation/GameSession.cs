@@ -92,6 +92,9 @@ namespace Starfall.Simulation
                 Z = station.Position.Z,
             };
             player.Standings[empireId] = 1d;
+            // Frigates need Spaceship Command I; every other skill starts
+            // untrained and must be queued by the pilot.
+            player.SkillLevels[SkillIds.SpaceshipCommand] = 1;
             // A spare mining laser rides in the hangar (station lists expose
             // it for fit/sell), while a second one comes pre-fitted so a fresh
             // pilot can mine without swapping hardware first.
@@ -132,12 +135,66 @@ namespace Starfall.Simulation
                 NextEntityId = Math.Max(1UL, nextEntityId),
                 PlayerDead = playerDead,
             };
+            NormalizeSkills();
+            GrantLegacySkills();
             if (State.Docked) return;
             if (!playerDead)
             {
                 SpawnPlayer(new SimVec2(player.X, player.Z));
                 EnsureSystemWorld();
             }
+        }
+
+        /// <summary>
+        /// Sanity pass over skill payload coming from disk: drops queue entries the
+        /// catalog no longer knows and caps levels. Saves written before the skill
+        /// system existed simply validate the empty defaults.
+        /// </summary>
+        private void NormalizeSkills()
+        {
+            for (var i = 0; i < SkillIds.All.Length; i++)
+            {
+                var id = SkillIds.All[i];
+                if (State.Player.SkillLevels.TryGetValue(id, out var level) &&
+                    (level < 0 || level > SkillRules.MaxLevel))
+                    State.Player.SkillLevels[id] = Math.Max(0, Math.Min(SkillRules.MaxLevel, level));
+                if (State.Player.SkillPoints.TryGetValue(id, out var points) &&
+                    (double.IsNaN(points) || points < 0d))
+                    State.Player.SkillPoints.Remove(id);
+            }
+            for (var i = State.Player.SkillQueue.Count - 1; i >= 0; i--)
+                if (!catalog.Skills.ContainsKey(State.Player.SkillQueue[i]))
+                    State.Player.SkillQueue.RemoveAt(i);
+        }
+
+        /// <summary>
+        /// Pilots from pre-skill saves keep flying hulls they already own: grant
+        /// Spaceship Command (and module skills for their fitted hardware) at the
+        /// level their fleet requires, so an old save never strands the player.
+        /// </summary>
+        private void GrantLegacySkills()
+        {
+            if (State.Player.SkillLevels.Count > 0) return;
+            var required = 1;
+            for (var i = 0; i < State.Player.Ships.Count; i++)
+            {
+                var ship = State.Player.Ships[i];
+                if (!catalog.Ships.ContainsKey(ship.ShipId)) continue;
+                var classRequirement = SkillRules.RequiredForShipClass(catalog.Ships[ship.ShipId].Class);
+                if (classRequirement > required) required = classRequirement;
+                foreach (var moduleId in ship.Fitting.All())
+                {
+                    if (SkillRules.ModuleRequirement(moduleId, out var skillId, out var level))
+                        GrantSkillAtLeast(skillId, level);
+                }
+            }
+            State.Player.SkillLevels[SkillIds.SpaceshipCommand] = required;
+        }
+
+        private void GrantSkillAtLeast(string skillId, int level)
+        {
+            State.Player.SkillLevels.TryGetValue(skillId, out var current);
+            if (current < level) State.Player.SkillLevels[skillId] = level;
         }
 
         public GameState State { get; }
@@ -167,10 +224,113 @@ namespace Starfall.Simulation
                 : new SimulationEventBatch(frameEvents.ToArray());
         }
 
+        /// <summary>
+        /// Credits elapsed wall-clock seconds to the training queue. The app layer
+        /// computes the interval between save and load; the simulation stays free
+        /// of wall-clock reads so determinism tests keep holding.
+        /// </summary>
+        public SimulationEventBatch ApplyOfflineTraining(double seconds)
+        {
+            frameEvents.Clear();
+            var capped = Clamp(seconds, 0d, SkillRules.MaxOfflineSeconds);
+            AdvanceSkillTraining(capped);
+            if (capped >= 60d)
+                Log(Tr("Offline training applied: {0}.", FormatDuration(capped)));
+            State.RngState = random.State;
+            return frameEvents.Count == 0
+                ? SimulationEventBatch.Empty
+                : new SimulationEventBatch(frameEvents.ToArray());
+        }
+
+        private void AdvanceSkillTraining(double seconds)
+        {
+            if (seconds <= 0d) return;
+            var points = seconds * SkillRules.PointsPerSecond;
+            // One pass can cross several levels (a long offline catch-up); the
+            // guard bounds the loop even if a future skill had zero cost.
+            var guard = 0;
+            while (points > 0d && State.Player.SkillQueue.Count > 0 && guard++ < 64)
+            {
+                var skillId = State.Player.SkillQueue[0];
+                if (!catalog.Skills.TryGetValue(skillId, out var skill))
+                {
+                    State.Player.SkillQueue.RemoveAt(0);
+                    continue;
+                }
+                State.Player.SkillLevels.TryGetValue(skillId, out var level);
+                if (level >= SkillRules.MaxLevel)
+                {
+                    State.Player.SkillQueue.RemoveAt(0);
+                    continue;
+                }
+                State.Player.SkillPoints.TryGetValue(skillId, out var progress);
+                var needed = Math.Max(1d, SkillRules.PointsToNextLevel(skill.Rank, level) - progress);
+                if (points < needed)
+                {
+                    State.Player.SkillPoints[skillId] = progress + points;
+                    break;
+                }
+                points -= needed;
+                State.Player.SkillLevels[skillId] = level + 1;
+                State.Player.SkillPoints[skillId] = 0d;
+                Emit(SimulationEventType.SkillTrained, targetId: skillId,
+                    message: Tr("Skill trained: {0} advanced to level {1}.", Tr(skill.Name), (level + 1).ToString("0", Inv)));
+                if (level + 1 >= SkillRules.MaxLevel) State.Player.SkillQueue.RemoveAt(0);
+            }
+        }
+
+        private void TrainSkill(string skillId)
+        {
+            if (string.IsNullOrEmpty(skillId) || !catalog.Skills.TryGetValue(skillId, out var skill)) return;
+            var queue = State.Player.SkillQueue;
+            var existing = queue.IndexOf(skillId);
+            if (existing >= 0)
+            {
+                queue.RemoveAt(existing);
+                Log(Tr(existing == 0 ? "Training stopped: {0}." : "Removed from training queue: {0}.", Tr(skill.Name)));
+                return;
+            }
+            if (SkillLevel(skillId) >= SkillRules.MaxLevel)
+            {
+                Log(Tr("{0} is already fully trained.", Tr(skill.Name)));
+                return;
+            }
+            if (queue.Count >= SkillRules.MaxQueueLength)
+            {
+                Log(Tr("The training queue is full."));
+                return;
+            }
+            queue.Add(skillId);
+            Log(Tr(queue.Count == 1 ? "Now training: {0}." : "Queued for training: {0}.", Tr(skill.Name)));
+        }
+
+        private int SkillLevel(string skillId)
+        {
+            State.Player.SkillLevels.TryGetValue(skillId, out var level);
+            return level;
+        }
+
+        /// <summary>Multiplier from the pilot's trained level of a bonus skill.</summary>
+        private double PlayerSkillMultiplier(string skillId)
+        {
+            if (!catalog.Skills.TryGetValue(skillId, out var skill) || skill.BonusPerLevel <= 0d) return 1d;
+            return 1d + SkillLevel(skillId) * skill.BonusPerLevel;
+        }
+
+        private static string FormatDuration(double seconds)
+        {
+            if (seconds >= 3600d)
+                return (seconds / 3600d).ToString("0.0", Inv) + " h";
+            return Math.Max(1d, Math.Round(seconds / 60d)).ToString("0", Inv) + " min";
+        }
+
         private void Step(double dt)
         {
             while (commands.Count > 0) Execute(commands.Dequeue());
             State.SimulationTime += dt;
+            // Skill training marches on while docked or even podded, matching
+            // the offline-training model: the queue is real time, not play time.
+            AdvanceSkillTraining(dt);
             if (State.Player.CriminalTimer > 0d)
                 State.Player.CriminalTimer = Math.Max(0d, State.Player.CriminalTimer - dt);
             if (State.Docked || State.PlayerDead) return;
@@ -221,6 +381,7 @@ namespace Starfall.Simulation
                 case GameCommandType.Respawn: Respawn(); break;
                 case GameCommandType.Repair: Repair(); break;
                 case GameCommandType.ExchangeLoyalty: ExchangeLoyalty(); break;
+                case GameCommandType.TrainSkill: TrainSkill(command.Argument); break;
                 case GameCommandType.Save:
                     SyncPlayerShip();
                     Emit(SimulationEventType.SaveRequested, message: Tr("Manual save requested."), detail: "slot1");
@@ -407,17 +568,19 @@ namespace Starfall.Simulation
                 case ModuleKind.ShieldBoost:
                     if (runtime.Cooldown <= 0d && player.Shield < player.MaxShield)
                     {
-                        player.Shield = Math.Min(player.MaxShield, player.Shield + definition.RepairAmount);
+                        var restored = definition.RepairAmount * PlayerSkillMultiplier(SkillIds.ShieldOperation);
+                        player.Shield = Math.Min(player.MaxShield, player.Shield + restored);
                         runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
-                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Shield restored."), -definition.RepairAmount, definition.Id);
+                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Shield restored."), -restored, definition.Id);
                     }
                     break;
                 case ModuleKind.ArmorRepair:
                     if (runtime.Cooldown <= 0d && player.Armor < player.MaxArmor)
                     {
-                        player.Armor = Math.Min(player.MaxArmor, player.Armor + definition.RepairAmount);
+                        var repaired = definition.RepairAmount * PlayerSkillMultiplier(SkillIds.Mechanics);
+                        player.Armor = Math.Min(player.MaxArmor, player.Armor + repaired);
                         runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
-                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Armor restored."), -definition.RepairAmount, definition.Id);
+                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Armor restored."), -repaired, definition.Id);
                     }
                     break;
             }
@@ -454,7 +617,10 @@ namespace Starfall.Simulation
             runtime.Cooldown = Math.Max(0.1d, module.CycleTime);
             var damage = module.Damage * shooter.DamageMultiplier * (0.85d + random.NextDouble() * 0.3d);
             if (shooter.Kind == EntityKind.Player)
+            {
+                damage *= PlayerSkillMultiplier(SkillRules.WeaponSkill(module.Id));
                 State.Player.LastWeaponFireAt = State.SimulationTime;
+            }
             Emit(SimulationEventType.Weapon, shooter.Id, target.Id, module.Name, damage,
                 module.Projectile ? "projectile:" + module.Id : "beam:" + module.Id);
             ApplyDamage(target, damage, shooter);
@@ -515,7 +681,7 @@ namespace Starfall.Simulation
 
         private void Mine(EntityState player, RuntimeModuleState runtime, ModuleDefinition module, AsteroidState asteroid)
         {
-            var quantity = Math.Min(module.MiningYield, asteroid.Amount);
+            var quantity = Math.Min(module.MiningYield * PlayerSkillMultiplier(SkillIds.Mining), asteroid.Amount);
             if (quantity <= 0d) return;
             var used = CargoUsed();
             var volume = catalog.Items[asteroid.OreId].Volume * quantity;
@@ -960,6 +1126,8 @@ namespace Starfall.Simulation
             }
             if (entity.AfterburnerOn && HasModuleFitted(entity, ModuleIds.Afterburner))
                 entity.MaxSpeed *= catalog.Modules[ModuleIds.Afterburner].SpeedMultiplier;
+            if (entity.Kind == EntityKind.Player)
+                entity.MaxSpeed *= PlayerSkillMultiplier(SkillIds.Navigation);
             entity.Shield = Math.Min(entity.Shield, entity.MaxShield);
             entity.Armor = Math.Min(entity.Armor, entity.MaxArmor);
             entity.Hull = Math.Min(entity.Hull, entity.MaxHull);
@@ -979,6 +1147,13 @@ namespace Starfall.Simulation
             {
                 var definition = catalog.Ships[itemId];
                 if (definition.NpcOnly) return;
+                var requiredCommand = SkillRules.RequiredForShipClass(definition.Class);
+                if (SkillLevel(SkillIds.SpaceshipCommand) < requiredCommand)
+                {
+                    Log(Tr("{0} requires {1} {2}.", Tr(definition.Name),
+                        Tr(catalog.Skills[SkillIds.SpaceshipCommand].Name), requiredCommand.ToString("0", Inv)));
+                    return;
+                }
                 State.Player.Credits -= price;
                 var ship = CreateShipInstance(itemId, NextId("shipinst"));
                 State.Player.Ships.Add(ship);
@@ -1061,6 +1236,12 @@ namespace Starfall.Simulation
             var slots = SlotList(ship.Fitting, parts[1]);
             if (slots == null || index < 0 || index >= slots.Count || !string.IsNullOrEmpty(slots[index])) return;
             if (!SlotMatches(module.Slot, parts[1])) return;
+            if (SkillRules.ModuleRequirement(moduleId, out var skillId, out var requiredLevel) &&
+                SkillLevel(skillId) < requiredLevel)
+            {
+                Log(Tr("{0} requires {1} {2}.", Tr(module.Name), Tr(catalog.Skills[skillId].Name), requiredLevel.ToString("0", Inv)));
+                return;
+            }
             slots[index] = moduleId;
             State.Player.Hangar[moduleId] = count - 1;
             if (count == 1) State.Player.Hangar.Remove(moduleId);

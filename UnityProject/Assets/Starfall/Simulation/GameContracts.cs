@@ -29,6 +29,7 @@ namespace Starfall.Simulation
         Respawn,
         Repair,
         ExchangeLoyalty,
+        TrainSkill,
         Save,
     }
 
@@ -62,6 +63,7 @@ namespace Starfall.Simulation
         Death,
         Selection,
         SystemPopulated,
+        SkillTrained,
         SaveRequested,
         Log,
     }

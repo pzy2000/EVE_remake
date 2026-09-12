@@ -153,6 +153,12 @@ namespace Starfall.Simulation
         public int VisitCounter;
         public Dictionary<string, SystemVisitState> SystemVisits = new Dictionary<string, SystemVisitState>(StringComparer.Ordinal);
         public PlayerStatsState Stats = new PlayerStatsState();
+        /// <summary>Trained level per skill id (0 = untrained).</summary>
+        public Dictionary<string, int> SkillLevels = new Dictionary<string, int>(StringComparer.Ordinal);
+        /// <summary>Partial skill points toward the next level per skill id.</summary>
+        public Dictionary<string, double> SkillPoints = new Dictionary<string, double>(StringComparer.Ordinal);
+        /// <summary>Ordered training queue; index 0 is the skill currently training.</summary>
+        public List<string> SkillQueue = new List<string>();
 
         public ShipInstanceState ActiveShip()
         {

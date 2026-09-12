@@ -168,6 +168,7 @@ namespace Starfall.Domain
         IReadOnlyDictionary<string, ShipDefinition> Ships { get; }
         IReadOnlyDictionary<string, ModuleDefinition> Modules { get; }
         IReadOnlyDictionary<string, ItemDefinition> Items { get; }
+        IReadOnlyDictionary<string, SkillDefinition> Skills { get; }
         IReadOnlyDictionary<ShipClass, double> ClassMultipliers { get; }
         double FactionRelation(string firstFactionId, string secondFactionId);
     }

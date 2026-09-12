@@ -347,6 +347,7 @@ namespace Starfall.App
                 case "market": MarketAction(argument); break;
                 case "fit": FittingAction(argument); break;
                 case "lp-exchange": Queue(GameCommandType.ExchangeLoyalty); break;
+                case "train": Queue(GameCommandType.TrainSkill, argument); break;
                 case "ship": Queue(GameCommandType.SwitchShip, argument); break;
                 case "mission": MissionAction(argument); break;
                 case "destination":
@@ -498,6 +499,7 @@ namespace Starfall.App
                     case SimulationEventType.Dock:
                     case SimulationEventType.Jump:
                     case SimulationEventType.Death:
+                    case SimulationEventType.SkillTrained:
                         worldDirty = true;
                         MarkUiDirty(true);
                         break;
@@ -511,7 +513,8 @@ namespace Starfall.App
                         break;
                 }
                 if (!string.IsNullOrEmpty(evt.Message) && (evt.Type == SimulationEventType.Log || evt.Type == SimulationEventType.Mission ||
-                    evt.Type == SimulationEventType.Inventory || evt.Type == SimulationEventType.Dock || evt.Type == SimulationEventType.Jump))
+                    evt.Type == SimulationEventType.Inventory || evt.Type == SimulationEventType.Dock || evt.Type == SimulationEventType.Jump ||
+                    evt.Type == SimulationEventType.SkillTrained))
                     AddLog(evt.Message);
                 if (evt.Type == SimulationEventType.SaveRequested)
                     // Auto saves stay quiet: a dock/jump log line on every
@@ -983,6 +986,39 @@ namespace Starfall.App
             snapshot.Missions.Clear();
             foreach (var mission in player.Missions.Where(value => value.Status != MissionStatus.Done))
                 snapshot.Missions.Add(Item(mission.Id, Tr(mission.Title), Tr(mission.Status.ToString()) + " · " + mission.ProgressText()));
+
+            snapshot.Skills.Clear();
+            foreach (var skill in catalog.Skills.Values)
+            {
+                var level = player.SkillLevels.TryGetValue(skill.Id, out var trained) ? trained : 0;
+                var queueIndex = player.SkillQueue.IndexOf(skill.Id);
+                string status;
+                if (level >= SkillRules.MaxLevel) status = Tr("MAX");
+                else if (queueIndex == 0) status = Tr("TRAINING");
+                else if (queueIndex > 0) status = Tr("QUEUED #{0}", (queueIndex + 1).ToString("0", Inv));
+                else status = Tr("REQUIRED FOR: {0}", SkillClassGates(skill.Id));
+                var progress = string.Empty;
+                if (level < SkillRules.MaxLevel)
+                {
+                    var needed = SkillRules.PointsToNextLevel(skill.Rank, level);
+                    var points = player.SkillPoints.TryGetValue(skill.Id, out var partial) ? partial : 0d;
+                    progress = " · " + (points / needed).ToString("0%", Inv);
+                }
+                snapshot.Skills.Add(Item(skill.Id,
+                    Tr(skill.Name) + " · L" + level.ToString("0", Inv) + "/" + SkillRules.MaxLevel.ToString("0", Inv) + progress + " · " + status,
+                    Tr(skill.Description)));
+            }
+        }
+
+        /// <summary>Short list of what a gating skill unlocks, for the skill row detail.</summary>
+        private string SkillClassGates(string skillId)
+        {
+            if (skillId != SkillIds.SpaceshipCommand) return Tr("various equipment");
+            var gates = new List<string>();
+            foreach (var ship in catalog.Ships.Values)
+                if (!ship.NpcOnly && SkillRules.RequiredForShipClass(ship.Class) > 1)
+                    gates.Add(Tr(ship.Name) + " L" + SkillRules.RequiredForShipClass(ship.Class).ToString("0", Inv));
+            return gates.Count > 0 ? string.Join(Tr(", "), gates) : Tr("various equipment");
         }
 
         private string PriceText(string itemId)
@@ -1090,6 +1126,8 @@ namespace Starfall.App
                     // Persisting the death flag is what makes dying stick: the
                     // death save itself records PlayerDead = true.
                     ["playerDead"] = state.PlayerDead,
+                    // Wall-clock stamp drives offline skill training on the next load.
+                    ["savedAtUtc"] = DateTime.UtcNow.Ticks,
                     ["runtime"] = player,
                 };
                 saves.Save(slot, new SaveEnvelopeV2
@@ -1132,6 +1170,7 @@ namespace Starfall.App
             player.Z = envelope.PlayerLocation.Z;
             var playerDead = envelope.Player.Value<bool?>("playerDead") ?? false;
             session = new GameSession(universe, catalog, player, envelope.SimulationTime, envelope.RngState, envelope.NextEntityId, playerDead);
+            ApplyOfflineTraining(envelope.Player.Value<long?>("savedAtUtc"));
             log.Clear();
             AddLog(Tr("Save loaded."));
             MarkAllDirty();
@@ -1248,6 +1287,8 @@ namespace Starfall.App
             AddLog(Tr("Pilot {0} · {1} kills · {2} missions · {3} ore · {4} jumps.",
                 player.Name, player.Stats.Kills, player.Stats.MissionsDone,
                 player.Stats.OreMined.ToString("0", Inv), player.Stats.Jumps));
+            if (player.SkillQueue.Count > 0 && catalog.Skills.TryGetValue(player.SkillQueue[0], out var training))
+                AddLog(Tr("Now training: {0}.", Tr(training.Name)));
         }
 
         private string ActiveMissionSummary()
@@ -1363,6 +1404,19 @@ namespace Starfall.App
             log.Add(message);
             if (log.Count > 80) log.RemoveRange(0, log.Count - 80);
             MarkUiDirty();
+        }
+
+        /// <summary>
+        /// Credits the wall-clock gap between save and load to the skill queue.
+        /// Thresholds skip the noise of quick reloads; long absences are capped
+        /// inside the simulation (SkillRules.MaxOfflineSeconds).
+        /// </summary>
+        private void ApplyOfflineTraining(long? savedAtUtcTicks)
+        {
+            if (session == null || !savedAtUtcTicks.HasValue) return;
+            var elapsedSeconds = (DateTime.UtcNow.Ticks - savedAtUtcTicks.Value) / (double)TimeSpan.TicksPerSecond;
+            if (elapsedSeconds < 30d) return;
+            HandleEvents(session.ApplyOfflineTraining(elapsedSeconds));
         }
 
         private static void CopyStringDouble(JToken source, Dictionary<string, double> target)

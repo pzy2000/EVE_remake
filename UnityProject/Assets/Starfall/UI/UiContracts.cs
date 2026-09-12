@@ -53,6 +53,7 @@ namespace Starfall.UI
         public readonly List<UiListItem> Market = new();
         public readonly List<UiListItem> Ships = new();
         public readonly List<UiListItem> Missions = new();
+        public readonly List<UiListItem> Skills = new();
         public readonly List<UiListItem> Inventory = new();
         public readonly List<UiModuleState> Modules = new();
         public readonly List<string> Log = new();

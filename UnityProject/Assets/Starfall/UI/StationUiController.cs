@@ -15,7 +15,7 @@ namespace Starfall.UI
         private IStarfallUiHost host;
         private StarfallSettingsPanel settingsPanel;
         private IDisposable responsiveUi;
-        private readonly string[] tabs = { "agents", "market", "fitting", "ships", "lp" };
+        private readonly string[] tabs = { "agents", "market", "fitting", "ships", "skills", "lp" };
         private ulong listsFingerprint = ulong.MaxValue;
         private static readonly ulong FingerprintOffset = 14695981039346656037UL;
         private static readonly ulong FingerprintPrime = 1099511628211UL;
@@ -96,6 +96,7 @@ namespace Starfall.UI
                 Fill("market-list", s.Market, "market");
                 Fill("ships-list", s.Ships, "ship");
                 Fill("fitting-list", s.Inventory, "fit");
+                Fill("skills-list", s.Skills, "train");
             }
             root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
         }
@@ -117,6 +118,7 @@ namespace Starfall.UI
             Mix(s.Market);
             Mix(s.Ships);
             Mix(s.Inventory);
+            Mix(s.Skills);
             return hash;
         }
 
@@ -144,6 +146,7 @@ namespace Starfall.UI
             if (command == "fit")
                 return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? Tr("UNFIT") : Tr("FIT");
             if (command == "ship") return Tr("ACTIVATE");
+            if (command == "train") return Tr("TRAIN");
             return Tr("SELECT");
         }
     }
