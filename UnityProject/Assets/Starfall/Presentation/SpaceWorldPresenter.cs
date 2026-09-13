@@ -182,6 +182,9 @@ namespace Starfall.Presentation
         {
             var burst = explosionPool.Count > 0 ? explosionPool.Pop() : CreateExplosionSystem();
             burst.gameObject.SetActive(true);
+            // Reconfiguring a system that is still emitting triggers a Unity
+            // assert ("duration while system is still playing"); clear it first.
+            burst.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             burst.transform.position = position;
             var main = burst.main;
             main.startColor = new ParticleSystem.MinMaxGradient(Color.white, color);
@@ -215,7 +218,11 @@ namespace Starfall.Presentation
             var root = new GameObject("ExplosionVFX");
             root.transform.SetParent(vfxRoot, false);
             var ps = root.AddComponent<ParticleSystem>();
+            // playOnAwake makes the system start emitting the instant it is
+            // created, and assigning duration to a playing system asserts.
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
+            main.playOnAwake = false;
             main.duration = 0.7f;
             main.loop = false;
             main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.85f);

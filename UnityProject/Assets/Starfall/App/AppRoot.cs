@@ -381,7 +381,8 @@ namespace Starfall.App
 
         public void SetSfxVolume(float value)
         {
-            if (StarfallSfx.Current) StarfallSfx.Current.SetVolume(value);
+            // persist:false — the settings panel flushes PlayerPrefs on release.
+            if (StarfallSfx.Current) StarfallSfx.Current.SetVolume(value, persist: false);
         }
 
         public void SetMusicMuted(bool value)
@@ -534,7 +535,8 @@ namespace Starfall.App
                     // transition just buried the useful combat log.
                     Save(evt.Detail == "auto" ? SaveSlot.Auto : SaveSlot.Slot1, announce: evt.Detail != "auto");
                 if (evt.Type == SimulationEventType.Inventory) stationVisualDirty = true;
-                if (sfx && evt.Type == SimulationEventType.Weapon)
+                if (sfx && evt.Type == SimulationEventType.Weapon &&
+                    evt.Detail != null && evt.Detail.StartsWith("mining", StringComparison.Ordinal))
                     sfx.PlayMining();
                 if (sfx && evt.Type == SimulationEventType.Dock)
                     sfx.PlayDock();

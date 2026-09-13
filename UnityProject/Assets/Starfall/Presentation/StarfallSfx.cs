@@ -12,7 +12,7 @@ namespace Starfall.Presentation
     public sealed class StarfallSfx : MonoBehaviour
     {
         public const float DefaultVolume = 0.7f;
-        private const string VolumePreferenceKey = "starfall.sfxvolume";
+        public const string VolumePreferenceKey = "starfall.sfxvolume";
         private const int VoiceCount = 4;
         private const int SampleRate = 22050;
 
@@ -59,11 +59,16 @@ namespace Starfall.Presentation
             }
         }
 
-        public void SetVolume(float value)
+        public void SetVolume(float value) => SetVolume(value, persist: true);
+
+        // The settings panel stages volume while dragging and persists once on
+        // pointer release, mirroring MusicDirector; a PlayerPrefs.Save() per
+        // slider tick fsyncs flash storage on every drag step.
+        public void SetVolume(float value, bool persist)
         {
             Volume = Mathf.Clamp01(value);
             PlayerPrefs.SetFloat(VolumePreferenceKey, Volume);
-            PlayerPrefs.Save();
+            if (persist) PlayerPrefs.Save();
         }
 
         public void PlayLaser() => Play(laser);

@@ -97,6 +97,7 @@ namespace Starfall.UI
             volumeSlider.RegisterValueChangedCallback(OnVolumeChanged);
             muteToggle.RegisterValueChangedCallback(OnMutedChanged);
             uiScaleSlider.RegisterValueChangedCallback(OnUiScaleChanged);
+            sfxVolumeSlider.RegisterValueChangedCallback(OnSfxVolumeChanged);
             StarfallUiBridge.HostChanged += BindHost;
             L10n.LanguageChanged += OnLanguageChanged;
             volumeSlider.RegisterCallback<PointerUpEvent>(OnSliderReleased);
@@ -123,8 +124,10 @@ namespace Starfall.UI
             volumeSlider.UnregisterValueChangedCallback(OnVolumeChanged);
             muteToggle.UnregisterValueChangedCallback(OnMutedChanged);
             uiScaleSlider.UnregisterValueChangedCallback(OnUiScaleChanged);
+            sfxVolumeSlider.UnregisterValueChangedCallback(OnSfxVolumeChanged);
             volumeSlider.UnregisterCallback<PointerUpEvent>(OnSliderReleased);
             uiScaleSlider.UnregisterCallback<PointerUpEvent>(OnSliderReleased);
+            sfxVolumeSlider.UnregisterCallback<PointerUpEvent>(OnSliderReleased);
             documentRoot.UnregisterCallback<KeyDownEvent>(OnKeyDown);
             overlay.RemoveFromHierarchy();
             host = null;

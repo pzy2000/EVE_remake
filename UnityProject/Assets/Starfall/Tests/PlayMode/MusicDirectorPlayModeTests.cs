@@ -29,6 +29,7 @@ namespace Starfall.Tests.PlayMode
         {
             CapturePreference(MusicDirector.VolumePreferenceKey, true);
             CapturePreference(MusicDirector.MutedPreferenceKey, false);
+            CapturePreference(StarfallSfx.VolumePreferenceKey, true);
             CaptureStringPreference("starfall.quality");
             originalQualityLevel = QualitySettings.GetQualityLevel();
             PlayerPrefs.SetFloat(MusicDirector.VolumePreferenceKey, 0f);
@@ -129,6 +130,16 @@ namespace Starfall.Tests.PlayMode
             Assert.That(director.Muted, Is.False);
             Assert.That(PlayerPrefs.GetFloat(MusicDirector.VolumePreferenceKey), Is.EqualTo(0.42f).Within(0.001f));
             Assert.That(PlayerPrefs.GetInt(MusicDirector.MutedPreferenceKey), Is.Zero);
+
+            // The SFX slider silently did nothing for a whole release: its
+            // change callback was never registered. Drag it and expect both the
+            // label and the live volume to follow.
+            var sfxSlider = root.Q<Slider>("sfx-volume");
+            Assert.That(sfxSlider, Is.Not.Null);
+            sfxSlider.value = 0.3f;
+            Assert.That(app.SfxVolume, Is.EqualTo(0.3f).Within(0.001f),
+                "The SFX volume slider must drive the live effect volume.");
+            Assert.That(root.Q<Label>("sfx-volume-value").text, Is.EqualTo("30%"));
 
             app.StartNewGame("Settings Test", "aurelian");
             yield return WaitForScene("Station");

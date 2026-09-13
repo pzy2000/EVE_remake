@@ -244,8 +244,10 @@ namespace Starfall.Presentation
             {
                 elapsed += Time.unscaledDeltaTime;
                 var progress = Mathf.Clamp01(elapsed / CrossFadeSeconds);
-                sourceGains[fromIndex] = Mathf.Lerp(startingFromGain, 0f, progress);
-                sourceGains[toIndex] = progress;
+                // Equal-power curves keep perceived loudness flat across the
+                // cross; linear slopes dip audibly at the midpoint.
+                sourceGains[fromIndex] = startingFromGain * Mathf.Sqrt(1f - progress);
+                sourceGains[toIndex] = Mathf.Sqrt(progress);
                 ApplyVolumes();
                 yield return null;
             }

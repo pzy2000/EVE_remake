@@ -60,7 +60,10 @@ namespace Starfall.Presentation
 
         /// <summary>
         /// Caps non-sky textures (planet/rock). Skies manage their own smaller
-        /// trim via <see cref="SkyCacheKeys"/> and are skipped here.
+        /// trim via <see cref="SkyCacheKeys"/> and are skipped here. The owner
+        /// material shares the texture's key, so evicting a texture must evict
+        /// the material too — a cached material whose _BaseMap was destroyed
+        /// renders as a flat untextured blob when the system is revisited.
         /// </summary>
         private static void TrackTexture(string key, Texture2D texture)
         {
@@ -76,6 +79,8 @@ namespace Starfall.Presentation
                     continue;
                 }
                 if (Textures.Remove(oldest, out var stale) && stale != null) UnityEngine.Object.Destroy(stale);
+                if (Materials.Remove(oldest, out var staleMaterial) && staleMaterial != null)
+                    UnityEngine.Object.Destroy(staleMaterial);
             }
         }
         private static readonly Queue<string> SkyCacheKeys = new();
@@ -243,6 +248,12 @@ namespace Starfall.Presentation
             SetFloatIfPresent(material, "_Metallic", moon ? 0.02f : 0.06f);
             Materials[key] = material;
             return material;
+        }
+
+        /// <summary>Diagnostic/test probe: is a planet still resident in the cache?</summary>
+        public static bool IsPlanetCached(string id, Color baseColor, bool moon)
+        {
+            return Materials.ContainsKey($"planet-{id}-{ColorUtility.ToHtmlStringRGB(baseColor)}-{moon}");
         }
 
         public static Material GetAsteroidMaterial()
