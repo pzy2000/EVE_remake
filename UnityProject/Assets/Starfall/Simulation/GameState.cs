@@ -82,6 +82,9 @@ namespace Starfall.Simulation
         public int RewardLoyaltyPoints;
         public double RewardStanding;
         public bool AmbushSpawned;
+        // SimulationTime stamp while Status == Offered; unaccepted offers
+        // expire so the journal cannot pile up forever.
+        public double OfferedAt;
 
         public string ProgressText()
         {

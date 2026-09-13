@@ -915,7 +915,14 @@ namespace Starfall.App
             snapshot.ShipName = ship != null ? Tr(ship.Name) : Tr("No ship");
             snapshot.ShipClass = shipDefinition != null ? Tr(shipDefinition.Class.ToString()) : string.Empty;
             snapshot.Credits = player.Credits;
-            player.LoyaltyPoints.TryGetValue(player.EmpireId, out snapshot.LoyaltyPoints);
+            // The LP store spends the docked station's faction points; showing
+            // the empire balance here made Sanctuary/Directorate LP look dead.
+            var lpFactionId = state.Docked
+                ? (state.Universe.Systems[player.CurrentSystemId].Stations
+                    .Find(value => value.Id == player.DockedAtStationId)?.FactionId ?? player.EmpireId)
+                : player.EmpireId;
+            player.LoyaltyPoints.TryGetValue(lpFactionId, out snapshot.LoyaltyPoints);
+            snapshot.LpFactionName = Tr(catalog.Factions[lpFactionId].Name);
             snapshot.SelectedId = state.SelectedId;
             snapshot.SelectedName = SelectedName(state.SelectedId);
             snapshot.SelectedDetail = SelectedDetail(state.SelectedId);

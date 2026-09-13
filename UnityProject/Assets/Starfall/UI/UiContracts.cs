@@ -40,6 +40,9 @@ namespace Starfall.UI
         public string FittingSummary = string.Empty;
         public long Credits = 50000;
         public int LoyaltyPoints;
+        // Faction whose LP the docked station's store spends (station owner,
+        // not necessarily the player's empire).
+        public string LpFactionName = string.Empty;
         public float Shield01 = 1f;
         public float Armor01 = 1f;
         public float Hull01 = 1f;

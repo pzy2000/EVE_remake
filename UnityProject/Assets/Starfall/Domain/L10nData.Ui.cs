@@ -127,7 +127,7 @@ namespace Starfall.Domain
 
             // --- StationUiController dynamic formats ---
             ("{0} ORBITAL", "{0}轨道站"),
-            ("Available loyalty points: {0}", "可用忠诚点：{0}"),
+            ("{0} loyalty points: {1}", "{0}忠诚点：{1}"),
             ("TALK", "交谈"),
             ("SELL", "出售"),
             ("BUY", "购买"),

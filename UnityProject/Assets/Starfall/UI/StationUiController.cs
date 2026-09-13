@@ -95,7 +95,8 @@ namespace Starfall.UI
             if (root == null || host?.Snapshot == null) return;
             var s = host.Snapshot;
             root.Q<Label>("station-title").text = Tr("{0} ORBITAL", s.SystemName);
-            root.Q<Label>("pilot-summary").text = $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP";
+            root.Q<Label>("pilot-summary").text = FormattableString.Invariant(
+                $"{s.PilotName} · {s.ShipName} · {s.Credits:N0} ISK · {s.LoyaltyPoints:N0} LP");
             // SnapshotChanged fires on every damage/log event; the four lists
             // only change when their contents actually differ, so guard the
             // rebuild behind a fingerprint like the HUD lists do.
@@ -110,7 +111,7 @@ namespace Starfall.UI
                 Fill("skills-list", s.Skills, "train");
                 Fill("lp-list", s.LpStore, "lp-exchange");
             }
-            root.Q<Label>("lp-summary").text = Tr("Available loyalty points: {0}", s.LoyaltyPoints.ToString("N0"));
+            root.Q<Label>("lp-summary").text = Tr("{0} loyalty points: {1}", s.LpFactionName, s.LoyaltyPoints.ToString("N0"));
             root.Q<Label>("fitting-summary").text = s.FittingSummary;
         }
 

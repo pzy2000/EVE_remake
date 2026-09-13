@@ -19,6 +19,8 @@ namespace Starfall.Simulation
         private const double DockLockoutSeconds = 60d;
         /// <summary>Sim-time cooldown before NPC traffic repopulates in a system.</summary>
         private const double NpcRespawnCooldownSeconds = 600d;
+        /// <summary>Unaccepted mission offers vanish after this much sim time (7 days).</summary>
+        private const double OfferExpirySeconds = 7d * 86400d;
         private const double MaxMarketPressure = 0.3d;
         private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
         private readonly Queue<GameCommand> commands = new Queue<GameCommand>();
@@ -26,6 +28,7 @@ namespace Starfall.Simulation
         private readonly IContentCatalog catalog;
         private Mulberry32 random;
         private double accumulator;
+        private double offersSwept = 60d;
         private bool directorateSpawned;
         /// <summary>Session-local price drift per "stationId|itemId"; trading volume moves prices.</summary>
         private readonly Dictionary<string, double> marketPressure = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -150,11 +153,36 @@ namespace Starfall.Simulation
             };
             NormalizeSkills();
             GrantLegacySkills();
+            NormalizeMissions();
             if (State.Docked) return;
             if (!playerDead)
             {
                 SpawnPlayer(new SimVec2(player.X, player.Z));
                 EnsureSystemWorld();
+            }
+        }
+
+        /// <summary>
+        /// Save payload pass: offers written before OfferedAt existed must not
+        /// expire the instant they are loaded.
+        /// </summary>
+        private void NormalizeMissions()
+        {
+            for (var i = 0; i < State.Player.Missions.Count; i++)
+                if (State.Player.Missions[i].Status == MissionStatus.Offered && State.Player.Missions[i].OfferedAt <= 0d)
+                    State.Player.Missions[i].OfferedAt = State.SimulationTime;
+        }
+
+        private void ExpireStaleOffers()
+        {
+            for (var i = State.Player.Missions.Count - 1; i >= 0; i--)
+            {
+                var mission = State.Player.Missions[i];
+                if (mission.Status != MissionStatus.Offered) continue;
+                if (State.SimulationTime - mission.OfferedAt <= OfferExpirySeconds) continue;
+                State.Player.Missions.RemoveAt(i);
+                Emit(SimulationEventType.Mission, mission.AgentId, mission.Id,
+                    Tr("Offer expired: {0}.", Tr(mission.Title)), detail: "expired");
             }
         }
 
@@ -230,6 +258,14 @@ namespace Starfall.Simulation
             {
                 Step(FixedStepSeconds);
                 accumulator -= FixedStepSeconds;
+                offersSwept -= FixedStepSeconds;
+                // The mission list is tiny; sweeping once a sim-minute keeps
+                // stale offers from squatting in the journal forever.
+                if (offersSwept <= 0d)
+                {
+                    offersSwept = 60d;
+                    ExpireStaleOffers();
+                }
             }
             State.RngState = random.State;
             return frameEvents.Count == 0
@@ -691,7 +727,15 @@ namespace Starfall.Simulation
                 Emit(SimulationEventType.SaveRequested, detail: "auto");
                 return;
             }
-            if (attacker == null || attacker.Kind != EntityKind.Player) return;
+            if (attacker == null) return;
+            if (attacker.Kind != EntityKind.Player)
+            {
+                // The world fights itself (M8 ecology); when a navy patrol steals
+                // a mission kill the objective must still advance, or sniping
+                // players wedge the mission with no feedback at all.
+                if (!string.IsNullOrEmpty(target.MissionId)) OnMissionKill(target.MissionId);
+                return;
+            }
             State.Player.Stats.Kills++;
             if (catalog.Factions[target.FactionId].Kind == FactionKind.Pirate)
             {
@@ -1444,6 +1488,7 @@ namespace Starfall.Simulation
             {
                 Id = NextId("mis"),
                 Status = MissionStatus.Offered,
+                OfferedAt = State.SimulationTime,
                 FactionId = station != null ? station.FactionId : system.FactionId,
                 AgentId = agent.Id,
                 AgentName = agent.Name,
@@ -1454,7 +1499,8 @@ namespace Starfall.Simulation
             var division = (agent.Division ?? string.Empty).ToLowerInvariant();
             if (division.Contains("distribution"))
             {
-                var destination = PickDestinationSystem(system.Id, 1 + mission.Level);
+                var destination = PickDestinationSystem(system.Id, 1 + mission.Level,
+                    MissionMinSecurity(mission.Level));
                 var destinationStation = destination.Stations.Count > 0 ? destination.Stations[0] : station;
                 mission.Type = MissionType.Distribution;
                 mission.Title = "Courier: Sealed Dispatch";
@@ -1480,7 +1526,8 @@ namespace Starfall.Simulation
                 mission.Type = MissionType.Security;
                 mission.Title = "Security: Clear the Deadspace";
                 mission.Description = "Destroy the hostile squad threatening local traffic.";
-                mission.TargetSystemId = PickDestinationSystem(system.Id, Math.Max(1, mission.Level)).Id;
+                mission.TargetSystemId = PickDestinationSystem(system.Id, Math.Max(1, mission.Level),
+                    MissionMinSecurity(mission.Level)).Id;
                 var faction = catalog.Factions[mission.FactionId];
                 mission.TargetFactionId = string.IsNullOrEmpty(faction.HomePirateId) ? FactionIds.BloodReavers : faction.HomePirateId;
                 mission.KillsRequired = 2 + mission.Level;
@@ -1531,7 +1578,7 @@ namespace Starfall.Simulation
             if (mission.Type != MissionType.StorylineKill && mission.Type != MissionType.StorylineHaul)
             {
                 AddQuantity(State.Player.MissionCounts, mission.FactionId, 1);
-                if (State.Player.MissionCounts[mission.FactionId] % 5 == 0) OfferStoryline(mission.FactionId);
+                if (State.Player.MissionCounts[mission.FactionId] % 5 == 0) OfferStoryline(mission.FactionId, mission.Level);
             }
         }
 
@@ -1581,32 +1628,41 @@ namespace Starfall.Simulation
             }
         }
 
-        private void OfferStoryline(string factionId)
+        private void OfferStoryline(string factionId, int level)
         {
+            level = Math.Max(1, Math.Min(4, level));
             var kill = random.Chance(0.5d);
             var mission = new MissionState
             {
                 Id = NextId("mis"),
                 Type = kill ? MissionType.StorylineKill : MissionType.StorylineHaul,
                 Status = MissionStatus.Offered,
+                OfferedAt = State.SimulationTime,
                 Title = kill ? "Storyline: Breaking the Blockade" : "Storyline: The Ambassador",
                 Description = kill ? "Eliminate an elite blockade squad." : "Deliver a dignitary under absolute secrecy.",
                 FactionId = factionId,
                 AgentName = catalog.Factions[factionId].Name + " Command",
-                Level = 3,
-                // Storylines pay a premium over regular missions, but the old
-                // 1.2-1.5M rewards were a 13-16x cliff over L2-3 agents.
-                RewardCredits = kill ? 600000L : 500000L,
-                RewardLoyaltyPoints = kill ? 1000 : 800,
+                // Storylines mirror the level of the mission that triggered
+                // them. A fixed L3 used to hand a rookie in a frigate an elite
+                // battlecruiser squad — an unrejectable difficulty cliff.
+                Level = level,
+                // Premium over regular missions at every tier (L3 ≈ the old
+                // flat 600k/500k), instead of a 13-16x jump for L1 pilots.
+                RewardCredits = kill ? 200000L * level : 170000L * level,
+                RewardLoyaltyPoints = kill ? 330 * level : 270 * level,
                 RewardStanding = 1.0d,
             };
             if (kill)
             {
                 var candidates = new List<StarSystemDefinition>();
-                foreach (var system in State.Universe.OrderedSystems) if (system.Security < 0.5d) candidates.Add(system);
+                // Storylines may strike slightly wilder space than regular
+                // missions of the same level, but never deep nullsec for L1-2.
+                var minSecurity = MissionMinSecurity(level) - 0.3d;
+                foreach (var system in State.Universe.OrderedSystems)
+                    if (system.Security < 0.5d && system.Security >= minSecurity) candidates.Add(system);
                 var target = candidates.Count > 0 ? candidates[random.RangeInclusive(0, candidates.Count - 1)] : State.Universe.OrderedSystems[0];
                 mission.TargetSystemId = target.Id;
-                mission.KillsRequired = 6;
+                mission.KillsRequired = 2 + level;
                 mission.TargetFactionId = catalog.Factions[factionId].HomePirateId ?? FactionIds.BloodReavers;
             }
             else
@@ -1697,7 +1753,11 @@ namespace Starfall.Simulation
             for (var i = 0; i < LpOffers.Length; i++)
                 if (string.Equals(LpOffers[i].moduleId, requestedModuleId, StringComparison.Ordinal))
                     offer = LpOffers[i];
-            var factionId = State.Player.EmpireId;
+            // LP is earned per faction (Sanctuary, Directorate Bureau, pirate
+            // havens all pay their own); the store must spend what THIS station
+            // pays out, or every non-empire LP balance is dead currency.
+            var station = CurrentStation();
+            var factionId = station != null ? station.FactionId : State.Player.EmpireId;
             State.Player.LoyaltyPoints.TryGetValue(factionId, out var available);
             if (available < offer.cost)
             {
@@ -1974,7 +2034,7 @@ namespace Starfall.Simulation
             return false;
         }
 
-        private StarSystemDefinition PickDestinationSystem(string fromSystemId, int maximumJumps)
+        private StarSystemDefinition PickDestinationSystem(string fromSystemId, int maximumJumps, double minSecurity = -1d)
         {
             // The origin system is excluded: including it let couriers target
             // the very station the agent sits at, completable by undock+dock.
@@ -1995,12 +2055,39 @@ namespace Starfall.Simulation
                 }
                 frontier = next;
             }
+            // Rookie missions stay in patrolled space: L1 couriers used to point
+            // fresh pilots one jump into pirate nullsec. Unfiltered fallback
+            // keeps missions generatable in sparse pockets of the map.
+            if (minSecurity > -1d)
+            {
+                var safe = new List<string>();
+                for (var i = 0; i < candidates.Count; i++)
+                    if (State.Universe.Systems[candidates[i]].Security >= minSecurity) safe.Add(candidates[i]);
+                if (safe.Count > 0) candidates = safe;
+            }
             if (candidates.Count == 0) return State.Universe.Systems[fromSystemId];
             var id = candidates[random.RangeInclusive(0, candidates.Count - 1)];
             return State.Universe.Systems[id];
         }
 
+        /// <summary>Minimum destination security per mission level (L4 may strike anywhere).</summary>
+        private static double MissionMinSecurity(int level)
+        {
+            if (level <= 1) return 0.5d;
+            if (level == 2) return 0.4d;
+            if (level == 3) return 0.2d;
+            return -1d;
+        }
+
         private StarSystemDefinition CurrentSystem() => State.Universe.Systems[State.Player.CurrentSystemId];
+
+        private StationDefinition CurrentStation()
+        {
+            var stationId = State.Player.DockedAtStationId;
+            return string.IsNullOrEmpty(stationId)
+                ? null
+                : CurrentSystem().Stations.Find(value => value.Id == stationId);
+        }
 
         private string NextId(string prefix)
         {
