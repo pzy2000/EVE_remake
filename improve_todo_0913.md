@@ -165,9 +165,13 @@
 
 ## 实施进度
 
-- [ ] M1 存档完整性与经济公平（#1-3）
-- [ ] M2 设置、音频与渲染缓存（#4-8）
-- [ ] M3 战斗与机库体验（#9-12）
-- [ ] M4 任务与进度公平（#13-16）
-- [ ] M5 移动端 UI 与本地化（#17-23）
-- [ ] M6 性能与稳健性（#24-31）
+- [x] **M1 存档完整性与经济公平（#1-3）→ `fea759f`**：`GameSession.PrepareForSave()` 在周期/切后台存档前回写舰船血量与矿带余量（堵死满血复原+矿石复制）；BC 独立赏金档 180k；海盗逃跑改用 `FleeSince` 真实 4 秒窗口。新增 EconomyFairnessTests×4。
+- [x] **M2 设置、音频与渲染缓存（#4-8）→ `925f564`**：SFX 滑条补注册回调（控件原本完全失效）+ 拖动不再每 tick fsync；行星贴图淘汰联动材质淘汰（重访星系不再渲染纯色球）；武器音效采矿/激光互斥；crossfade 等功率曲线；顺带修复池化粒子系统 duration Assert（PlayMode 稳定绿）。PlayMode 新增 SFX 滑条回归断言 + PresentationCacheTests×2。
+- [x] **M3 战斗与机库体验（#9-12）→ `2201701`**：维修目标改为 `FittingRules.HitPointCeilings`（含被动件上限、分层计费、护盾不被欠费阻塞）；卖船退回全部装配模块；护盾回充/装甲维修改为武器式开关循环（满层空闲不烧冷却）；敌对翻转时重建 3D 视图与总览一致。新增 CombatQolTests×4。
+- [x] **M4 任务与进度公平（#13-16）→ `b5c5024`**：任务目的地按等级安等下限（L1≥0.5，兜底放宽）；NPC 抢杀任务怪也计进度；故事线等级/击杀数/奖励随触发任务缩放（L1 不再发精英 BC 队）；LP 商店消费停靠站派系点数 + 余额显示派族化；Offered 任务 7 模拟天过期（旧档 OfferedAt 祖父条款）。新增 MissionFairnessTests×5。
+- [x] **M5 移动端 UI 与本地化（#17-23）→ `e7dceb1`**：英文模式触屏也剥 [M]/[W] 键鼠提示；队列中技能按钮显示"停止"；总览预设 Tab 容器补齐 40px（compact 误触排序头修复）；站内 tabbar nowrap/ellipsis + compact 段（LP STORE 不再截字）；触屏模块按钮去 1-9 序号；补卖船/LP 兑换翻译键；技能页进度站内每秒刷新。新增 UiLocalizerDeviceTests×4（UiLocalizer 加 touchDevice 注入重载）。
+- [x] **M6 性能与稳健性（#24-31）→ `34ca0f0`**：Continue 逐槽降级（坏档不再杀死整个按钮）；长按改用单一常驻调度项（原先每次按下泄漏一个 paused 项）；捏合锁定双指 pointerId（第三指不再拉爆镜头，太空+机库两侧）；WorldBackdropInput Dispose 对称；光束 sharedMaterial；存档装配未知模块 ID 载入时剔除；Spawn/Despawn/Death 不再触发全量列表重建（NPC 混战期 GC 尖峰消除）；每帧 Scene.name 分配移除。新增 SaveRobustnessTests×1。
+
+**测试记录**：每个里程碑均通过 Unity 批处理跑全量 EditMode + PlayMode（最终 EditMode 190/190、PlayMode 27/27，含本轮新增 20 个测试）。设备端到端：构建 APK（v1.3.1/12701）装 Pixel 6 API35 模拟器，冷启动→LAUNCH→空间站（SKILLS tab 交互）→离站→太空（轨道拖动/长按上下文菜单）全程零异常零崩溃零 ANR，30fps 稳定；A/B 对照旧 1.3.1 包确认输入行为无回归（早前"输入失灵"为 BACK 键切后台+坐标估算偏差的假象）。
+
+**设备验证备注**：模拟器手势风暴（并行双 swipe / BACK 键）会让应用退到后台导致后续 screencap 停在末帧、点击全部无效——这是测试环境现象，非应用缺陷；恢复方法 force-stop 后冷启动。
