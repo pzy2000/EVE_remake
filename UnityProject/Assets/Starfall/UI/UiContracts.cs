@@ -11,6 +11,9 @@ namespace Starfall.UI
         public string Title = string.Empty;
         public string Detail = string.Empty;
         public string Accent = "#4edbff";
+        // Row-level action override (null = the list's shared command), e.g.
+        // skill rows show STOP instead of TRAIN once queued.
+        public string Action;
     }
 
     [Serializable]

@@ -147,8 +147,11 @@ namespace Starfall.UI
                 var row = new VisualElement();
                 row.AddToClassList("service-row");
                 var copy = item;
+                // Rows may carry their own action (skill rows switch between
+                // TRAIN and STOP) instead of the list's shared command.
+                var action = string.IsNullOrEmpty(copy.Action) ? command : copy.Action;
                 row.Add(new Label(item.Title) { tooltip = item.Detail });
-                row.Add(new Button(() => host.Execute(command, copy.Id)) { text = ActionLabel(command, copy.Id) });
+                row.Add(new Button(() => host.Execute(action, copy.Id)) { text = ActionLabel(action, copy.Id) });
                 list.Add(row);
             }
         }
@@ -162,6 +165,9 @@ namespace Starfall.UI
                 return actionId != null && actionId.StartsWith("unfit|", StringComparison.Ordinal) ? Tr("UNFIT") : Tr("FIT");
             if (command == "ship") return Tr("ACTIVATE");
             if (command == "train") return Tr("TRAIN");
+            // Tapping TRAIN on a queued skill silently cancelled training; the
+            // button must say what it does.
+            if (command == "train-stop") return Tr("STOP");
             if (command == "lp-exchange") return Tr("EXCHANGE");
             return Tr("SELECT");
         }

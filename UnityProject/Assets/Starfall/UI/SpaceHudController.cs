@@ -293,6 +293,8 @@ namespace Starfall.UI
                     ? snapshot.Log.GetRange(snapshot.Log.Count - 8, 8)
                     : snapshot.Log);
 
+            // The index prefix maps to the 1-9 hotkeys; on touch devices there
+            // is no keyboard and the number only eats button space.
             for (var i = 0; i < 9; i++)
             {
                 var button = moduleButtons[i];
@@ -300,13 +302,15 @@ namespace Starfall.UI
                 if (i < snapshot.Modules.Count)
                 {
                     var module = snapshot.Modules[i];
-                    button.text = $"{i + 1}\n{module.Name}";
+                    button.text = UnityEngine.Application.isMobilePlatform
+                        ? module.Name
+                        : $"{i + 1}\n{module.Name}";
                     button.EnableInClassList("active", module.Active);
                     button.SetEnabled(true);
                 }
                 else
                 {
-                    button.text = $"{i + 1}\n—";
+                    button.text = UnityEngine.Application.isMobilePlatform ? "—" : $"{i + 1}\n—";
                     button.SetEnabled(false);
                 }
             }

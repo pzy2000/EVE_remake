@@ -27,10 +27,19 @@ namespace Starfall.UI
 
         public static void Apply(VisualElement root)
         {
+            Apply(root, UnityEngine.Application.isMobilePlatform);
+        }
+
+        /// <summary>Device flag is injectable so EditMode tests can exercise hint stripping.</summary>
+        public static void Apply(VisualElement root, bool touchDevice)
+        {
             if (root == null) return;
             root.EnableInClassList("lang-zh", L10n.IsChinese);
+            touch = touchDevice;
             root.Query<VisualElement>().ForEach(TranslateElement);
         }
+
+        [ThreadStatic] private static bool touch;
 
         private static void TranslateElement(VisualElement element)
         {
@@ -77,17 +86,30 @@ namespace Starfall.UI
                     setWritten(state, translated);
                 }
             }
-            else if (lastWritten != null && string.Equals(current, lastWritten, StringComparison.Ordinal))
+            else
             {
-                setText(NormalizeForDevice(english));
-                setWritten(state, null);
+                var normalized = NormalizeForDevice(english);
+                if (lastWritten != null && string.Equals(current, lastWritten, StringComparison.Ordinal))
+                {
+                    setText(normalized);
+                    setWritten(state, null);
+                }
+                else if (lastWritten == null && string.Equals(current, english, StringComparison.Ordinal) &&
+                         !string.Equals(normalized, english, StringComparison.Ordinal))
+                {
+                    // First pass on a touch device while English is active: the
+                    // "[M]"-style hints must come off here too, or switching the
+                    // language to English left dead keyboard hints on the HUD.
+                    setText(normalized);
+                    setWritten(state, normalized);
+                }
             }
         }
 
         // Touch devices have no keyboard, so "[M]"-style hints are noise.
         private static string NormalizeForDevice(string value)
         {
-            if (string.IsNullOrEmpty(value) || !UnityEngine.Application.isMobilePlatform) return value;
+            if (string.IsNullOrEmpty(value) || !touch) return value;
             return System.Text.RegularExpressions.Regex.Replace(
                 value, @"\s*\[[A-Z0-9]{1,3}\]$", string.Empty);
         }

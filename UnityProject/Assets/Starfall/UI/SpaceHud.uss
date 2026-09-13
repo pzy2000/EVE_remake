@@ -17,7 +17,9 @@
 .overview-heading { height: 24px; flex-direction: row; align-items: center; }
 .overview-title { flex-grow: 1; }
 .overview-count { color: rgb(128, 177, 199); font-size: 12px; letter-spacing: 1px; }
-.overview-tabs { height: 33px; flex-direction: row; margin-top: 4px; }
+/* Container must match the 40px touch buttons inside: a shorter box let the
+   buttons bleed into the sort-header row below, which then ate their taps. */
+.overview-tabs { height: 40px; flex-direction: row; margin-top: 4px; }
 .overview-tabs Button {
     min-width: 0;
     min-height: 40px;
@@ -203,7 +205,7 @@
 .hud-compact .overview { left: 10px; top: 58px; width: 24%; min-width: 286px; max-width: 372px; bottom: 292px; padding: 6px; }
 .hud-compact .overview-heading { height: 20px; }
 .hud-compact .overview-count { font-size: 10px; }
-.hud-compact .overview-tabs { height: 25px; margin-top: 3px; }
+.hud-compact .overview-tabs { height: 40px; margin-top: 3px; }
 .hud-compact .overview-tabs Button { min-height: 40px; height: 40px; font-size: 11px; margin-right: 2px; }
 .hud-compact .overview-columns { height: 38px; }
 .hud-compact .overview-column { min-height: 36px; height: 36px; font-size: 11px; }

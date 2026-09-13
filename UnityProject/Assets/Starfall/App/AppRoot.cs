@@ -62,6 +62,7 @@ namespace Starfall.App
         private bool telemetryDirty = true;
         private bool stationVisualDirty = true;
         private float uiTelemetryElapsed;
+        private float skillUiElapsed;
         private float autosaveElapsed;
         private float uiScale = 1f;
         private string presentedStationShipInstanceId = string.Empty;
@@ -231,6 +232,18 @@ namespace Starfall.App
             }
 
             uiTelemetryElapsed += Time.unscaledDeltaTime;
+            // Training accumulates silently while docked (no events until the
+            // level completes), so the SKILLS page percentage would freeze on
+            // screen; pulse the lists once a second while a queue runs.
+            if (session.State.Docked && !session.State.PlayerDead && session.State.Player.SkillQueue.Count > 0)
+            {
+                skillUiElapsed += Time.unscaledDeltaTime;
+                if (skillUiElapsed >= 1f)
+                {
+                    skillUiElapsed = 0f;
+                    MarkUiDirty(true);
+                }
+            }
             if (uiDirty)
             {
                 RefreshUiSnapshot(uiListsDirty);
@@ -361,6 +374,8 @@ namespace Starfall.App
                         TryActionPayload(argument, "lp-item|", out var lpModuleId) ? lpModuleId : argument);
                     break;
                 case "train": Queue(GameCommandType.TrainSkill, argument); break;
+                // The queued-skill STOP button drives the same toggle command.
+                case "train-stop": Queue(GameCommandType.TrainSkill, argument); break;
                 case "ship": Queue(GameCommandType.SwitchShip, argument); break;
                 case "mission": MissionAction(argument); break;
                 case "destination":
@@ -1056,7 +1071,8 @@ namespace Starfall.App
                 }
                 snapshot.Skills.Add(Item(skill.Id,
                     Tr(skill.Name) + " · L" + level.ToString("0", Inv) + "/" + SkillRules.MaxLevel.ToString("0", Inv) + progress + " · " + status,
-                    Tr(skill.Description)));
+                    Tr(skill.Description),
+                    action: queueIndex >= 0 ? "train-stop" : null));
             }
 
             snapshot.LpStore.Clear();
@@ -1481,9 +1497,9 @@ namespace Starfall.App
             return instance.NextSpaceObject();
         }
 
-        private static UiListItem Item(string id, string title, string detail)
+        private static UiListItem Item(string id, string title, string detail, string action = null)
         {
-            return new UiListItem { Id = id, Title = title, Detail = detail };
+            return new UiListItem { Id = id, Title = title, Detail = detail, Action = action };
         }
 
         private void AddLog(string message)
