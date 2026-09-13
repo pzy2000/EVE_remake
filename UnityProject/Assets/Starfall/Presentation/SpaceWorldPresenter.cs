@@ -31,6 +31,11 @@ namespace Starfall.Presentation
         private VolumeProfile postProfile;
         private string presentedSkySystemId = string.Empty;
         private string selectedId = string.Empty;
+        // Ship hostility is baked into the hull materials at view creation;
+        // when the snapshot flips it mid-flight (M8 ecology: standing shifts,
+        // police aggro) the view has to be rebuilt or the 3D scene and the
+        // overview disagree about who is hostile.
+        private readonly Dictionary<string, bool> shipHostility = new();
 
         private struct TimedVfx
         {
@@ -115,6 +120,17 @@ namespace Starfall.Presentation
                 if (string.IsNullOrWhiteSpace(data.Id)) continue;
                 aliveIds.Add(data.Id);
                 dataById[data.Id] = data;
+                if (data.Kind == WorldViewKind.Ship)
+                {
+                    if (views.TryGetValue(data.Id, out var reused) && reused &&
+                        shipHostility.TryGetValue(data.Id, out var bakedHostile) &&
+                        bakedHostile != data.IsHostile)
+                    {
+                        Destroy(reused);
+                        views.Remove(data.Id);
+                    }
+                    shipHostility[data.Id] = data.IsHostile;
+                }
                 if (!views.TryGetValue(data.Id, out var view) || !view)
                 {
                     view = CreateView(data);
@@ -134,7 +150,11 @@ namespace Starfall.Presentation
                 if (pair.Value) Destroy(pair.Value);
                 pendingRemoval.Add(pair.Key);
             }
-            foreach (var id in pendingRemoval) views.Remove(id);
+            foreach (var id in pendingRemoval)
+            {
+                views.Remove(id);
+                shipHostility.Remove(id);
+            }
             ApplySelection(next.SelectedId, false);
         }
 

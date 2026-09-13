@@ -578,23 +578,13 @@ namespace Starfall.Simulation
                     RecomputeDerived(player);
                     runtime.Active = player.AfterburnerOn;
                     break;
+                // Defensive modules cycle like weapons: tap to run continuously,
+                // tap again to stop. The old one-shot pulse forced mobile pilots
+                // to re-tap every cycle in the middle of a fight, while NPCs
+                // already enjoyed automatic boosts.
                 case ModuleKind.ShieldBoost:
-                    if (runtime.Cooldown <= 0d && player.Shield < player.MaxShield)
-                    {
-                        var restored = definition.RepairAmount * PlayerSkillMultiplier(SkillIds.ShieldOperation);
-                        player.Shield = Math.Min(player.MaxShield, player.Shield + restored);
-                        runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
-                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Shield restored."), -restored, definition.Id);
-                    }
-                    break;
                 case ModuleKind.ArmorRepair:
-                    if (runtime.Cooldown <= 0d && player.Armor < player.MaxArmor)
-                    {
-                        var repaired = definition.RepairAmount * PlayerSkillMultiplier(SkillIds.Mechanics);
-                        player.Armor = Math.Min(player.MaxArmor, player.Armor + repaired);
-                        runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
-                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Armor restored."), -repaired, definition.Id);
-                    }
+                    runtime.Active = !runtime.Active;
                     break;
             }
         }
@@ -613,6 +603,30 @@ namespace Starfall.Simulation
                     var asteroid = State.FindAsteroid(State.SelectedId);
                     if (asteroid != null && SimVec2.Distance(player.Position, asteroid.Position) <= definition.Range)
                         Mine(player, runtime, definition, asteroid);
+                    continue;
+                }
+                if (definition.Kind == ModuleKind.ShieldBoost)
+                {
+                    // An active booster only burns its cycle when there is a
+                    // gap to fill, so leaving it on costs nothing at full shield.
+                    if (player.Shield < player.MaxShield)
+                    {
+                        var restored = definition.RepairAmount * PlayerSkillMultiplier(SkillIds.ShieldOperation);
+                        player.Shield = Math.Min(player.MaxShield, player.Shield + restored);
+                        runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
+                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Shield restored."), -restored, definition.Id);
+                    }
+                    continue;
+                }
+                if (definition.Kind == ModuleKind.ArmorRepair)
+                {
+                    if (player.Armor < player.MaxArmor)
+                    {
+                        var repaired = definition.RepairAmount * PlayerSkillMultiplier(SkillIds.Mechanics);
+                        player.Armor = Math.Min(player.MaxArmor, player.Armor + repaired);
+                        runtime.Cooldown = Math.Max(0.1d, definition.CycleTime);
+                        Emit(SimulationEventType.Damage, player.Id, player.Id, Tr("Armor restored."), -repaired, definition.Id);
+                    }
                     continue;
                 }
                 if (definition.Kind != ModuleKind.Weapon) continue;
@@ -1319,6 +1333,11 @@ namespace Starfall.Simulation
                 return;
             }
             var price = Math.Max(1L, (long)JsMath.Round(StationPrice(ship.ShipId) * 0.62d));
+            // Fitted modules are pilot property worth far more than scrap:
+            // strip them back into the hangar instead of deleting them with
+            // the hull.
+            foreach (var moduleId in ship.Fitting.All())
+                AddQuantity(State.Player.Hangar, moduleId, 1);
             State.Player.Ships.Remove(ship);
             State.Player.Credits += price;
             Emit(SimulationEventType.Inventory,
@@ -1620,39 +1639,53 @@ namespace Starfall.Simulation
             var ship = State.Player.ActiveShip();
             if (ship == null) return;
             var definition = catalog.Ships[ship.ShipId];
-            // Repairs are an ISK sink: armor costs 4% and hull 8% of the hull
-            // price. Shield always recharges for free, matching the passive regen.
-            ship.Shield = definition.HitPoints.Shield;
+            // Repairs target the fitting-adjusted ceilings, not the bare hull:
+            // with plates/extenders fitted the old code either left a permanent
+            // armor gap or "repaired" the shield back below its real maximum.
+            FittingRules.HitPointCeilings(catalog, ship.ShipId, ship.Fitting.All(),
+                out var maxShield, out var maxArmor, out var maxHull);
+            // Shield always recharges for free, matching the passive regen;
+            // armor costs 4% and hull 8% of the hull price. Each layer pays its
+            // own way so a broke pilot can still patch what they can afford.
+            ship.Shield = maxShield;
             long spent = 0;
-            if (ship.Armor < definition.HitPoints.Armor)
+            var complete = true;
+            if (ship.Armor < maxArmor)
             {
                 var cost = (long)JsMath.Round(definition.Price * 0.04d);
-                if (State.Player.Credits < cost)
+                if (State.Player.Credits >= cost)
                 {
-                    Log(Tr("Repair requires {0} ISK.", cost.ToString("N0", Inv)));
-                    return;
+                    State.Player.Credits -= cost;
+                    ship.Armor = maxArmor;
+                    spent += cost;
+                    Log(Tr("Armor repaired for {0} ISK.", cost.ToString("N0", Inv)));
                 }
-                State.Player.Credits -= cost;
-                ship.Armor = definition.HitPoints.Armor;
-                spent += cost;
-                Log(Tr("Armor repaired for {0} ISK.", cost.ToString("N0", Inv)));
+                else
+                {
+                    complete = false;
+                    Log(Tr("Repair requires {0} ISK.", cost.ToString("N0", Inv)));
+                }
             }
-            if (ship.Hull < definition.HitPoints.Hull)
+            if (ship.Hull < maxHull)
             {
                 var cost = (long)JsMath.Round(definition.Price * 0.08d);
-                if (State.Player.Credits < cost)
+                if (State.Player.Credits >= cost)
                 {
-                    Log(Tr("Repair requires {0} ISK.", cost.ToString("N0", Inv)));
-                    Emit(SimulationEventType.Inventory, message: Tr("{0} partially repaired.", Tr(ship.Name)), detail: "repair");
-                    return;
+                    State.Player.Credits -= cost;
+                    ship.Hull = maxHull;
+                    spent += cost;
+                    Log(Tr("Hull repaired for {0} ISK.", cost.ToString("N0", Inv)));
                 }
-                State.Player.Credits -= cost;
-                ship.Hull = definition.HitPoints.Hull;
-                spent += cost;
-                Log(Tr("Hull repaired for {0} ISK.", cost.ToString("N0", Inv)));
+                else
+                {
+                    complete = false;
+                    Log(Tr("Repair requires {0} ISK.", cost.ToString("N0", Inv)));
+                }
             }
-            if (spent == 0) Log(Tr("No repairs are needed."));
-            Emit(SimulationEventType.Inventory, message: Tr("{0} repaired.", Tr(ship.Name)), detail: "repair");
+            if (spent == 0 && complete) Log(Tr("No repairs are needed."));
+            Emit(SimulationEventType.Inventory,
+                message: complete ? Tr("{0} repaired.", Tr(ship.Name)) : Tr("{0} partially repaired.", Tr(ship.Name)),
+                detail: "repair");
         }
 
         private void ExchangeLoyalty(string requestedModuleId)

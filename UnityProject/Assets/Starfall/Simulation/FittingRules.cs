@@ -72,6 +72,32 @@ namespace Starfall.Simulation
         }
 
         /// <summary>
+        /// Hit-point ceilings a fitting actually grants: passive extenders and
+        /// plates stack with the same penalty curve the entity sim applies in
+        /// RecomputeDerived. Station repairs and any UI that reasons about
+        /// "full" HP must target these values, never the bare hull definition,
+        /// or fitted ships can never be repaired to full.
+        /// </summary>
+        public static void HitPointCeilings(IContentCatalog catalog, string shipId,
+            IEnumerable<string> moduleIds, out double maxShield, out double maxArmor, out double maxHull)
+        {
+            var definition = catalog.Ships[shipId];
+            var shieldExtenders = 0;
+            var armorPlates = 0;
+            foreach (var moduleId in moduleIds)
+            {
+                if (!catalog.Modules.TryGetValue(moduleId, out var module)) continue;
+                if (module.ShieldBonus > 0d) shieldExtenders++;
+                else if (module.ArmorBonus > 0d) armorPlates++;
+            }
+            maxShield = definition.HitPoints.Shield +
+                        StackedAdditive(shieldExtenders, catalog.Modules[ModuleIds.ShieldExtender].ShieldBonus);
+            maxArmor = definition.HitPoints.Armor +
+                       StackedAdditive(armorPlates, catalog.Modules[ModuleIds.ArmorPlate].ArmorBonus);
+            maxHull = definition.HitPoints.Hull;
+        }
+
+        /// <summary>
         /// Full check for fitting <paramref name="moduleId"/> into slot <paramref name="index"/> of
         /// <paramref name="slotName"/> on <paramref name="ship"/>. The skill lookup is supplied by the
         /// caller (session or preview); null treats every skill as trained. On failure
