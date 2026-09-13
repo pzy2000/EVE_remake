@@ -682,7 +682,7 @@ namespace Starfall.Simulation
             if (catalog.Factions[target.FactionId].Kind == FactionKind.Pirate)
             {
                 var shipClass = catalog.Ships[target.ShipId].Class;
-                var baseBounty = shipClass == ShipClass.Frigate ? 8000L : shipClass == ShipClass.Destroyer ? 25000L : shipClass == ShipClass.Cruiser ? 90000L : 350000L;
+                var baseBounty = shipClass == ShipClass.Frigate ? 8000L : shipClass == ShipClass.Destroyer ? 25000L : shipClass == ShipClass.Cruiser ? 90000L : shipClass == ShipClass.Battlecruiser ? 180000L : 350000L;
                 var security = CurrentSystem().Security;
                 var bounty = (long)JsMath.Round(baseBounty * (1d + Math.Max(0d, 0.5d - security)));
                 State.Player.Credits += bounty;
@@ -878,9 +878,12 @@ namespace Starfall.Simulation
                 if (npc.AiBehavior == "pirate" && npc.Hull < npc.MaxHull * 0.3d && string.IsNullOrEmpty(npc.MissionId))
                 {
                     npc.Movement = MovementMode.Flee;
-                    // npc.AiTime already ticks once per AI pass; the extra tick
-                    // here made pirates warp off after ~2s instead of 4s.
-                    if (npc.AiTime > 4d)
+                    // The warp-off window counts from the moment the pirate
+                    // breaks, not from spawn: AiTime is the entity's total age,
+                    // so using it here made wounded pirates vanish on the spot
+                    // and deny the player the traffic bounty entirely.
+                    if (npc.FleeSince <= 0d) npc.FleeSince = State.SimulationTime;
+                    if (State.SimulationTime - npc.FleeSince > 4d)
                     {
                         npc.Dead = true;
                         Emit(SimulationEventType.Despawn, npc.Id, message: Tr("Hostile warped away."));
@@ -1812,6 +1815,19 @@ namespace Starfall.Simulation
             if (current <= 1e-9d) State.Player.Cargo.Remove(itemId);
             else State.Player.Cargo[itemId] = current;
             return true;
+        }
+
+        /// <summary>
+        /// Flushed by AppRoot before every out-of-band save (periodic autosave,
+        /// OnApplicationPause/Quit). Without it the serialized Player carries
+        /// ship HP and asteroid amounts from the last dock/jump, so killing the
+        /// app mid-fight would restore a pristine ship and respawn mined-out
+        /// asteroids.
+        /// </summary>
+        public void PrepareForSave()
+        {
+            SyncPlayerShip();
+            PersistSystemWorld();
         }
 
         private void SyncPlayerShip()

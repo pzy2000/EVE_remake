@@ -159,6 +159,10 @@ namespace Starfall.App
         private void AutosaveNow()
         {
             if (session == null || session.State.PlayerDead) return;
+            // The save path serializes State.Player directly, so live ship HP
+            // and asteroid amounts must be flushed back first; otherwise a
+            // pause-kill would restore a pristine ship and rollback mining.
+            session.PrepareForSave();
             Save(SaveSlot.Auto, announce: false);
         }
 

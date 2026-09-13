@@ -229,6 +229,10 @@ namespace Starfall.Simulation
         public double AggroRange = 350d;
         public bool Elite;
         public double AiTime;
+        // SimulationTime stamp of when the NPC entered its low-hull warp-off
+        // window; 0 means it is not fleeing yet. AiTime alone cannot drive this
+        // because it accumulates since spawn, not since the escape started.
+        public double FleeSince;
         public readonly List<SimVec2> Waypoints = new List<SimVec2>();
         public int WaypointIndex;
         public readonly List<RuntimeModuleState> Modules = new List<RuntimeModuleState>();
