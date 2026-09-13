@@ -20,13 +20,20 @@ namespace Starfall.UI
         private const float DoubleTapMaxSeconds = 0.32f;
         private const float DoubleTapSlopPixels = 32f;
         private const long LongPressMilliseconds = 560;
+        private const long LongPressPollMilliseconds = 50;
 
         private readonly VisualElement backdrop;
         private readonly Dictionary<int, PointerTrack> pointers = new Dictionary<int, PointerTrack>();
 
+        // One recurring checker for the whole lifetime of this input: allocating
+        // a fresh one-shot schedule item per PointerDown leaked a paused item on
+        // every tap/drag, and UI Toolkit keeps paused items in the scheduler.
         private IVisualElementScheduledItem longPressItem;
         private bool longPressFired;
         private bool pinchEngaged;
+        private int pinchPointerA = -1;
+        private int pinchPointerB = -1;
+        private bool disposed;
         private float lastTapTime = -10f;
         private Vector2 lastTapPosition;
 
@@ -47,6 +54,22 @@ namespace Starfall.UI
             backdrop.RegisterCallback<PointerUpEvent>(OnPointerUp);
             backdrop.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
             backdrop.RegisterCallback<WheelEvent>(OnWheel);
+            longPressItem = backdrop.schedule.Execute(CheckLongPress).Every(LongPressPollMilliseconds);
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            longPressItem?.Pause();
+            longPressItem = null;
+            pointers.Clear();
+            pinchEngaged = false;
+            backdrop.UnregisterCallback<PointerDownEvent>(OnPointerDown);
+            backdrop.UnregisterCallback<PointerMoveEvent>(OnPointerMove);
+            backdrop.UnregisterCallback<PointerUpEvent>(OnPointerUp);
+            backdrop.UnregisterCallback<PointerCancelEvent>(OnPointerCancel);
+            backdrop.UnregisterCallback<WheelEvent>(OnWheel);
         }
 
         private static SpaceWorldPresenter World => SpaceWorldPresenter.Current;
@@ -66,17 +89,17 @@ namespace Starfall.UI
             };
             longPressFired = false;
 
-            if (pointers.Count == 1)
-            {
-                longPressItem?.Pause();
-                longPressItem = backdrop.schedule.Execute(OnLongPress).StartingIn(LongPressMilliseconds);
-                return;
-            }
+            if (pointers.Count == 1) return;
 
             // Second finger: switch to pinch zoom and cancel pending taps.
-            longPressItem?.Pause();
-            pinchEngaged = true;
-            if (pointers.Count == 2) World?.BeginPinchZoom(Mathf.Max(1f, PairwiseDistance()));
+            // Fingers beyond the pair are ignored so a palm resting on the
+            // screen cannot teleport the camera distance.
+            if (pointers.Count == 2)
+            {
+                pinchEngaged = true;
+                LockPinchPair();
+                World?.BeginPinchZoom(Mathf.Max(1f, PinchDistance()));
+            }
         }
 
         private void OnPointerMove(PointerMoveEvent evt)
@@ -86,14 +109,12 @@ namespace Starfall.UI
             var delta = screenPosition - track.LastPosition;
             track.LastPosition = screenPosition;
             if ((screenPosition - track.DownPosition).sqrMagnitude > TapSlopPixels * TapSlopPixels)
-            {
                 track.Moved = true;
-                longPressItem?.Pause();
-            }
 
             if (pointers.Count >= 2)
             {
-                if (pinchEngaged) World?.UpdatePinchZoom(Mathf.Max(1f, PairwiseDistance()));
+                if (pinchEngaged && IsPinchFinger(evt.pointerId))
+                    World?.UpdatePinchZoom(Mathf.Max(1f, PinchDistance()));
                 return;
             }
 
@@ -106,11 +127,24 @@ namespace Starfall.UI
         {
             if (!pointers.TryGetValue(evt.pointerId, out var track)) return;
             pointers.Remove(evt.pointerId);
-            longPressItem?.Pause();
 
             if (pinchEngaged)
             {
-                if (pointers.Count == 0) pinchEngaged = false;
+                if (IsPinchFinger(evt.pointerId))
+                {
+                    // A pinch finger lifted: re-baseline on the remaining pair
+                    // if one exists, otherwise the pinch is over.
+                    if (pointers.Count >= 2)
+                    {
+                        LockPinchPair();
+                        World?.BeginPinchZoom(Mathf.Max(1f, PinchDistance()));
+                    }
+                    else
+                    {
+                        pinchEngaged = false;
+                        pinchPointerA = pinchPointerB = -1;
+                    }
+                }
                 return;
             }
             if (longPressFired || track.Moved) return;
@@ -146,8 +180,11 @@ namespace Starfall.UI
         private void OnPointerCancel(PointerCancelEvent evt)
         {
             if (!pointers.Remove(evt.pointerId)) return;
-            longPressItem?.Pause();
-            if (pointers.Count == 0) pinchEngaged = false;
+            if (pinchEngaged && (pointers.Count < 2 || IsPinchFinger(evt.pointerId)))
+            {
+                pinchEngaged = false;
+                pinchPointerA = pinchPointerB = -1;
+            }
         }
 
         private void OnWheel(WheelEvent evt)
@@ -156,37 +193,41 @@ namespace Starfall.UI
             World?.ZoomWheel(evt.delta.y);
         }
 
-        private void OnLongPress()
+        private void CheckLongPress()
         {
-            longPressItem?.Pause();
-            if (pinchEngaged || pointers.Count != 1) return;
+            if (longPressFired || pinchEngaged || pointers.Count != 1) return;
             foreach (var track in pointers.Values)
             {
                 if (track.Moved) return;
+                if ((Time.unscaledTime - track.DownTime) * 1000f + 1f < LongPressMilliseconds) return;
                 longPressFired = true;
                 World?.LongPress(track.LastPosition);
                 return;
             }
         }
 
-        private float PairwiseDistance()
+        private bool IsPinchFinger(int pointerId) => pointerId == pinchPointerA || pointerId == pinchPointerB;
+
+        private void LockPinchPair()
         {
-            var first = true;
-            var a = Vector2.zero;
-            var b = Vector2.zero;
-            foreach (var track in pointers.Values)
+            pinchPointerA = -1;
+            pinchPointerB = -1;
+            foreach (var id in pointers.Keys)
             {
-                if (first)
-                {
-                    a = track.LastPosition;
-                    first = false;
-                }
+                if (pinchPointerA < 0) pinchPointerA = id;
                 else
                 {
-                    b = track.LastPosition;
+                    pinchPointerB = id;
+                    return;
                 }
             }
-            return Vector2.Distance(a, b);
+        }
+
+        private float PinchDistance()
+        {
+            return pointers.TryGetValue(pinchPointerA, out var a) && pointers.TryGetValue(pinchPointerB, out var b)
+                ? Vector2.Distance(a.LastPosition, b.LastPosition)
+                : 1f;
         }
     }
 }

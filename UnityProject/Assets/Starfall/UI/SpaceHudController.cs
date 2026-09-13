@@ -83,6 +83,9 @@ namespace Starfall.UI
                 hud.pickingMode = PickingMode.Position;
                 hudElement = hud;
                 hud.RegisterCallback<GeometryChangedEvent>(OnHudGeometryChanged);
+                // Re-enable must not stack a second gesture handler on the same
+                // backdrop (doubled orbit speed, doubled taps).
+                worldBackdropInput?.Dispose();
                 worldBackdropInput = new WorldBackdropInput(hud);
             }
             if (root.Q<VisualElement>("map-overlay") is { } mapOverlay) mapOverlay.pickingMode = PickingMode.Position;
@@ -109,6 +112,8 @@ namespace Starfall.UI
         {
             L10n.LanguageChanged -= OnLanguageChanged;
             StarfallUiBridge.HostChanged -= BindHost;
+            worldBackdropInput?.Dispose();
+            worldBackdropInput = null;
             if (hudElement != null) hudElement.UnregisterCallback<GeometryChangedEvent>(OnHudGeometryChanged);
             if (host != null)
             {

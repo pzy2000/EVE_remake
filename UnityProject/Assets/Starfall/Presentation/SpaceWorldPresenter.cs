@@ -183,7 +183,10 @@ namespace Starfall.Presentation
             line.gameObject.SetActive(true);
             line.SetPosition(0, from.transform.position);
             line.SetPosition(1, to.transform.position);
-            line.material = ProceduralShipFactory.GetMaterial($"beam-{ColorUtility.ToHtmlStringRGB(color)}", color, 0.1f, 0f, true);
+            // sharedMaterial, not material: the instance-assigning setter leaks a
+            // material copy per shot during sustained fire. The factory caches
+            // one shared material per beam color.
+            line.sharedMaterial = ProceduralShipFactory.GetMaterial($"beam-{ColorUtility.ToHtmlStringRGB(color)}", color, 0.1f, 0f, true);
             activeVfx.Add(new TimedVfx { Root = line.gameObject, ExpireAt = Time.unscaledTime + 0.12f, Beam = line });
         }
 

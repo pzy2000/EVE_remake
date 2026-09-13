@@ -219,13 +219,15 @@ namespace Starfall.App
                 var desired = session.State.Docked ? "Station" : "Space";
                 if (loadedGameplayScene != desired) RequestScene(desired);
             }
-            var activeScene = SceneManager.GetActiveScene().name;
-            if (activeScene == "Space" && worldDirty)
+            // Scene.name marshals a fresh string per call; the presenters are
+            // scene-lifetime objects, so their existence answers "which scene
+            // am I in" without the per-frame allocation.
+            if (spacePresenter && worldDirty)
             {
                 PresentSpace();
                 worldDirty = false;
             }
-            if (activeScene == "Station" && stationVisualDirty)
+            if (stationPresenter && stationVisualDirty)
             {
                 PresentStation();
                 stationVisualDirty = false;
@@ -289,9 +291,15 @@ namespace Starfall.App
                     LoadEnvelope(saves.Load(candidate.Slot));
                     return;
                 }
-                catch (Exception exception) when (exception is IOException || exception is InvalidDataException || exception is InvalidOperationException)
+                catch (Exception exception)
                 {
-                    // Try the next slot. FileSaveService already attempts .bak recovery.
+                    // Try the next slot; FileSaveService already attempted .bak
+                    // recovery. A malformed runtime payload (JsonSerializationException)
+                    // or a save referencing an id the catalog dropped
+                    // (KeyNotFoundException) must degrade per slot — swallowing it
+                    // here used to abort the whole loop, so one bad slot made
+                    // Continue silently do nothing.
+                    Debug.LogException(exception);
                 }
             }
             AddLog(Tr("No valid save slot was found."));
@@ -517,21 +525,25 @@ namespace Starfall.App
                 var evt = batch[i];
                 switch (evt.Type)
                 {
+                    // M8 ecology makes Spawn/Despawn/Death high-frequency during
+                    // NPC-vs-NPC fights; rebuilding the market/skill/starmap
+                    // lists on every one of them hammered the GC on mid phones.
+                    // The overview refreshes without a list rebuild.
                     case SimulationEventType.Spawn:
                     case SimulationEventType.Despawn:
                     case SimulationEventType.SystemPopulated:
                         worldDirty = true;
-                        MarkUiDirty(true);
+                        MarkUiDirty();
                         break;
                     case SimulationEventType.Mission:
                     case SimulationEventType.Inventory:
                     case SimulationEventType.Dock:
                     case SimulationEventType.Jump:
-                    case SimulationEventType.Death:
                     case SimulationEventType.SkillTrained:
                         worldDirty = true;
                         MarkUiDirty(true);
                         break;
+                    case SimulationEventType.Death:
                     case SimulationEventType.Damage:
                     case SimulationEventType.Weapon:
                     case SimulationEventType.Warp:

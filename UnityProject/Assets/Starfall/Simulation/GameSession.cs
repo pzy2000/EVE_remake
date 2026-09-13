@@ -153,6 +153,7 @@ namespace Starfall.Simulation
             };
             NormalizeSkills();
             GrantLegacySkills();
+            NormalizeFittings();
             NormalizeMissions();
             if (State.Docked) return;
             if (!playerDead)
@@ -160,6 +161,29 @@ namespace Starfall.Simulation
                 SpawnPlayer(new SimVec2(player.X, player.Z));
                 EnsureSystemWorld();
             }
+        }
+
+        /// <summary>
+        /// Save payload pass: fitting slots referencing module ids the catalog
+        /// no longer knows would throw KeyNotFoundException from
+        /// RecomputeDerived/ActivateModule on the very first tick after load;
+        /// future catalog changes must not brick old saves.
+        /// </summary>
+        private void NormalizeFittings()
+        {
+            for (var i = 0; i < State.Player.Ships.Count; i++)
+            {
+                StripUnknownModules(State.Player.Ships[i].Fitting.High);
+                StripUnknownModules(State.Player.Ships[i].Fitting.Mid);
+                StripUnknownModules(State.Player.Ships[i].Fitting.Low);
+            }
+        }
+
+        private void StripUnknownModules(List<string> slots)
+        {
+            for (var i = 0; i < slots.Count; i++)
+                if (!string.IsNullOrEmpty(slots[i]) && !catalog.Modules.ContainsKey(slots[i]))
+                    slots[i] = null;
         }
 
         /// <summary>

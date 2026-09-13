@@ -19,6 +19,10 @@ namespace Starfall.UI
 
         private bool pinchEngaged;
         private bool disposed;
+        // The two fingers driving the pinch; extra touches (palm, third finger)
+        // must not teleport the camera distance.
+        private int pinchPointerA = -1;
+        private int pinchPointerB = -1;
 
         private sealed class PointerTrack
         {
@@ -61,7 +65,8 @@ namespace Starfall.UI
             if (pointers.Count == 2)
             {
                 pinchEngaged = true;
-                Presenter?.BeginPinchZoom(Mathf.Max(1f, PairwiseDistance()));
+                LockPinchPair();
+                Presenter?.BeginPinchZoom(Mathf.Max(1f, PinchDistance()));
             }
         }
 
@@ -74,7 +79,8 @@ namespace Starfall.UI
 
             if (pointers.Count >= 2)
             {
-                if (pinchEngaged) Presenter?.UpdatePinchZoom(Mathf.Max(1f, PairwiseDistance()));
+                if (pinchEngaged && IsPinchFinger(evt.pointerId))
+                    Presenter?.UpdatePinchZoom(Mathf.Max(1f, PinchDistance()));
                 return;
             }
 
@@ -84,13 +90,31 @@ namespace Starfall.UI
         private void OnPointerUp(PointerUpEvent evt)
         {
             if (disposed || !pointers.Remove(evt.pointerId)) return;
+            if (pinchEngaged && IsPinchFinger(evt.pointerId))
+            {
+                // Re-baseline on whatever pair remains, mirroring the space view.
+                if (pointers.Count >= 2)
+                {
+                    LockPinchPair();
+                    Presenter?.BeginPinchZoom(Mathf.Max(1f, PinchDistance()));
+                }
+                else
+                {
+                    pinchEngaged = false;
+                    pinchPointerA = pinchPointerB = -1;
+                }
+            }
             if (pointers.Count == 0) pinchEngaged = false;
         }
 
         private void OnPointerCancel(PointerCancelEvent evt)
         {
             if (disposed || !pointers.Remove(evt.pointerId)) return;
-            if (pointers.Count == 0) pinchEngaged = false;
+            if (pinchEngaged && (pointers.Count < 2 || IsPinchFinger(evt.pointerId)))
+            {
+                pinchEngaged = false;
+                pinchPointerA = pinchPointerB = -1;
+            }
         }
 
         private void OnWheel(WheelEvent evt)
@@ -99,24 +123,28 @@ namespace Starfall.UI
             Presenter?.Zoom(evt.delta.y);
         }
 
-        private float PairwiseDistance()
+        private bool IsPinchFinger(int pointerId) => pointerId == pinchPointerA || pointerId == pinchPointerB;
+
+        private void LockPinchPair()
         {
-            var first = true;
-            var a = Vector2.zero;
-            var b = Vector2.zero;
-            foreach (var track in pointers.Values)
+            pinchPointerA = -1;
+            pinchPointerB = -1;
+            foreach (var id in pointers.Keys)
             {
-                if (first)
-                {
-                    a = track.LastPosition;
-                    first = false;
-                }
+                if (pinchPointerA < 0) pinchPointerA = id;
                 else
                 {
-                    b = track.LastPosition;
+                    pinchPointerB = id;
+                    return;
                 }
             }
-            return Vector2.Distance(a, b);
+        }
+
+        private float PinchDistance()
+        {
+            return pointers.TryGetValue(pinchPointerA, out var a) && pointers.TryGetValue(pinchPointerB, out var b)
+                ? UnityEngine.Vector2.Distance(a.LastPosition, b.LastPosition)
+                : 1f;
         }
     }
 }
