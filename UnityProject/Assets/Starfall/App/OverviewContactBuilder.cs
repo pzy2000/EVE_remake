@@ -12,7 +12,7 @@ namespace Starfall.App
     /// active EVE-style preset and sort order. Structural rebuilds allocate contacts; the 10 Hz
     /// telemetry path updates the existing objects in place.
     /// </summary>
-    internal static class OverviewContactBuilder
+    public static class OverviewContactBuilder
     {
         private const string ResourceAccent = "#b99262";
         private const string MoonAccent = "#8494ad";
@@ -61,18 +61,7 @@ namespace Starfall.App
             {
                 var entity = state.Entities[i];
                 if (entity.Kind != EntityKind.Npc || entity.Dead) continue;
-                catalog.Ships.TryGetValue(entity.ShipId, out var ship);
-                var type = ship != null ? Tr(ship.Name) : entity.ShipId;
-                var factionName = catalog.Factions.TryGetValue(entity.FactionId, out var faction)
-                    ? Tr(faction.Name)
-                    : entity.FactionId;
-                var detail = ship != null
-                    ? Tr(ship.Class.ToString()) + " · " + factionName
-                    : factionName;
-                contacts.Add(Create(entity.Id, OverviewKind.Ship, TrName(entity.Name), type, detail,
-                    FactionAccent(catalog, entity.FactionId),
-                    OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Orbit |
-                    OverviewActionFlags.Warp | OverviewActionFlags.Lock));
+                AddShipContact(contacts, entity, catalog);
             }
 
             for (var i = 0; i < state.Asteroids.Count; i++)
@@ -168,6 +157,60 @@ namespace Starfall.App
                     ? SimVec2.Distance(playerPosition, targetPosition)
                     : -1d;
             }
+        }
+
+        /// <summary>
+        /// Structural sync for the only contact category that changes between full
+        /// list rebuilds: NPC ships. Spawn/Despawn/Death stay on the light refresh
+        /// path (no market/skill/starmap rebuild during NPC fights), so without
+        /// this pass the overview keeps ghost rows for the dead and never shows
+        /// warp-ins such as the Directorate response.
+        /// </summary>
+        public static void ReconcileShips(List<UiOverviewContact> contacts, GameState state,
+            IContentCatalog catalog)
+        {
+            if (contacts == null || state == null || catalog == null) return;
+
+            for (var i = contacts.Count - 1; i >= 0; i--)
+            {
+                if (contacts[i].Kind != OverviewKind.Ship) continue;
+                var entity = state.FindEntity(contacts[i].Id);
+                if (entity == null) contacts.RemoveAt(i);
+            }
+
+            for (var e = 0; e < state.Entities.Count; e++)
+            {
+                var entity = state.Entities[e];
+                if (entity.Kind != EntityKind.Npc || entity.Dead) continue;
+                var present = false;
+                for (var i = 0; i < contacts.Count; i++)
+                {
+                    if (contacts[i].Kind != OverviewKind.Ship) continue;
+                    if (string.Equals(contacts[i].Id, entity.Id, StringComparison.Ordinal))
+                    {
+                        present = true;
+                        break;
+                    }
+                }
+                if (!present) AddShipContact(contacts, entity, catalog);
+            }
+        }
+
+        private static void AddShipContact(List<UiOverviewContact> contacts, EntityState entity,
+            IContentCatalog catalog)
+        {
+            catalog.Ships.TryGetValue(entity.ShipId, out var ship);
+            var type = ship != null ? Tr(ship.Name) : entity.ShipId;
+            var factionName = catalog.Factions.TryGetValue(entity.FactionId, out var faction)
+                ? Tr(faction.Name)
+                : entity.FactionId;
+            var detail = ship != null
+                ? Tr(ship.Class.ToString()) + " · " + factionName
+                : factionName;
+            contacts.Add(Create(entity.Id, OverviewKind.Ship, TrName(entity.Name), type, detail,
+                FactionAccent(catalog, entity.FactionId),
+                OverviewActionFlags.Select | OverviewActionFlags.Approach | OverviewActionFlags.Orbit |
+                OverviewActionFlags.Warp | OverviewActionFlags.Lock));
         }
 
         private static UiOverviewContact Create(string id, OverviewKind kind, string name, string type,

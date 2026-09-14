@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "changes": [],
+      "review_fingerprint": "sha256:39754d86864d43f2ca3d05e26291562768178dcbf6f4fbcfda5a4f83d3b2fffd",
+      "revision": 963285,
+      "status": "ready",
+      "version_id": "963285",
+      "warnings": []
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.42",
+      "digest": "sha256:fdaac84af61bdac3a99c29021283faded459c78bfbd2ab625017bb611ac8bde9",
+      "loaded_from": "embedded"
+    }
+  }
+}

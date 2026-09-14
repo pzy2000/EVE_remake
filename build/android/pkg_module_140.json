@@ -1,0 +1,107 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "fields": {
+        "apk_anti_addiction_status": {
+          "current_value": "not-integrated",
+          "expose_when_hidden": false,
+          "field_id": "apk_anti_addiction_status",
+          "filled": true,
+          "input_type": "select",
+          "label": "APK 防沉迷状态",
+          "options": [
+            "integrated",
+            "not-integrated"
+          ],
+          "state": "required",
+          "value_labels": {
+            "integrated": "已接入防沉迷",
+            "not_integrated": "未接入防沉迷，使用 TapPlay"
+          },
+          "visible": true
+        },
+        "apk_force_update_in_app": {
+          "current_value": "false",
+          "expose_when_hidden": true,
+          "field_id": "apk_force_update_in_app",
+          "filled": true,
+          "input_type": "select",
+          "label": "游戏内强制更新",
+          "options": [
+            "true",
+            "false"
+          ],
+          "state": "optional",
+          "value_labels": {
+            "false": "否",
+            "true": "是"
+          },
+          "visible": false
+        },
+        "apk_sandbox_authorized": {
+          "current_value": "true",
+          "expose_when_hidden": false,
+          "field_id": "apk_sandbox_authorized",
+          "filled": true,
+          "input_type": "select",
+          "label": "TapPlay 模式授权",
+          "options": [
+            "true",
+            "false"
+          ],
+          "state": "required",
+          "value_labels": {
+            "false": "否",
+            "true": "是"
+          },
+          "visible": true
+        },
+        "apk_update_mode": {
+          "current_value": "normal",
+          "expose_when_hidden": false,
+          "field_id": "apk_update_mode",
+          "filled": true,
+          "input_type": "select",
+          "label": "APK 更新模式",
+          "options": [
+            "normal",
+            "force"
+          ],
+          "state": "required",
+          "value_labels": {
+            "force": "强制更新",
+            "normal": "普通更新"
+          },
+          "visible": true
+        },
+        "apk_whatsnew": {
+          "constraints": {
+            "max_length": 5000,
+            "messages": {
+              "max_length": "更新日志不能超过 5000 字"
+            }
+          },
+          "current_value": "本次更新集中修复移动端 3D 世界操作的一组关键问题，太空与空间站的操作体验全面恢复。\n\n【触屏操作修复】修复部分场景下视角无法拖动、缩放的问题：此前进入游戏或离站后，偶发视角卡死、仅剩界面按钮可用的状态，现已彻底解决。\n\n【太空视角】单指拖动旋转视角，星空与星云背景随视角正确变化；双指捏合缩放、轻点选中、双击接近、长按呼出菜单均正常可用。\n\n【空间站机库】机库展示视角新增自由操作：单指拖动环绕检视您的舰船，双指捏合缩放观察细节；视角自动保持在机库内的合理范围，不会穿出墙体。\n\n【稳定性】修复偶发的世界物体消失（空间站、行星、星门不显示）问题；停靠、跃迁、离站循环更加稳定。",
+          "expose_when_hidden": false,
+          "field_id": "apk_whatsnew",
+          "filled": true,
+          "input_type": "textarea",
+          "label": "APK 更新日志",
+          "state": "required",
+          "visible": true
+        }
+      },
+      "module_id": "package",
+      "revision": 963285
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.42",
+      "digest": "sha256:fdaac84af61bdac3a99c29021283faded459c78bfbd2ab625017bb611ac8bde9",
+      "loaded_from": "embedded"
+    }
+  }
+}

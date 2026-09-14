@@ -3,7 +3,10 @@
   "rootNamespace": "Starfall.Tests.EditMode.UI",
   "references": [
     "Starfall.UI",
-    "Starfall.Domain"
+    "Starfall.Domain",
+    "Starfall.App",
+    "Starfall.Simulation",
+    "Starfall.Content"
   ],
   "includePlatforms": [
     "Editor"

@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "blockers": [],
+      "can_submit": true,
+      "required_consents": [],
+      "review_fingerprint": "sha256:39754d86864d43f2ca3d05e26291562768178dcbf6f4fbcfda5a4f83d3b2fffd",
+      "version_id": "963285",
+      "warnings": [
+        {
+          "field": "screenshots",
+          "reason": "游戏详情页截图中包含大量纯英文UI与文本内容，面向中国大陆地区上架的游戏素材需以简体中文为主体，建议上传已完成中文本地化的游戏实机截图。"
+        },
+        {
+          "code": "PREAUDIT_WARNING",
+          "message": "预审存在风险提示"
+        }
+      ]
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.42",
+      "digest": "sha256:fdaac84af61bdac3a99c29021283faded459c78bfbd2ab625017bb611ac8bde9",
+      "loaded_from": "embedded"
+    }
+  }
+}

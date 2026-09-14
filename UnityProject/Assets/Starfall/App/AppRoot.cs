@@ -59,6 +59,10 @@ namespace Starfall.App
         private bool worldDirty = true;
         private bool uiDirty = true;
         private bool uiListsDirty = true;
+        // Spawn/Despawn/Death run on the light refresh path; ship contacts sync
+        // structurally (OverviewContactBuilder.ReconcileShips) instead of via a
+        // full list rebuild.
+        private bool overviewShipsDirty = true;
         private bool telemetryDirty = true;
         private bool stationVisualDirty = true;
         private float uiTelemetryElapsed;
@@ -528,11 +532,13 @@ namespace Starfall.App
                     // M8 ecology makes Spawn/Despawn/Death high-frequency during
                     // NPC-vs-NPC fights; rebuilding the market/skill/starmap
                     // lists on every one of them hammered the GC on mid phones.
-                    // The overview refreshes without a list rebuild.
+                    // The overview ship rows reconcile structurally instead
+                    // (see BuildUiSnapshot) and telemetry updates in place.
                     case SimulationEventType.Spawn:
                     case SimulationEventType.Despawn:
                     case SimulationEventType.SystemPopulated:
                         worldDirty = true;
+                        overviewShipsDirty = true;
                         MarkUiDirty();
                         break;
                     case SimulationEventType.Mission:
@@ -544,6 +550,9 @@ namespace Starfall.App
                         MarkUiDirty(true);
                         break;
                     case SimulationEventType.Death:
+                        overviewShipsDirty = true;
+                        MarkUiDirty();
+                        break;
                     case SimulationEventType.Damage:
                     case SimulationEventType.Weapon:
                     case SimulationEventType.Warp:
@@ -964,8 +973,20 @@ namespace Starfall.App
             snapshot.Hull01 = entity != null ? (float)(entity.Hull / Math.Max(1d, entity.MaxHull)) : shipDefinition != null ? (float)(ship.Hull / shipDefinition.HitPoints.Hull) : 0f;
             snapshot.MissionSummary = ActiveMissionSummary();
             snapshot.FittingSummary = FittingSummary();
-            if (rebuildLists) RebuildLists();
-            else OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
+            if (rebuildLists)
+            {
+                RebuildLists();
+                overviewShipsDirty = false;
+            }
+            else
+            {
+                if (overviewShipsDirty)
+                {
+                    OverviewContactBuilder.ReconcileShips(snapshot.Overview, state, catalog);
+                    overviewShipsDirty = false;
+                }
+                OverviewContactBuilder.RefreshTelemetry(snapshot.Overview, session, catalog);
+            }
             snapshot.Log.Clear();
             snapshot.Log.AddRange(log);
             snapshot.Modules.Clear();

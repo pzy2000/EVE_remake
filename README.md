@@ -8,7 +8,7 @@
 
 ![genre](https://img.shields.io/badge/genre-space%20sandbox-blue)
 ![engine](https://img.shields.io/badge/engine-Unity%206.1%20URP-222c37)
-![platform](https://img.shields.io/badge/platform-macOS%20Universal-orange)
+![platform](https://img.shields.io/badge/platform-Android-orange)
 ![backend](https://img.shields.io/badge/backend-IL2CPP-4edbff)
 
 This repository contains the Unity 6000.1.10f1 3D remake in `UnityProject/` and keeps
@@ -38,11 +38,12 @@ remains on the XZ plane with EVE-style command controls rather than WASD or six-
 - Start from `Assets/Starfall/Scenes/Bootstrap.unity`; runtime scenes are
   `Bootstrap`, `MainMenu`, `Space`, and `Station`.
 - The deterministic simulation runs at 20 Hz independently of rendering and Unity Physics.
-- A release build is produced as a macOS Universal IL2CPP application under
-  `UnityProject/Builds/macOS/STARFALL ODYSSEY.app`.
+- Release builds target Android (IL2CPP APK): `Tools → Build Android APK` in the
+  editor, or headless `-executeMethod AndroidBuild.Build`, writing to
+  `build/android/app.apk` by default (`Assets/Editor/AndroidBuild.cs`).
 
 Unity tests are available from **Window → General → Test Runner**. The current acceptance
-suite contains 51 EditMode and 11 PlayMode tests covering generation, gameplay, saves,
+suite contains 172 EditMode and 25 PlayMode tests covering generation, gameplay, saves,
 station services, runtime navigation, and all 18 ship prefabs.
 
 Third-party model, material, and font licenses are recorded in
@@ -51,7 +52,7 @@ Third-party model, material, and font licenses are recorded in
 ## 🌐 Run the preserved browser original
 
 ```bash
-cd starfall-odyssey   # this directory
+cd EVE_remake         # this directory
 python3 -m http.server 8000
 # then open http://localhost:8000 in your browser
 ```
@@ -61,10 +62,11 @@ python3 -m http.server 8000
 ## ✅ Test
 
 ```bash
-npm test            # unit + integration tests (Node, no browser needed)
+npm test            # unit + integration + golden fixture tests (Node, no browser needed)
 npm run test:repeat # run both deterministic suites 100 times
-node tests/run.mjs          # logic unit tests
-node tests/integration.mjs  # headless gameplay simulation
+node tests/run.mjs            # logic unit tests
+node tests/integration.mjs    # headless gameplay simulation
+node tests/golden-fixture.mjs # seed-12345 universe/catalog regression check
 ```
 
 ## 🌌 The Universe
@@ -93,8 +95,9 @@ node tests/integration.mjs  # headless gameplay simulation
   Shield → armor → hull damage model, shield regen, active tank modules, fleeing pirates.
 - **Mining & economy**: mine three ore tiers from belts; prices vary per station and
   rise in dangerous space. Buy/sell modules and ships on the market.
-- **Ships & fitting**: 18 hulls across frigate/destroyer/cruiser/battleship classes,
-  high/mid/low slot fitting, LP store with faction loyalty rewards.
+- **Ships & fitting**: 18 hulls across frigate/destroyer/cruiser/battleship classes
+  (22 with the Unity remake's battlecruiser tier), high/mid/low slot fitting, LP store
+  with faction loyalty rewards.
 - **Save/load**: autosave on dock & jump, 3 manual slots, JSON export/import.
 - **Settings**: real-time FPS meter (top-left corner), graphics quality presets
   (low/medium/high — scales starfields, nebulae, particles), and procedural
@@ -102,10 +105,11 @@ node tests/integration.mjs  # headless gameplay simulation
 
 ## ⌨️ Controls
 
-The Unity remake currently supports selection, right-drag orbit, wheel zoom, V/X focus,
-W/L/D, modules 1–9, and M/J/C/H through the 3D HUD. The complete table below documents
-the preserved browser original; its right-click context menu, double-click approach, and
-Esc panel shortcut are not yet fully exposed by the Unity UI.
+The Unity remake currently supports selection, orbit (right-drag or one-finger drag),
+zoom (wheel or pinch), V/X focus, W/L/D, modules 1–9, and M/J/C/H through the 3D HUD.
+Touch gestures mirror the mouse: tap selects, double-tap flies to a point, long-press
+(or right-click) opens the context menu, and Esc — the Android back key — closes the
+topmost panel. The complete table below documents the preserved browser original.
 
 | Key | Action |
 |---|---|
@@ -138,10 +142,15 @@ js/render/            canvas renderer, asset loader, sprite factory (bitmap art 
                       at boot; procedural fallback for missing assets), particle effects
 js/ui/                HUD, overview, station screens, starmap, dialogs, settings
 tests/                Node test suites (no DOM required)
-tools/                fetch_assets.sh (re-download art), sprite_preview.html (art check)
+tools/                fetch_assets.sh (re-download art), sprite_preview.html (art check),
+                      repeat-tests.mjs / generate-golden-fixture.mjs (test tooling)
 ```
 
 ## 🙏 Credits
+
+These credits cover the preserved browser original; the Unity remake's third-party
+models, fonts, and music are recorded in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 - Ship & station art by **MillionthVector** (Alan Guyant) —
   [millionthvector.blogspot.com](https://millionthvector.blogspot.com/p/free-sprites.html), CC-BY 4.0
